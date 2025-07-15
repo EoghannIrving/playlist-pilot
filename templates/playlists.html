@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>All Playlists</h1>
+    <ul>
+        {% if playlists %}
+            {% for playlist in playlists %}
+                <li>
+                    <h3>{{ playlist.name }}</h3>
+                    <ul>
+                        {% if playlist.tracks %}
+                            {% for track in playlist.tracks %}
+                                <li>{{ track.song }} - {{ track.artist }} (Album: {{ track.album }}, Year: {{ track.release_year }})</li>
+                            {% endfor %}
+                        {% else %}
+                            <li>No tracks available for this playlist.</li>
+                        {% endif %}
+                    </ul>
+                </li>
+            {% endfor %}
+        {% else %}
+            <li>No playlists available.</li>
+        {% endif %}
+    </ul>
+{% endblock %}

@@ -1,0 +1,658 @@
+{% extends "base.html" %}
+{% block title %}Analysis Results{% endblock %}
+
+{% macro mood_badge(mood, confidence) %}
+  {% if mood %}
+    {% set badge_class = "" %}
+    {% set confidence_text = "" %}
+    {% if confidence >= 0.66 %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-blue-500 text-white" %}
+      {% set confidence_text = "Very High confidence" %}
+    {% elif confidence >= 0.4 %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-green-600 text-white" %}
+      {% set confidence_text = "High confidence" %}
+    {% elif confidence >= 0.2 %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-yellow-400 text-gray-900" %}
+      {% set confidence_text = "Moderate confidence" %}
+    {% else %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-gray-500 text-white" %}
+      {% set confidence_text = "Low confidence" %}
+    {% endif %}
+    <span class="{{ badge_class }}"
+          data-tippy-content="Mood: {{ mood | capitalize }} — {{ confidence_text }} ({{ confidence | round(2) }})">
+      {{ mood | capitalize }}
+    </span>
+  {% else %}
+    <span class="text-gray-400">Unknown</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<main class="container mx-auto max-w-5xl p-2">
+<h1 class="text-2xl font-bold mb-6 flex items-center space-x-2">
+  <!-- Chart Bar Icon (Heroicons) -->
+  <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6m4 6V9m4 6V5M3 21h18" />
+  </svg>
+  
+  <!-- Headphones Icon (Tabler Icons style; compatible with Heroicons outline look) -->
+  <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 0116 0v5a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h1M4 17a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H6a2 2 0 00-2 2v3z" />
+  </svg>
+  <span> Analysis of Playlist: {{ playlist_name }}</span>
+</h1>
+  <div class="p-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+    <details class="group transition-all duration-200 mb-6 border border-gray-600 rounded overflow-hidden" open>
+  <summary class="text-xl font-semibold cursor-pointer px-4 py-2 bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
+    <span>Profile Summary</span>
+    <svg class="w-5 h-5 transition-transform duration-200 group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </summary>
+  <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
+    {% if gpt_summary %}
+      <p class="text-gray-200 whitespace-pre-line">{{ gpt_summary }}</p>
+<br />
+<form action="/suggest-playlist" method="post"  onsubmit="showSpinner()">
+  <input type="hidden" name="text_summary" value="{{ gpt_summary | tojson | forceescape }}">
+  <input type="hidden" name="tracks" value="{{ tracks | tojson | forceescape }}">
+  <input type="hidden" name="playlist_name" value="{{ playlist_name | tojson | forceescape }}">
+  <button type="submit" class="text-md px-2 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"  >Suggest Similar Playlist</button>
+</form>
+    {% else %}
+      <p class="text-gray-400 italic">AI summary not available.</p>
+    {% endif %}
+  </div>
+<!-- Spinner overlay -->
+<div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center">
+  <div class="w-20 h-20 border-8 border-gray-400 border-t-red-500 rounded-full animate-spin shadow-xl"></div>
+  <p class="mt-4 text-white text-lg font-semibold">Generating Suggestions...</p>
+</div>
+
+</details>
+
+<details class="group transition-all duration-200 mb-6 border border-gray-600 rounded overflow-hidden">
+  <summary class="text-xl font-semibold cursor-pointer px-4 py-2 bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
+    <span>Suggested Removals</span>
+    <svg class="w-5 h-5 transition-transform duration-200 group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </summary>
+  <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
+    {% if removal_suggestions %}
+      <p class="text-gray-200 whitespace-pre-line">{{ removal_suggestions }}</p>
+    {% else %}
+      <p class="text-gray-400 italic">No removal suggestions available.</p>
+    {% endif %}
+  </div>
+</details>
+
+    <!-- Outliers Section -->
+<details class="group transition-all duration-200 mb-6 border border-gray-600 rounded overflow-hidden">
+  <summary class="text-xl font-semibold cursor-pointer px-4 py-2 bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
+    <span>Outliers</span>
+    <svg class="w-5 h-5 transition-transform duration-200 group-open:rotate-180"
+         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </summary>
+  <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
+    {% if summary.outliers %}
+      <ul class="space-y-4">
+        {% for outlier in summary.outliers %}
+          {% set track = (tracks | selectattr("title", "equalto", outlier.title) | list).0 %}
+          <li class="border border-gray-600 p-4 rounded">
+            <p class="font-semibold text-white">{{ track.title }} <span class="text-sm text-gray-400">by {{ track.artist }}</span></p>
+            <p class="text-sm text-gray-400">
+              Genre: {{ track.genre }},
+              Mood: {{ track.mood or 'Unknown' }},
+              Tempo: {{ track.tempo }} BPM,
+              Decade: {{ track.decade }},
+              Popularity: {{ track.combined_popularity }}
+            </p>
+            <p class="text-sm text-red-300 mt-1">
+              <strong>Reasons:</strong>
+              {% for reason in outlier.reasons %}
+                <span class="inline-block bg-red-700 text-white text-xs px-2 py-0.5 rounded mr-1">{{ reason }}</span>
+              {% endfor %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-green-400">No significant outliers detected.</p>
+    {% endif %}
+  </div>
+</details>
+
+<details class="group transition-all duration-200 mb-6 border border-gray-600 rounded overflow-hidden">
+  <summary class="text-xl font-semibold cursor-pointer px-4 py-2 bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
+    <span>Visual Charts</span>
+    <svg class="w-5 h-5 transition-transform duration-200 group-open:rotate-180"
+         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </summary>
+  <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-[90vh] overflow-y-auto">
+    <div class="flex flex-wrap justify-center gap-8 mb-6">
+      <div class="w-80 text-center">
+        <h2 class="text-xl font-semibold mb-2">Genre Distribution</h2>
+        <canvas id="genreChart" class="w-80 h-80 mx-auto"></canvas>
+      </div>
+      <div class="w-80 text-center">
+        <h2 class="text-xl font-semibold mb-2">Mood Distribution</h2>
+        <canvas id="moodChart" class="w-80 h-80 mx-auto"></canvas>
+      </div>
+      <div class="w-80 text-center">
+        <h2 class="text-xl font-semibold mb-2">Decade Spread</h2>
+        <canvas id="decadeChart" class="w-80 h-80 mx-auto"></canvas>
+      </div>
+      <div class="w-80 text-center">
+        <h2 class="text-xl font-semibold mb-2">Tempo Ranges</h2>
+        <canvas id="tempoChart" class="w-80 h-72 mx-auto"></canvas>
+      </div>
+      <div class="w-80 text-center">
+        <h2 class="text-xl font-semibold mb-2">Track Lengths</h2>
+        <canvas id="lengthChart" class="w-80 h-72 mx-auto"></canvas>
+      </div>
+      <div class="w-80 text-center">
+        <h2 class="text-xl font-semibold mb-2">Listeners</h2>
+        <canvas id="listenersChart" class="w-80 h-72 mx-auto"></canvas>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+    <!-- Track Data Section -->
+<details class="group transition-all duration-200 mb-6 border border-gray-600 rounded overflow-hidden">
+  <summary class="text-xl font-semibold cursor-pointer px-4 py-2 bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span>Track Data</span>
+<button id="export-m3u-button"
+        type="button"
+        class="px-2 py-1 text-sm rounded bg-green-100 text-green-800 hover:bg-green-200"
+        aria-label="Export this analysis as M3U">
+  ⬇️ M3U
+</button>
+
+    </div>
+    <svg class="w-5 h-5 transition-transform duration-200 group-open:rotate-180"
+         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </summary>
+  <!-- Content inside details -->
+  <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-[600px]">
+    <div class="overflow-x-auto max-w-full">
+      <div class="max-h-[600px] overflow-y-auto overscroll-y-contain">
+        <table id="trackTable" class="w-full text-left border-collapse" data-sort-dir="asc">
+            <thead class="bg-gray-100 dark:bg-gray-700 sticky top-0 z-10">
+              <tr>
+                <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(0)" data-column-index="0" data-tippy-content="Click to sort by title">
+                  <span class="flex items-center gap-1">
+                    Title
+                    <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
+                  </span>
+                </th>
+                <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(1)" data-column-index="1" data-tippy-content="Click to sort by artist">
+                  <span class="flex items-center gap-1">
+                    Artist
+                    <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
+                  </span>
+                </th>
+                <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(2)" data-column-index="2" data-tippy-content="Click to sort by genre">
+                  <span class="flex items-center gap-1">
+                    Genre
+                    <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
+                  </span>
+                </th>
+                <th class="p-2 border-b text-left" data-tippy-content="Predicted emotional tone of the track">Mood</th>
+                <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(4)" data-column-index="4" data-tippy-content="Click to sort by BPM">
+                  <span class="flex items-center gap-1">
+                    Tempo
+                    <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
+                  </span>
+                </th>
+                <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(5)" data-column-index="5" data-tippy-content="Click to sort by release decade">
+                  <span class="flex items-center gap-1">
+                    Decade
+                    <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
+                  </span>
+                </th>
+                <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(6)" data-column-index="6" data-tippy-content="Click to sort by track length">
+                  <span class="flex items-center gap-1">
+                    Length
+                    <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
+                  </span>
+                </th>
+                <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(7)" data-column-index="7" data-tippy-content="Click to sort by popularity">
+                  <span class="flex items-center gap-1">
+                    Popularity
+                    <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
+                  </span>
+                </th>
+                <th class="p-2 border-b cursor-pointer group text-left" data-tippy-content="Export Metadata to Jellyfin">
+                    Actions
+                </th>
+              </tr>
+            </thead>
+            {% for track in tracks %}
+            <tr class="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-700">
+              <td class="p-2 border-b">{{ track.title }}</td>
+              <td class="p-2 border-b">{{ track.artist }}</td>
+              <td class="p-2 border-b">
+                <span class="{% if track.genre == 'Unknown' %}text-red-600 dark:text-red-400 font-semibold{% endif %}">{{ track.genre | capitalize }}</span>
+              </td>
+              <td class="p-2 border-b">{{ mood_badge(track.mood, track.mood_confidence) }}</td>
+              <td class="p-2 border-b">{{ track.tempo }}</td>
+              <td class="p-2 border-b">
+                <span {% if track.year_flag %} class="text-yellow-600 dark:text-yellow-400 font-semibold" data-tippy-content="Release year appears unreliable {{ track.year_flag }}" {% endif %}>
+                  {{ track.decade }}
+                </span>
+              </td>
+              <td class="p-2 border-b">{{ track.duration | duration_human }}</td>
+<td class="p-2 border-b">
+  <div class="flex items-center gap-2">
+    <!-- Bar or Icon Representation -->
+    <div class="w-24 h-2 bg-gray-200 rounded">
+      <div
+        class="h-2 rounded"
+        style="
+          width: {{ 100 if track.combined_popularity > 100 else track.combined_popularity }}%;
+          background-color:
+            {% if track.combined_popularity >= 75 %}#3b82f6;   /* 🔵 Blue */
+            {% elif track.combined_popularity >= 50 %}#22c55e; /* 🟢 Green */
+            {% elif track.combined_popularity >= 25 %}#f59e0b; /* 🟠 Orange */
+            {% else %}#dc2626;                                  /* 🔴 Red */
+            {% endif %};
+        "
+        title="Popularity score based on Last.fm Listeners and Jellyfin"
+      ></div>
+    </div>
+
+    <!-- Numeric Score with Color -->
+    <span
+      data-tippy-content="Last.fm Listeners:  {{ "{:,}".format(track.popularity) }} - Jellyfin Playcount: {{ track.jellyfin_play_count }}"
+      class="{% if track.combined_popularity >= 75 %}
+                text-blue-300 dark:text-blue-600
+              {% elif track.combined_popularity >= 50 %}  
+                text-green-600 dark:text-green-400
+              {% elif track.combined_popularity >= 25 %}
+                text-yellow-600 dark:text-yellow-400
+              {% else %}
+                text-red-600 dark:text-red-400
+              {% endif %} font-semibold"
+    >
+      {{ "{:,}".format(track.combined_popularity) }}
+    </span>
+  </div>
+</td>
+      <td class="p-2 border-b text-center align-middle">
+        <button type="button"
+                class="px-1 py-0 rounded hover:bg-blue-200 export-track-metadata"
+                data-track='{{ track | tojson | safe }}'
+                data-tippy-content="Export metadata for {{ track.title }}"
+                aria-label="Export metadata for {{ track.title }} to Jellyfin">
+          📤
+        </button>
+      </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    window.tracks = {{ tracks | tojson | safe }};
+  </script>
+<script>
+
+  function showSpinner() {
+    document.getElementById("loading-overlay").classList.remove("hidden");
+  }
+
+document.addEventListener('DOMContentLoaded', () => {
+
+  // === Helper ===
+
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `px-4 py-2 rounded shadow text-white ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`;
+    toast.textContent = message;
+    document.getElementById('toast-container').appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function parsePercentValues(dataObject) {
+    return Object.values(dataObject).map(v =>
+      typeof v === 'string' && v.endsWith('%') ? parseFloat(v) : v
+    );
+  }
+
+  // === Charts ===
+  const genreData = {{ summary.genre_distribution | tojson }};
+  const moodData = {{ summary.mood_distribution | tojson }};
+  const decadeData = {{ summary.decades | tojson }};
+  const lengths = {{ tracks | sort(attribute='duration') | length }};
+  const lengthValues = {{ tracks | sort(attribute='duration') | map(attribute='duration') | list | tojson }};
+  const listenersSorted = {{ tracks | sort(attribute='popularity') | map(attribute='popularity') | list | tojson }};
+
+{% set length_bins = {
+  "<2 min": 0,
+  "2–3 min": 0,
+  "3–4 min": 0,
+  "4–5 min": 0,
+  ">5 min": 0
+} %}
+
+{% for t in tracks %}
+  {% if t.duration < 120 %}
+    {% set _ = length_bins.update({"<2 min": length_bins["<2 min"] + 1}) %}
+  {% elif t.duration < 180 %}
+    {% set _ = length_bins.update({"2–3 min": length_bins["2–3 min"] + 1}) %}
+  {% elif t.duration < 240 %}
+    {% set _ = length_bins.update({"3–4 min": length_bins["3–4 min"] + 1}) %}
+  {% elif t.duration < 300 %}
+    {% set _ = length_bins.update({"4–5 min": length_bins["4–5 min"] + 1}) %}
+  {% else %}
+    {% set _ = length_bins.update({">5 min": length_bins[">5 min"] + 1}) %}
+  {% endif %}
+{% endfor %}
+
+{% set listener_bins = {
+  "<10K": 0,
+  "10K–100K": 0,
+  "100K–500K": 0,
+  "500K–1M": 0,
+  ">1M": 0
+} %}
+
+{% for t in tracks %}
+  {% set pop = t.popularity %}
+  {% if pop < 10000 %}
+    {% set _ = listener_bins.update({"<10K": listener_bins["<10K"] + 1}) %}
+  {% elif pop < 100000 %}
+    {% set _ = listener_bins.update({"10K–100K": listener_bins["10K–100K"] + 1}) %}
+  {% elif pop < 500000 %}
+    {% set _ = listener_bins.update({"100K–500K": listener_bins["100K–500K"] + 1}) %}
+  {% elif pop < 1000000 %}
+    {% set _ = listener_bins.update({"500K–1M": listener_bins["500K–1M"] + 1}) %}
+  {% else %}
+    {% set _ = listener_bins.update({">1M": listener_bins[">1M"] + 1}) %}
+  {% endif %}
+{% endfor %}
+
+
+
+  const genreChart = new Chart(document.getElementById("genreChart"), {
+    type: "pie",
+    data: {
+      labels: Object.keys(genreData),
+      datasets: [{ label: "Genre", data: parsePercentValues(genreData), borderWidth: 1 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  const moodChart = new Chart(document.getElementById("moodChart"), {
+    type: "pie",
+    data: {
+      labels: Object.keys(moodData),
+      datasets: [{ label: "Mood", data: parsePercentValues(moodData), borderWidth: 1 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  const decadeChart = new Chart(document.getElementById("decadeChart"), {
+    type: "bar",
+    data: {
+      labels: Object.keys(decadeData),
+      datasets: [{ label: "Decades", data: parsePercentValues(decadeData), borderWidth: 1 }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, ticks: { callback: v => v + "%" } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  const tempoChart = new Chart(document.getElementById("tempoChart"), {
+    type: "bar",
+    data: {
+      labels: ["<90 BPM", "90–120 BPM", ">120 BPM"],
+      datasets: [{
+        label: "Tempo Range",
+        data: [
+          {{ summary.tempo_ranges.get("<90 BPM", "0%") | replace('%', '') }},
+          {{ summary.tempo_ranges.get("90–120 BPM", "0%") | replace('%', '') }},
+          {{ summary.tempo_ranges.get(">120 BPM", "0%") | replace('%', '') }}
+        ],
+        backgroundColor: ["#60a5fa", "#34d399", "#f87171"],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, ticks: { callback: value => value + "%" } } },
+      plugins: { legend: { display: false }, title: { display: true, text: "Tempo Ranges" } }
+    }
+  });
+
+  const lengthChart = new Chart(document.getElementById("lengthChart"), {
+    type: 'bar',
+    data: {
+      labels: {{ length_bins.keys() | list | tojson }},
+      datasets: [{
+        label: "Number of Tracks",
+        data: {{ length_bins.values() | list | tojson }},
+        backgroundColor: 'rgba(59, 130, 246, 0.6)'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, title: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  const listenersChart = new Chart(document.getElementById("listenersChart"), {
+    type: 'bar',
+    data: {
+      labels: {{ listener_bins.keys() | list | tojson }},
+      datasets: [{
+        label: "Number of Tracks",
+        data: {{ listener_bins.values() | list | tojson }},
+        backgroundColor: 'rgba(234, 179, 8, 0.6)'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, title: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  document.querySelectorAll("details").forEach(el => {
+    el.addEventListener("toggle", () => {
+      if (el.open) {
+        [genreChart, moodChart, decadeChart, tempoChart, lengthChart, listenersChart].forEach(chart => {
+          if (chart) chart.resize();
+        });
+      }
+    });
+  });
+
+  // === Sortable table ===
+  let currentSortColumn = null;
+  let sortDirection = 'asc';
+
+  window.sortTable = function(columnIndex) {
+    const table = document.getElementById("trackTable");
+    const tbody = table.querySelector("tbody");
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+
+    if (currentSortColumn === columnIndex) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      currentSortColumn = columnIndex;
+      sortDirection = 'asc';
+    }
+
+    rows.sort((a, b) => {
+      const cellA = a.children[columnIndex].innerText.trim();
+      const cellB = b.children[columnIndex].innerText.trim();
+      const numA = parseFloat(cellA.replace(/,/g, ''));
+      const numB = parseFloat(cellB.replace(/,/g, ''));
+      const isNumeric = !isNaN(numA) && !isNaN(numB);
+
+      return isNumeric
+        ? (sortDirection === 'asc' ? numA - numB : numB - numA)
+        : (sortDirection === 'asc' ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA));
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+    document.querySelectorAll("th .sort-indicator").forEach(ind => ind.textContent = '⬍');
+    const activeHeader = document.querySelector(`th[data-column-index='${columnIndex}'] .sort-indicator`);
+    if (activeHeader) activeHeader.textContent = sortDirection === 'asc' ? '▲' : '▼';
+  };
+
+  // === Per-track export buttons ===
+// === JS PATCH for analysis-results ===
+
+document.querySelectorAll('.export-track-metadata').forEach(button => {
+  button.addEventListener('click', () => {
+    const trackData = JSON.parse(button.getAttribute('data-track'));
+    if (!trackData) {
+      alert("No track data found.");
+      return;
+    }
+    if (confirm(`Export metadata for track "${trackData.title}" to Jellyfin?`)) {
+
+      const sendExport = (extra = {}) => {
+        fetch('/export/track-metadata', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ track: trackData, ...extra })
+        })
+        .then(async response => {
+          if (response.ok) {
+            alert(`✅ Metadata for "${trackData.title}" exported successfully.`);
+          } else if (response.status === 409) {
+            const body = await response.json();
+            if (body.action === 'confirm_overwrite_album') {
+              const confirmAlbum = confirm(`Album mismatch: Jellyfin = "${body.current_album}", New = "${body.suggested_album}". Overwrite?`);
+              if (confirmAlbum) {
+                sendExport({ ...extra, force_album_overwrite: true });
+              } else {
+                // Skip album overwrite and continue to check other conflicts
+                sendExport({ ...extra, skip_album: true });
+              }
+            } else if (body.action === 'confirm_overwrite_year') {
+              const confirmYear = confirm(`Year mismatch: Jellyfin = "${body.current_year}", New = "${body.suggested_year}". Overwrite?`);
+              if (confirmYear) {
+                sendExport({ ...extra, force_year_overwrite: true });
+              } else {
+                // Skip year overwrite and continue to check other conflicts
+                sendExport({ ...extra, skip_year: true });
+              }
+            } else {
+              alert(`❌ Export conflict: Unknown action.`);
+            }
+          } else {
+            alert(`❌ Export failed (status ${response.status}).`);
+          }
+        })
+        .catch(() => {
+          alert(`❌ Export failed due to network error.`);
+        });
+      };
+
+      sendExport();
+    }
+  });
+});
+ 
+  // === Export to M3U ===
+
+
+  const exportBtn = document.getElementById('export-m3u-button');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const playlistName = 'analysis_export';
+      const tracks = window.tracks || [];  // Ensure `tracks` is globally available from template context
+
+      if (!tracks.length) {
+        alert('No tracks available for export');
+        return;
+      }
+
+      if (confirm(`Export this analysis as M3U?`)) {
+        fetch('/analyze/export-m3u', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: playlistName,
+            tracks: tracks.map(t => ({
+              title: t.title,
+              artist: t.artist,
+              album: t.album || null
+            }))
+          })
+        }).then(async (response) => {
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${playlistName}.m3u`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+          } else {
+            alert(`Export failed with status ${response.status}`);
+          }
+        }).catch(err => {
+          console.error(err);
+          alert(`Network error during export`);
+        });
+      }
+    });
+} 
+  // === Tooltip theme handling ===
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = prefersDark ? 'dark-tailwind' : 'light-tailwind';
+
+  tippy('[data-tippy-content]', {
+    theme: theme,
+    animation: 'scale',
+    delay: [100, 20],
+    placement: 'top'
+  });
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    document.querySelectorAll('[data-tippy-content]').forEach(el => {
+      if (el._tippy) {
+        el._tippy.setProps({ theme: e.matches ? 'dark-tailwind' : 'light-tailwind' });
+      }
+    });
+  });
+
+});
+</script>
+
+<script src="https://unpkg.com/@popperjs/core@2"></script>
+<script src="https://unpkg.com/tippy.js@6"></script>
+
+
+{% endblock %}

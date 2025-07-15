@@ -1,0 +1,32 @@
+services:
+  playlist-pilot:
+    container_name: playlist-pilot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - TZ=America/New_York
+      - PYTHONUNBUFFERED=1
+    ports:
+      - 8010:8000
+    volumes:
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      - ./user_data:/app/user_data
+      - /mnt/Games/pilotsettings/settings.json:/app/settings.json:rw
+      - ./data:/data # Ensures /data/.cache-spotify is persisted
+      - /mnt/Movies-And-More/Music:/Movies/Music
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request;
+          urllib.request.urlopen('http://localhost:8000/health')
+      interval: 120s
+      timeout: 10s
+      retries: 3
+networks: {}

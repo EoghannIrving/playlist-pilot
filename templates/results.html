@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+
+<main class="container mx-auto p-4">
+  <h1 class="text-2xl font-bold mb-4">{{ 'New' if mode == 'new' else 'Additional' }} Playlist Suggestions</h1>
+
+  <div class="bg-white dark:bg-gray-800 p-4 rounded shadow text-gray-700 dark:text-gray-200 space-y-1 mb-6">
+    <p>🎯 <strong>{{ count }}</strong> tracks requested.</p>
+    <p>💿 Based on Playlist: <strong>{{ playlist_name or '—' }}</strong></p>
+  </div>
+
+
+  <div class="bg-white dark:bg-gray-800 p-4 rounded shadow text-gray-700 dark:text-gray-200 space-y-1 mb-6">
+    <p>🎵 <strong>Dominant Genre: </strong>{{Dominant_Genre}}</p>
+    <p>🧠 <strong>Moods: </strong>{{Moods | join(', ')}}</p>
+    <p>⏱️ <strong>Avg. BPM: </strong>{{Average_BPM}}</p>
+{% macro popularity_label(score) %}
+  {% if score >= 90 %}
+    🔥 Extremely Popular
+  {% elif score >= 70 %}
+    👍 Very Popular
+  {% elif score >= 50 %}
+    ⭐️ Popular
+  {% elif score >= 30 %}
+    🙂 Somewhat Popular
+  {% elif score >= 10 %}
+    👀 Less Known
+  {% else %}
+    🕳️ Obscure
+  {% endif %}
+{% endmacro %}
+
+    <p>📊 <strong>Avg. Popularity: </strong>{{ popularity_label (Popularity) }}</p>
+    <p>🕰️  <strong>Decades: </strong>{{Decades | join(', ')}}</p>
+  </div>
+
+
+  <h2 class="text-xl font-semibold mb-2">Suggested Tracks</h2>
+  <ul class="space-y-4">
+    {% for s in suggestions %}
+<li class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-4 rounded shadow hover:shadow-md transition-shadow duration-200">
+  <div class="font-semibold text-lg mb-1">{{ s.icon }} {{ s.text }}{% if s.in_jellyfin %} ✔{% endif %}</div>
+
+  {% if s.reason %}
+    <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">
+      <span class="italic">Reason:</span> {{ s.reason }}
+      {% if s.youtube_url %}
+        — <a href="{{ s.youtube_url }}" target="_blank" class="text-blue-600 hover:underline" title="Watch on YouTube">
+          <img src="/static/icons/youtube.svg" alt="YouTube icon" class="inline w-4 h-4 ml-1">
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700 dark:text-gray-300">
+    {% if s.genre %}<li>🎵 <strong>Genre:</strong> {{ s.genre }}</li>{% endif %}
+    {% if s.mood %}<li>🧠 <strong>Mood:</strong> {{ s.mood }}</li>{% endif %}
+
+    {% if s.bpm %}
+      <li>⏱️ <strong>BPM:</strong>
+        <span class="{% if s.bpm > 120 %}text-red-500{% elif s.bpm < 90 %}text-blue-500{% else %}text-green-600{% endif %}">
+          {{ s.bpm }}
+        </span>
+      </li>
+    {% endif %}
+
+    {% if s.combined_popularity is not none %}
+      <li class="mb-2">
+        <strong>📊 Popularity:</strong>
+        <div class="relative w-full bg-gray-200 rounded h-4 mt-1 overflow-hidden">
+          <div class="h-full rounded transition-all"
+               style="width: {{ s.combined_popularity }}%; background-color:
+            {% if s.combined_popularity > 75 %}
+                 #16a34a   {# Tailwind blue-500 #}   
+               {% elif s.combined_popularity > 50 %}
+                 #16a34a   {# Tailwind green-600 #}
+               {% elif s.combined_popularity > 25 %}
+                 #facc15   {# Tailwind yellow-400 #}
+               {% else %}
+                 #9ca3af   {# Tailwind gray-400 #}
+               {% endif %};">
+          </div>
+        </div>
+        <div class="text-sm mt-1 text-gray-300">
+          {{ "%.1f"|format(s.combined_popularity) }} / 100
+        </div>
+      </li>
+    {% endif %}
+
+    {% if s.final_year %}<li>📅 <strong>Year:</strong> {{ s.final_year }}</li>{% endif %}
+    {% if s.decade %}<li>📆 <strong>Decade:</strong> {{ s.decade }}</li>{% endif %}
+  </ul>
+</li>
+    {% endfor %}
+  </ul>
+</main>
+
+{% endblock %}
