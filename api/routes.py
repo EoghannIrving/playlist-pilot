@@ -643,11 +643,10 @@ async def suggest_from_analyzed(request: Request):
             "Average_BPM": int(summary['tempo_avg']),
             "Popularity": int(summary['avg_popularity']),
             "Decades": summary['decades'].keys(),
-            "playlist_name": playlist_name,
         })
     except Exception as e:
-        logger.error(f"Error in /suggest: {e}", exc_info=True)
-        return
+        logger.error(f"Error in /suggest-playlist: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.post("/history/bulk-delete", response_class=HTMLResponse)
 async def bulk_delete_history(request: Request):
