@@ -70,8 +70,8 @@
         <div class="relative w-full bg-gray-200 rounded h-4 mt-1 overflow-hidden">
           <div class="h-full rounded transition-all"
                style="width: {{ s.combined_popularity }}%; background-color:
-            {% if s.combined_popularity > 75 %}
-                 #16a34a   {# Tailwind blue-500 #}   
+              {% if s.combined_popularity > 75 %}
+                   #3b82f6   {# Tailwind blue-500 #}
                {% elif s.combined_popularity > 50 %}
                  #16a34a   {# Tailwind green-600 #}
                {% elif s.combined_popularity > 25 %}
