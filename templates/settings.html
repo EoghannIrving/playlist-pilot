@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block content %}
+
+<main class="container mx-auto p-4">
+
+  <h1 class="text-2xl font-bold mb-4 flex justify-between items-center">
+    ⚙️ Settings
+    <button type="button" onclick="resetSettings()" class="text-sm px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500">
+      Reset to Defaults
+    </button>
+  </h1>
+
+  {% if validation_message %}
+    <div class="bg-yellow-100 border-l-4 border-yellow-400 p-4 mb-4 text-yellow-800">
+      ⚠️ <strong>Configuration Warning:</strong> {{ validation_message }}
+    </div>
+  {% endif %}
+
+  <form method="post" class="space-y-6 bg-white dark:bg-gray-700 p-6 rounded shadow settings-form">
+
+    <!-- 🎬 Jellyfin Section -->
+    <section>
+      <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">🎬 Jellyfin Integration</h2>
+
+      <div class="space-y-2">
+        <label for="JELLYFIN_URL" class="block font-semibold">Jellyfin URL</label>
+        <input type="text" id="JELLYFIN_URL" name="jellyfin_url" value="{{ settings.jellyfin_url }}" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+        <small class="text-gray-300">e.g., http://localhost:8096 or your remote Jellyfin address</small>
+      </div>
+
+      <div class="space-y-2">
+        <label for="JELLYFIN_API_KEY" class="block font-semibold">Jellyfin API Key</label>
+        <div class="flex items-center gap-2">
+          <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testJellyfinKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <span id="jellyfin-status" class="text-sm"></span>
+        </div>
+        <small class="text-gray-300">Find this in your Jellyfin user profile > API Keys</small>
+      </div>
+
+      <div class="space-y-2">
+        <label for="JELLYFIN_USER_ID" class="block font-semibold">Jellyfin User</label>
+        <select name="jellyfin_user_id" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          {% for name, id in jellyfin_users.items() %}
+            <option value="{{ id }}" {% if id == settings.jellyfin_user_id %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </section>
+
+    <!-- 🔑 API Keys Section -->
+    <section>
+      <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 mt-4 mb-2">🔑 API Keys</h2>
+
+      <div class="space-y-2">
+        <label for="OPENAI_API_KEY" class="block font-semibold">OpenAI API Key</label>
+        <div class="flex items-center gap-2">
+          <input type="text" id="OPENAI_API_KEY" name="openai_api_key" value="{{ settings.openai_api_key }}" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testOpenAIKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <span id="openai-status" class="text-sm"></span>
+        </div>
+        <small class="text-gray-300">Create one at https://platform.openai.com/account/api-keys</small>
+      </div>
+
+      <div class="space-y-2">
+        <label for="MODEL" class="block font-semibold">Model</label>
+        {% set model_labels = {
+          "gpt-4o-mini": "🌟 Fast & cost-efficient GPT-4o (Mini)",
+          "gpt-4o": "⚡ GPT-4o – multimodal, high performance",
+          "gpt-4": "🎯 GPT-4 – high-quality reasoning",
+          "gpt-3.5-turbo": "🚀 GPT-3.5 – fastest and cheapest"
+        } %}
+        <select id="MODEL" name="model" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <optgroup label="Recommended">
+            {% if 'gpt-4o-mini' in models %}
+              <option value="gpt-4o-mini" {% if settings.model == 'gpt-4o-mini' or not settings.model %}selected{% endif %}>{{ model_labels['gpt-4o-mini'] }}</option>
+            {% endif %}
+            {% if 'gpt-4o' in models %}
+              <option value="gpt-4o" {% if settings.model == 'gpt-4o' %}selected{% endif %}>{{ model_labels['gpt-4o'] }}</option>
+            {% endif %}
+          </optgroup>
+          <optgroup label="Other Available Models">
+            {% if 'gpt-4' in models %}
+              <option value="gpt-4" {% if settings.model == 'gpt-4' %}selected{% endif %}>{{ model_labels['gpt-4'] }}</option>
+            {% endif %}
+            {% if 'gpt-3.5-turbo' in models %}
+              <option value="gpt-3.5-turbo" {% if settings.model == 'gpt-3.5-turbo' %}selected{% endif %}>{{ model_labels['gpt-3.5-turbo'] }}</option>
+            {% endif %}
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="space-y-2">
+        <label for="LASTFM_API_KEY" class="block font-semibold">Last.fm API Key</label>
+        <div class="flex items-center gap-2">
+          <input type="text" id="LASTFM_API_KEY" name="lastfm_api_key" value="{{ settings.lastfm_api_key }}" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testLastfmKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <span id="lastfm-status" class="text-sm"></span>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="GETSONGBPM_API_KEY" class="block font-semibold">GetSongBPM.com API Key</label>
+        <div class="flex items-center gap-2">
+          <input type="text" id="GETSONGBPM_API_KEY" name="getsongbpm_api_key" value="{{ settings.getsongbpm_api_key }}" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testGetSongBPMKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <span id="getsongbpm-status" class="text-sm"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Save button at the bottom -->
+    <div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Settings</button>
+    </div>
+  </form>
+
+  <script>
+    window.updateStatus = function(id, result, message) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.textContent = message;
+        el.className = result ? "text-green-600 text-sm" : "text-red-600 text-sm";
+      }
+    };
+
+    window.testOpenAIKey = function() {
+      const key = document.getElementById("OPENAI_API_KEY").value;
+      fetch("/api/test/openai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key })
+      })
+      .then(res => res.json())
+      .then(data => window.updateStatus("openai-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key"))
+      .catch(() => window.updateStatus("openai-status", false, "❌ Request failed"));
+    };
+
+    window.testJellyfinKey = function() {
+      const url = document.getElementById("JELLYFIN_URL").value;
+      const key = document.getElementById("JELLYFIN_API_KEY").value;
+      fetch("/api/test/jellyfin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, key })
+      })
+      .then(res => res.json())
+      .then(data => window.updateStatus("jellyfin-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key or URL"))
+      .catch(() => window.updateStatus("jellyfin-status", false, "❌ Request failed"));
+    };
+
+    window.testLastfmKey = function() {
+      const key = document.getElementById("LASTFM_API_KEY").value;
+      fetch("/api/test/lastfm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key })
+      })
+      .then(res => res.json())
+      .then(data => window.updateStatus("lastfm-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key"))
+      .catch(() => window.updateStatus("lastfm-status", false, "❌ Request failed"));
+    };
+
+    window.testGetSongBPMKey = function() {
+      const key = document.getElementById("GETSONGBPM_API_KEY").value;
+      fetch("/api/test/getsongbpm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key })
+      })
+      .then(res => res.json())
+      .then(data => window.updateStatus("getsongbpm-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key"))
+      .catch(() => window.updateStatus("getsongbpm-status", false, "❌ Request failed"));
+    };
+
+    function resetSettings() {
+      if (confirm("Reset all settings to their default values?")) {
+        fetch("/settings/reset", { method: "POST" })
+          .then(() => window.location.reload())
+          .catch(() => alert("Failed to reset settings."));
+      }
+    }
+  </script>
+
+</main>
+{% endblock %}

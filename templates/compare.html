@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Compare Playlists{% endblock %}
+
+{% block content %}
+<main class="container mx-auto p-4">
+  <h1 class="text-2xl font-bold mb-6">🔍 Compare Playlists</h1>
+
+  <form id="compare-form" method="POST" action="/compare" class="space-y-6 bg-white dark:bg-gray-700 p-6 rounded shadow"  onsubmit="showSpinner()">
+    <div class="flex flex-col md:flex-row gap-6">
+      <!-- Playlist 1 -->
+      <fieldset class="flex-1 border border-gray-300 dark:border-gray-800 p-4 rounded space-y-2">
+        <legend class="text-lg font-semibold mb-2">Playlist 1</legend>
+
+        <label for="source1_type" class="block font-semibold">Source:</label>
+        <select id="source1_type" name="source1_type" onchange="updatePlaylistOptions('1')" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <option value="history">GPT Suggestions</option>
+          <option value="jellyfin">Jellyfin Playlist</option>
+        </select>
+
+        <label for="source1_id" class="block font-semibold">Playlist:</label>
+        <select id="source1_id" name="source1_id" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500"></select>
+      </fieldset>
+
+      <!-- Playlist 2 -->
+      <fieldset class="flex-1 border border-gray-300 dark:border-gray-800 p-4 rounded space-y-2">
+        <legend class="text-lg font-semibold mb-2">Playlist 2</legend>
+
+        <label for="source2_type" class="block font-semibold">Source:</label>
+        <select id="source2_type" name="source2_type" onchange="updatePlaylistOptions('2')" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <option value="history">GPT Suggestions</option>
+          <option value="jellyfin">Jellyfin Playlist</option>
+        </select>
+
+        <label for="source2_id" class="block font-semibold">Playlist:</label>
+        <select id="source2_id" name="source2_id" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500"></select>
+      </fieldset>
+    </div>
+
+    <div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Compare</button>
+    </div>
+<!-- Spinner overlay -->
+<div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center">
+  <div class="w-20 h-20 border-8 border-gray-400 border-t-red-500 rounded-full animate-spin shadow-xl"></div>
+  <p class="mt-4 text-white text-lg font-semibold">Comparing Lists...</p>
+</div>
+  </form>
+
+  {% if comparison %}
+  <div class="mt-6">
+    <h2 class="text-xl font-semibold mb-4">Differences</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Only in Playlist 1 -->
+      {% for group in comparison if group.side == "only_in_1" %}
+        <div class="bg-white dark:bg-gray-700 p-4 rounded shadow">
+          <h3 class="font-semibold mb-2">
+            {{ group.label }}
+            <span class="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 px-2 py-0.5 rounded-full">{{ group.tracks | length }}</span>
+          </h3>
+          <ul class="list-disc list-inside text-sm ml-4">
+            {% for track in group.tracks %}
+              <li>{{ track }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+
+      <!-- Only in Playlist 2 -->
+      {% for group in comparison if group.side == "only_in_2" %}
+        <div class="bg-white dark:bg-gray-700 p-4 rounded shadow">
+          <h3 class="font-semibold mb-2">
+            {{ group.label }}
+            <span class="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 px-2 py-0.5 rounded-full">{{ group.tracks | length }}</span>
+          </h3>
+          <ul class="list-disc list-inside text-sm ml-4">
+            {% for track in group.tracks %}
+              <li>{{ track }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+
+      <!-- Shared tracks -->
+      {% for group in comparison if group.side == "shared" %}
+        <div class="bg-white dark:bg-gray-700 p-4 rounded shadow">
+          <h3 class="font-semibold mb-2">
+            {{ group.label }}
+            <span class="ml-2 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 px-2 py-0.5 rounded-full">{{ group.tracks | length }}</span>
+          </h3>
+          <ul class="list-disc list-inside text-sm ml-4">
+            {% for track in group.tracks %}
+              <li>{{ track }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</main>
+
+{% block scripts %}
+<script>
+
+  function showSpinner() {
+    document.getElementById("loading-overlay").classList.remove("hidden");
+  }
+
+  const gptPlaylists = {{ history | tojson | safe }}.map((p, i) => ({ id: i, label: p.label }));
+  const jellyfinPlaylists = {{ playlists | tojson | safe }}.map(p => ({ id: p.id, label: p.name }));
+  const selected = {{ selected | default({}, true) | tojson | safe }};
+
+  function updatePlaylistOptions(number) {
+    const sourceTypeSelect = document.getElementById(`source${number}_type`);
+    const playlistSelect = document.getElementById(`source${number}_id`);
+
+    const source = sourceTypeSelect.value;
+    playlistSelect.innerHTML = "";
+
+    const options = source === 'history' ? gptPlaylists : jellyfinPlaylists;
+    const selectedId = selected[`source${number}_id`];
+    const selectedSource = selected[`source${number}_type`];
+
+    options.forEach((p) => {
+      const option = document.createElement('option');
+      option.value = p.id;
+      option.textContent = p.label;
+
+      if (source === selectedSource && String(p.id) === String(selectedId)) {
+        option.selected = true;
+      }
+
+      playlistSelect.appendChild(option);
+    });
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    // ✅ Restore source type selectors first
+    if (selected.source1_type) {
+      document.getElementById("source1_type").value = selected.source1_type;
+    }
+    if (selected.source2_type) {
+      document.getElementById("source2_type").value = selected.source2_type;
+    }
+
+    // ✅ Then build the playlists with correct selected ID
+    updatePlaylistOptions("1");
+    updatePlaylistOptions("2");
+  });
+</script>
+{% endblock %}
+{% endblock %}

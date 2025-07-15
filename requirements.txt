@@ -1,0 +1,11 @@
+aiofiles
+diskcache
+fastapi
+jinja2
+openai
+pydantic
+requests
+uvicorn
+yt-dlp
+python-multipart
+cloudscraper

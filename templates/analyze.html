@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Analyze Playlist{% endblock %}
+
+{% block content %}
+<main class="container mx-auto max-w-4xl p-4">
+  <div class="p-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+    <h1 class="text-2xl font-bold mb-6">🧠 Analyze Playlist</h1>
+
+    <form method="post" action="/analyze/result" class="space-y-6" onsubmit="showSpinner()">
+      <div>
+        <label for="source_type" class="block font-medium mb-1">Select Source</label>
+        <select id="source_type" name="source_type"
+                class="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-blue-300 dark:bg-gray-300 dark:text-black"
+                onchange="togglePlaylistSelect(this.value)">
+          <option value="">-- Choose a Source --</option>
+          <option value="jellyfin">Jellyfin Playlist</option>
+          <option value="history">GPT Suggestions</option>
+        </select>
+      </div>
+
+      <div id="jellyfin-playlists" class="hidden">
+        <label for="playlist_id_jellyfin" class="block font-medium mb-1">Jellyfin Playlist</label>
+        <select id="playlist_id_jellyfin" name="playlist_id"
+                class="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-blue-300 dark:bg-gray-300 dark:text-black">
+          {% for playlist in jellyfin_playlists %}
+            <option value="{{ playlist.id }}">{{ playlist.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="history-playlists" class="hidden">
+        <label for="playlist_id_history" class="block font-medium mb-1">GPT Suggestions</label>
+        <select id="playlist_id_history" name="playlist_id"
+                class="w-full p-2 border border-gray-300 rounded focus:ring focus:ring-blue-300 dark:bg-gray-300 dark:text-black">
+          {% for playlist in history %}
+            <option value="{{ loop.index0 }}">{{ playlist.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="text-center">
+        <button type="submit"
+                class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition dark:bg-blue-500 dark:text-white">
+          Analyze
+        </button>
+      </div>
+    </form>
+</div>
+<!-- Spinner overlay -->
+<div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center">
+  <div class="w-20 h-20 border-8 border-gray-400 border-t-red-500 rounded-full animate-spin shadow-xl"></div>
+  <p class="mt-4 text-white text-lg font-semibold">Analyzing...</p>
+</div>
+</main>
+
+<script>
+  function showSpinner() {
+    document.getElementById("loading-overlay").classList.remove("hidden");
+  }
+
+  function togglePlaylistSelect(value) {
+    document.getElementById("jellyfin-playlists").classList.add("hidden");
+    document.getElementById("history-playlists").classList.add("hidden");
+
+    if (value === "jellyfin") {
+      document.getElementById("jellyfin-playlists").classList.remove("hidden");
+    } else if (value === "history") {
+      document.getElementById("history-playlists").classList.remove("hidden");
+    }
+  }
+
+function togglePlaylistSelect(source) {
+  const jellyfinBlock = document.getElementById("jellyfin-playlists");
+  const historyBlock = document.getElementById("history-playlists");
+  const jellyfinSelect = document.getElementById("playlist_id_jellyfin");
+  const historySelect = document.getElementById("playlist_id_history");
+
+  // Hide both
+  jellyfinBlock.classList.add("hidden");
+  historyBlock.classList.add("hidden");
+  jellyfinSelect.disabled = true;
+  historySelect.disabled = true;
+
+  // Show and enable the selected one
+  if (source === "jellyfin") {
+    jellyfinBlock.classList.remove("hidden");
+    jellyfinSelect.disabled = false;
+  } else if (source === "history") {
+    historyBlock.classList.remove("hidden");
+    historySelect.disabled = false;
+  }
+}
+</script>
+{% endblock %}
+
