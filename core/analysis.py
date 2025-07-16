@@ -1,7 +1,5 @@
 from collections import Counter
 from typing import List, Dict
-from fastapi.templating import Jinja2Templates
-from typing import List
 from statistics import mean
 import math
 import logging
