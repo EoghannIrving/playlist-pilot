@@ -13,6 +13,7 @@ All caches are file-backed and located in the `cache/` directory.
 
 from diskcache import Cache
 from pathlib import Path
+from config import settings
 
 # Root directory for all cache files
 BASE_CACHE = Path("cache")
@@ -40,11 +41,4 @@ bpm_cache = Cache(BASE_CACHE / "bpm")
 
 
 # TTL configuration (in seconds) for each named cache
-CACHE_TTLS = {
-    "prompt": 60 * 60 * 24,            # 24 hours
-    "youtube": 60 * 60 * 6,            # 6 hours
-    "lastfm": 60 * 60 * 24 * 7,        # 7 days
-    "lastfm_popularity": 60 * 60 * 24 * 7,
-    "playlists": 60 * 30,              # 30 minutes
-    "bpm": 60 * 60 * 24 * 30           # 30-day TTL
-}
+CACHE_TTLS = settings.cache_ttls

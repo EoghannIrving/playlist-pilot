@@ -1,5 +1,6 @@
 from collections import Counter
 from typing import List, Dict
+from config import settings
 from fastapi.templating import Jinja2Templates
 from typing import List
 from statistics import mean
@@ -264,22 +265,11 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
     return scores
 
 # Apply mood-specific weightings
-MOOD_WEIGHTS = {
-    "happy": 0.9,
-    "sad": 1.0,
-    "chill": 1.0,
-    "intense": 1.0,
-    "romantic": 1.2,
-    "dark": 1.2,
-    "uplifting": 1.3,
-    "nostalgic": 1.3,
-    "party": 1.3,
-}
+MOOD_WEIGHTS = settings.mood_weights
 
-
-LYRICS_WEIGHT = 1.5  # Tunable weight for lyrics signal (can make configurable)
-BPM_WEIGHT = 1
-TAGS_WEIGHT = 0.7
+LYRICS_WEIGHT = settings.lyrics_weight
+BPM_WEIGHT = settings.bpm_weight
+TAGS_WEIGHT = settings.tags_weight
 DEFAULT_LYRICS_CONFIDENCE = 1  # Confidence assigned to GPT-derived mood
 
 MOOD_MAPPING = {

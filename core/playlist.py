@@ -17,7 +17,7 @@ import logging
 import math
 import cloudscraper
 
-from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
+from config import settings
 from core.constants import *
 from services.jellyfin import jf_get, fetch_tracks_for_playlist_id
 from services.lastfm import enrich_with_lastfm
@@ -425,7 +425,7 @@ def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list:
     for t in enriched:
         raw_lfm = t.get("popularity")
         raw_jf = t.get("jellyfin_play_count")
-        norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+        norm_lfm = normalize_popularity_log(raw_lfm, settings.global_min_lfm, settings.global_max_lfm)
         norm_jf = normalize_popularity(raw_jf, 0, max_jf)
         logger.info(f"{t['title']}")
         combined = combined_popularity_score(norm_lfm, norm_jf)

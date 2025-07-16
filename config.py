@@ -46,6 +46,32 @@ class AppSettings(BaseModel):
     lastfm_api_key: str = ""
     model: str = "gpt-4o-mini"
     getsongbpm_api_key: str = ""
+    global_min_lfm: int = 10_000
+    global_max_lfm: int = 15_000_000
+    cache_ttls: dict[str, int] = {
+        "prompt": 60 * 60 * 24,
+        "youtube": 60 * 60 * 6,
+        "lastfm": 60 * 60 * 24 * 7,
+        "lastfm_popularity": 60 * 60 * 24 * 7,
+        "playlists": 60 * 30,
+        "bpm": 60 * 60 * 24 * 30,
+    }
+    mood_weights: dict[str, float] = {
+        "happy": 0.9,
+        "sad": 1.0,
+        "chill": 1.0,
+        "intense": 1.0,
+        "romantic": 1.2,
+        "dark": 1.2,
+        "uplifting": 1.3,
+        "nostalgic": 1.3,
+        "party": 1.3,
+    }
+    lyrics_weight: float = 1.5
+    bpm_weight: float = 1.0
+    tags_weight: float = 0.7
+    gpt_temperature: float = 0.7
+    lyrics_temperature: float = 0.4
 
     def validate(self) -> None:
         """
@@ -100,5 +126,5 @@ def save_settings(s: AppSettings) -> None:
 settings: AppSettings = load_settings()
 print("[DEBUG] settings loaded:", settings.dict())
 
-GLOBAL_MIN_LFM = 10_000        # anything below this is "low popularity"
-GLOBAL_MAX_LFM = 15_000_000     # extremely popular tracks
+GLOBAL_MIN_LFM = settings.global_min_lfm        # anything below this is "low popularity"
+GLOBAL_MAX_LFM = settings.global_max_lfm     # extremely popular tracks

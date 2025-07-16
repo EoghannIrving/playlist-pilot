@@ -34,7 +34,6 @@ from openai import OpenAI
 from fastapi import APIRouter, Request
 from core.playlist import enrich_jellyfin_playlist
 from time import perf_counter
-from config import GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
 import json
 import logging
 import asyncio
@@ -343,6 +342,12 @@ async def update_settings(
     lastfm_api_key: str = Form(""),
     model: str = Form("gpt-4o-mini"),
     getsongbpm_api_key: str = Form(""),
+    global_min_lfm: int = Form(10000),
+    global_max_lfm: int = Form(15000000),
+    gpt_temperature: float = Form(0.7),
+    lyrics_temperature: float = Form(0.4),
+    cache_ttls: str = Form(""),
+    mood_weights: str = Form(""),
 ):
     """
     Update application configuration settings from form input.
@@ -359,6 +364,20 @@ async def update_settings(
         if m.id.startswith("gpt")
     ]
     settings.getsongbpm_api_key = getsongbpm_api_key
+    settings.global_min_lfm = global_min_lfm
+    settings.global_max_lfm = global_max_lfm
+    settings.gpt_temperature = gpt_temperature
+    settings.lyrics_temperature = lyrics_temperature
+    if cache_ttls:
+        try:
+            settings.cache_ttls = json.loads(cache_ttls)
+        except json.JSONDecodeError:
+            pass
+    if mood_weights:
+        try:
+            settings.mood_weights = {k: float(v) for k, v in json.loads(mood_weights).items()}
+        except json.JSONDecodeError:
+            pass
 
     save_settings(settings)
 
@@ -514,7 +533,7 @@ async def analyze_selected_playlist(
     for track in parsed_enriched:
         raw_lfm = track.get("popularity")
         raw_jf = track.get("jellyfin_play_count")
-        norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM) if raw_lfm is not None else None
+        norm_lfm = normalize_popularity_log(raw_lfm, settings.global_min_lfm, settings.global_max_lfm) if raw_lfm is not None else None
         norm_jf = normalize_popularity(raw_jf, min_jf, max_jf) if raw_jf is not None else None
         track["combined_popularity"] = combined_popularity_score(norm_lfm, norm_jf, w_lfm=0.3, w_jf=0.7)
     print(f"⏱️ Calculate Combined Popularity: {perf_counter() - start:.2f}s")
@@ -618,7 +637,7 @@ async def suggest_from_analyzed(request: Request):
         for track in parsed_suggestions:
             raw_lfm = track.get("popularity")
             raw_jf = track.get("jellyfin_play_count")
-            norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM) if raw_lfm is not None else None
+            norm_lfm = normalize_popularity_log(raw_lfm, settings.global_min_lfm, settings.global_max_lfm) if raw_lfm is not None else None
             norm_jf = normalize_popularity(raw_jf, min_jf, max_jf) if raw_jf is not None else None
             track["combined_popularity"] = combined_popularity_score(norm_lfm, norm_jf, w_lfm=0.3, w_jf=0.7)
             logger.info(f"{track['title']} - {track['artist']} | Combined: {track['combined_popularity']:.1f} | "

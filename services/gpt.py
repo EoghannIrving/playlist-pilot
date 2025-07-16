@@ -92,13 +92,13 @@ def prompt_fingerprint(prompt: str) -> str:
     """Generate SHA256 fingerprint of the prompt."""
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
-def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
+def cached_chat_completion(prompt: str, temperature: float = settings.gpt_temperature) -> str:
     """
     Get a GPT completion from cache or OpenAI, allowing temperature override.
 
     Args:
         prompt (str): The user/system prompt.
-        temperature (float): Temperature for GPT completion (default 0.7).
+        temperature (float): Temperature for GPT completion (default from settings).
 
     Returns:
         str: GPT's raw response content.
@@ -244,7 +244,7 @@ Tracks:
     response = openai_client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+        temperature=settings.gpt_temperature,
     )
 
     content = response.choices[0].message.content.strip()
@@ -289,7 +289,7 @@ def analyze_mood_from_lyrics(lyrics: str) -> str:
         f"""\n{lyrics}\n"""
     )
     try:
-        result = cached_chat_completion(prompt, temperature=0.4)  # Lower temperature for consistency
+        result = cached_chat_completion(prompt, temperature=settings.lyrics_temperature)  # Lower temperature for consistency
         mood = result.strip().lower()
         print(f"mood: {mood}")
         logger.info(f"GPT lyrics mood analysis result: {mood}")
