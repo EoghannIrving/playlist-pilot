@@ -11,40 +11,60 @@ including:
 - Settings management
 """
 
-from pathlib import Path
-from datetime import datetime
 import os
-from fastapi import APIRouter, Request, Form, Query
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from core.templates import templates
-from config import settings, save_settings
-from core.constants import BASE_DIR
-from core.history import load_user_history, save_user_history, save_whole_user_history, extract_date_from_label
-from core.m3u import write_m3u
-from core.playlist import get_playlist_id_by_name, get_playlist_tracks, parse_suggestion_line, get_full_audio_library, normalize_popularity, combined_popularity_score, normalize_popularity_log
-from services.gpt import gpt_suggest_validated, generate_playlist_analysis_summary
-from services.jellyfin import fetch_jellyfin_users, search_jellyfin_for_track, fetch_tracks_for_playlist_id, fetch_jellyfin_track_metadata, create_jellyfin_playlist
-from core.playlist import fetch_audio_playlists, normalize_track, enrich_track
-from services.metube import get_youtube_url_single
-from core.analysis import summarize_tracks
-from utils.cache_manager import playlist_cache, CACHE_TTLS
-import openai
-from openai import OpenAI
-from fastapi import APIRouter, Request
-from core.playlist import enrich_jellyfin_playlist
-from time import perf_counter
-from config import GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
 import json
 import logging
 import asyncio
-from core.m3u import export_history_entry_as_m3u
-from pydantic import BaseModel
-from fastapi import APIRouter, UploadFile, File, Request
-from fastapi.responses import RedirectResponse
 import shutil
-from core.m3u import import_m3u_as_history_entry
 import tempfile
+import uuid
+from datetime import datetime
+from pathlib import Path
+from time import perf_counter
+
+import openai
+from openai import OpenAI
+from fastapi import APIRouter, Request, Form, Query, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
+from core.templates import templates
+from config import settings, save_settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
+from core.constants import BASE_DIR
+from core.history import (
+    load_user_history,
+    save_user_history,
+    save_whole_user_history,
+    extract_date_from_label,
+)
+from core.m3u import (
+    write_m3u,
+    export_history_entry_as_m3u,
+    import_m3u_as_history_entry,
+)
+from core.playlist import (
+    fetch_audio_playlists,
+    get_playlist_id_by_name,
+    get_playlist_tracks,
+    parse_suggestion_line,
+    get_full_audio_library,
+    normalize_popularity,
+    combined_popularity_score,
+    normalize_popularity_log,
+    normalize_track,
+    enrich_track,
+    enrich_jellyfin_playlist,
+)
+from services.gpt import gpt_suggest_validated, generate_playlist_analysis_summary
+from services.jellyfin import (
+    fetch_jellyfin_users,
+    search_jellyfin_for_track,
+    fetch_tracks_for_playlist_id,
+    fetch_jellyfin_track_metadata,
+    create_jellyfin_playlist,
+    resolve_jellyfin_path,
+)
+from services.metube import get_youtube_url_single
+from core.analysis import summarize_tracks
+from utils.cache_manager import playlist_cache, CACHE_TTLS
 
 
 logger = logging.getLogger("playlist-pilot")
@@ -733,13 +753,6 @@ async def import_m3u_file(request: Request, m3u_file: UploadFile = File(...)):
 
     import_m3u_as_history_entry(temp_path)
     return RedirectResponse(url="/history", status_code=303)
-
-from fastapi import APIRouter, Form, Request
-from fastapi.responses import FileResponse, JSONResponse
-import tempfile
-import uuid
-from pathlib import Path
-from services.jellyfin import resolve_jellyfin_path
 
 
 @router.post("/analyze/export-m3u")
