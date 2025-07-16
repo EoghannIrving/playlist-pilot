@@ -51,7 +51,7 @@ try:
     settings.validate()
 except ValueError as e:
     import sys
-    print(f"[Startup Error] {e}", file=sys.stderr)
+    logger.error("[Startup Error] %s", e)
     raise SystemExit(1)
 
 # ─────────────────────────────────────────────────────────────

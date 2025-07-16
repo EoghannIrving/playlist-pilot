@@ -1,3 +1,5 @@
+"""Utility functions for analyzing playlists and track metadata."""
+
 from collections import Counter
 from typing import List, Dict
 from statistics import mean
@@ -315,10 +317,6 @@ def combine_mood_scores(tag_scores: dict, bpm_scores: dict, lyrics_scores: dict 
     logger.info(f"  Raw BPM Scores: {bpm_scores}")
     logger.info(f"  Raw Lyrics Scores: {lyrics_scores}")
 
-    print("\n→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:")
-    print(f"  Raw Tag Scores: {tag_scores}")
-    print(f"  Raw BPM Scores: {bpm_scores}")
-    print(f"  Raw Lyrics Scores: {lyrics_scores}")
 
 
     tag_sum = sum(tag_scores.values())
@@ -347,7 +345,7 @@ def combine_mood_scores(tag_scores: dict, bpm_scores: dict, lyrics_scores: dict 
     # Filter top 3 moods
     sorted_moods = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     filtered = dict(sorted_moods[:3])
-    print(f"filtered: {filtered}")
+    logger.debug(f"Filtered mood scores: {filtered}")
     if not filtered or max(filtered.values()) < 0.3:
         logger.warning("← Final Mood: unknown (no strong scores)\n")
         return "unknown", 0.0

@@ -234,8 +234,8 @@ def enrich_track(parsed: dict) -> dict:
 
     bpm = bpm_data.get("bpm") if bpm_data else None
     if not bpm:
-        bpm=parsed.get("tempo")
-        print(f"bpm from jellyfin: {bpm}")
+        bpm = parsed.get("tempo")
+        logger.debug(f"BPM from Jellyfin metadata: {bpm}")
     
     bpmdatayear = bpm_data.get("year") if bpm_data else 0
     jellyfin_year = parsed.get("year", "")
@@ -262,7 +262,7 @@ def enrich_track(parsed: dict) -> dict:
     decade = infer_decade(final_year)
 
     # ✅ 6. Mood classification
-    print(f"Track: {parsed.get('Title')}")
+    logger.debug(f"Enriching track: {parsed.get('Title')}")
     tag_scores = mood_scores_from_lastfm_tags(tags)
     bpm_scores = mood_scores_from_bpm_data(bpm_data or {})
     lyrics_scores = None
@@ -410,8 +410,7 @@ def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list:
             )
             enriched.append(enriched_data)
         except Exception as e:
-            print(f"Track enrichment failed for '{t.get('Name')}': {e}")
-            logging.warning(f"Track enrichment failed for '{t.get('Name')}': {e}")
+            logger.warning(f"Track enrichment failed for '{t.get('Name')}': {e}")
 
     # Collect raw popularity values
     lastfm_raw = [t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)]
