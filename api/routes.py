@@ -73,6 +73,7 @@ router = APIRouter()
 
 # Async wrapper to process one suggestion
 async def enrich_suggestion(suggestion):
+    """Return enriched data for a single GPT suggestion."""
     try:
         text, reason = parse_suggestion_line(suggestion["text"])
         title=suggestion["title"]
@@ -167,6 +168,7 @@ async def compare_playlists_form(request: Request):
             })
 
         def resolve(source_type, source_id):
+            """Resolve playlist details for comparison."""
             if source_type == "history":
                 try:
                     entry = history[int(source_id)]
@@ -223,13 +225,29 @@ async def compare_playlists_form(request: Request):
         comparison = []
 
         if only_in_1:
-            comparison.append({"side": "only_in_1", "label": f"🎵 Only in {label1}", "tracks": only_in_1})
+            comparison.append({
+                "side": "only_in_1",
+                "label": f"🎵 Only in {label1}",
+                "tracks": only_in_1,
+            })
         if only_in_2:
-            comparison.append({"side": "only_in_2", "label": f"🎶 Only in {label2}", "tracks": only_in_2})
+            comparison.append({
+                "side": "only_in_2",
+                "label": f"🎶 Only in {label2}",
+                "tracks": only_in_2,
+            })
         if common_tracks:
-            comparison.append({"side": "shared", "label": "✅ Shared Tracks", "tracks": common_tracks})
+            comparison.append({
+                "side": "shared",
+                "label": "✅ Shared Tracks",
+                "tracks": common_tracks,
+            })
         if not comparison:
-            comparison.append({"label": "✅ The playlists contain the same tracks.", "tracks": [], "side": "shared"})
+            comparison.append({
+                "label": "✅ The playlists contain the same tracks.",
+                "tracks": [],
+                "side": "shared",
+            })
 
         return templates.TemplateResponse("compare.html", {
             "request": request,
@@ -261,13 +279,17 @@ async def compare_playlists_form(request: Request):
 
 @router.get("/compare", response_class=HTMLResponse)
 async def compare_ui(request: Request):
+    """Render the playlist comparison form."""
     history = load_sorted_history(settings.jellyfin_user_id)
     all_playlists = fetch_audio_playlists()["playlists"]
-    return templates.TemplateResponse("compare.html", {
-        "request": request,
-        "history": history,
-        "playlists": all_playlists
-    })
+    return templates.TemplateResponse(
+        "compare.html",
+        {
+            "request": request,
+            "history": history,
+            "playlists": all_playlists,
+        },
+    )
 
 
 @router.get("/history", response_class=HTMLResponse)
@@ -276,6 +298,7 @@ async def history_page(
     sort: str = Query("recent"),
     deleted: int = Query(0)
 ):
+    """Display the user's GPT history with optional sorting."""
     history = load_sorted_history(settings.jellyfin_user_id)
 
     if sort == "recent":
@@ -391,6 +414,7 @@ async def update_settings(
 
 @router.post("/api/test/lastfm")
 async def test_lastfm(request: Request):
+    """Validate a Last.fm API key by performing a simple search."""
     import httpx
     data = await request.json()
     key = data.get("key", "").strip()
@@ -417,6 +441,7 @@ async def test_lastfm(request: Request):
 
 @router.post("/api/test/jellyfin")
 async def test_jellyfin(request: Request):
+    """Verify the provided Jellyfin URL and API key."""
     import httpx
     import logging
     data = await request.json()
@@ -444,6 +469,7 @@ async def test_jellyfin(request: Request):
 
 @router.post("/api/test/openai")
 async def test_openai(request: Request):
+    """Check if the OpenAI API key is valid by listing models."""
     data = await request.json()
     key = data.get("key")
     try:
@@ -458,6 +484,7 @@ async def test_openai(request: Request):
 
 @router.get("/analyze", response_class=HTMLResponse)
 async def show_analysis_page(request: Request):
+    """Display the playlist analysis form."""
     user_id = settings.jellyfin_user_id
     playlists_data = get_cached_playlists(user_id)
     history = load_sorted_history(user_id)
@@ -475,6 +502,7 @@ async def analyze_selected_playlist(
     source_type: str = Form(...),
     playlist_id: str = Form(...)
 ):
+    """Analyze a selected playlist from Jellyfin or GPT history."""
     if source_type == "jellyfin":
         enriched = enrich_jellyfin_playlist(playlist_id)
         name_data = get_cached_playlists(settings.jellyfin_user_id)
@@ -491,8 +519,9 @@ async def analyze_selected_playlist(
         entry = history[int(playlist_id)]
         suggestions = entry.get("suggestions", [])
         tracks = [s.get("text", "") for s in suggestions if isinstance(s, dict)]
-        playlist_name = entry.get("label").rsplit(" - ", 1)[0].strip() + " Suggestions" if " - " in entry.get("label") else entry.get("label") + " Suggestions"
-#        playlist_name = "Temporary Name"
+        label_parts = entry.get("label").rsplit(" - ", 1)
+        clean_label = label_parts[0].strip() if len(label_parts) > 1 else entry.get("label")
+        playlist_name = f"{clean_label} Suggestions"
         start = perf_counter()
         enriched = [enrich_track(normalize_track(t)) for t in tracks]
         logger.debug(f"Enriched Tracks: {perf_counter() - start:.2f}s")
@@ -500,8 +529,16 @@ async def analyze_selected_playlist(
     parsed_enriched = [s for s in enriched if s is not None]
     logger.debug(f"⏱️ Suggestion enrichment loop: {perf_counter() - start:.2f}s")
     # 🔁 Calculate combined popularity
-    lastfm_raw = [t["popularity"] for t in parsed_enriched if isinstance(t.get("popularity"), int)]
-    jellyfin_raw = [t["jellyfin_play_count"] for t in parsed_enriched if isinstance(t.get("jellyfin_play_count"), int)]
+    lastfm_raw = [
+        t["popularity"]
+        for t in parsed_enriched
+        if isinstance(t.get("popularity"), int)
+    ]
+    jellyfin_raw = [
+        t["jellyfin_play_count"]
+        for t in parsed_enriched
+        if isinstance(t.get("jellyfin_play_count"), int)
+    ]
 
     min_lfm, max_lfm = min(lastfm_raw, default=0), max(lastfm_raw, default=0)
     min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
@@ -509,9 +546,22 @@ async def analyze_selected_playlist(
     for track in parsed_enriched:
         raw_lfm = track.get("popularity")
         raw_jf = track.get("jellyfin_play_count")
-        norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM) if raw_lfm is not None else None
-        norm_jf = normalize_popularity(raw_jf, min_jf, max_jf) if raw_jf is not None else None
-        track["combined_popularity"] = combined_popularity_score(norm_lfm, norm_jf, w_lfm=0.3, w_jf=0.7)
+        norm_lfm = (
+            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+            if raw_lfm is not None
+            else None
+        )
+        norm_jf = (
+            normalize_popularity(raw_jf, min_jf, max_jf)
+            if raw_jf is not None
+            else None
+        )
+        track["combined_popularity"] = combined_popularity_score(
+            norm_lfm,
+            norm_jf,
+            w_lfm=0.3,
+            w_jf=0.7,
+        )
     logger.debug(f"⏱️ Calculate Combined Popularity: {perf_counter() - start:.2f}s")
 
     # Compute listener count stats
@@ -523,9 +573,11 @@ async def analyze_selected_playlist(
         summary = {
             "avg_listeners": sum(sorted_counts) // n,
             "median_listeners": (
-                sorted_counts[n // 2] if n % 2 else (sorted_counts[n // 2 - 1] + sorted_counts[n // 2]) // 2
+                sorted_counts[n // 2]
+                if n % 2
+                else (sorted_counts[n // 2 - 1] + sorted_counts[n // 2]) // 2
             ),
-            "max_listeners": max(sorted_counts)
+            "max_listeners": max(sorted_counts),
         }
     else:
         summary = {
@@ -552,14 +604,17 @@ async def analyze_selected_playlist(
 
 
 from services.lastfm import get_lastfm_tags
+
 @router.get("/test-lastfm-tags")
 def test_lastfm(title: str, artist: str):
+    """Return tags for a given track from Last.fm for debugging."""
     tags = get_lastfm_tags(title, artist)
     return {"tags": tags}
 
 
 @router.post("/suggest-playlist")
 async def suggest_from_analyzed(request: Request):
+    """Generate playlist suggestions from the analyzed tracks."""
     try:
         data = await request.form()
         tracks_raw = data.get("tracks", "[]")
@@ -604,8 +659,16 @@ async def suggest_from_analyzed(request: Request):
         parsed_suggestions.sort(key=lambda s: not s["in_jellyfin"])
         logger.debug(f"⏱️ Sorting: {perf_counter() - start:.2f}s")
         # 🔁 Calculate combined popularity
-        lastfm_raw = [t["popularity"] for t in parsed_suggestions if isinstance(t.get("popularity"), int)]
-        jellyfin_raw = [t["jellyfin_play_count"] for t in parsed_suggestions if isinstance(t.get("jellyfin_play_count"), int)]
+        lastfm_raw = [
+            t["popularity"]
+            for t in parsed_suggestions
+            if isinstance(t.get("popularity"), int)
+        ]
+        jellyfin_raw = [
+            t["jellyfin_play_count"]
+            for t in parsed_suggestions
+            if isinstance(t.get("jellyfin_play_count"), int)
+        ]
 
         min_lfm, max_lfm = min(lastfm_raw, default=0), max(lastfm_raw, default=0)
         min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
@@ -613,11 +676,30 @@ async def suggest_from_analyzed(request: Request):
         for track in parsed_suggestions:
             raw_lfm = track.get("popularity")
             raw_jf = track.get("jellyfin_play_count")
-            norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM) if raw_lfm is not None else None
-            norm_jf = normalize_popularity(raw_jf, min_jf, max_jf) if raw_jf is not None else None
-            track["combined_popularity"] = combined_popularity_score(norm_lfm, norm_jf, w_lfm=0.3, w_jf=0.7)
-            logger.info(f"{track['title']} - {track['artist']} | Combined: {track['combined_popularity']:.1f} | "
-                  f"Last.fm: {raw_lfm}, Jellyfin: {raw_jf}")
+            norm_lfm = (
+                normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+                if raw_lfm is not None
+                else None
+            )
+            norm_jf = (
+                normalize_popularity(raw_jf, min_jf, max_jf)
+                if raw_jf is not None
+                else None
+            )
+            track["combined_popularity"] = combined_popularity_score(
+                norm_lfm,
+                norm_jf,
+                w_lfm=0.3,
+                w_jf=0.7,
+            )
+            logger.info(
+                "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
+                track["title"],
+                track["artist"],
+                track["combined_popularity"],
+                raw_lfm,
+                raw_jf,
+            )
         logger.debug(f"⏱️ Calculate Combined Popularity: {perf_counter() - start:.2f}s")
         start = perf_counter()
         playlist_clean = playlist_name.strip('"').strip("'")
@@ -645,6 +727,7 @@ async def suggest_from_analyzed(request: Request):
 
 @router.get("/history/export")
 async def export_history_m3u(request: Request, label: str = Query(...)):
+    """Export a stored GPT playlist from history as an M3U file."""
     user_id = settings.jellyfin_user_id
     history = load_sorted_history(user_id)
 
@@ -673,13 +756,20 @@ async def export_history_m3u(request: Request, label: str = Query(...)):
 from services.jellyfin import create_jellyfin_playlist, fetch_jellyfin_track_metadata
 
 class ExportPlaylistRequest(BaseModel):
+    """Payload model for exporting playlists to Jellyfin."""
+
     name: str
     tracks: list[dict]  # Expecting list of { "title": str, "artist": str }
 
 
 @router.post("/export/jellyfin")
 async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
-    logger.info(f"🚀 Export playlist request received: {payload.name} with {len(payload.tracks)} tracks")
+    """Create a new Jellyfin playlist populated with the given tracks."""
+    logger.info(
+        "🚀 Export playlist request received: %s with %d tracks",
+        payload.name,
+        len(payload.tracks),
+    )
 
     item_ids = []
 
@@ -688,7 +778,11 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
         if metadata:
             item_ids.append(metadata["Id"])
         else:
-            logger.warning(f"⚠️ Skipping track not found in Jellyfin: {track['title']} - {track['artist']}")
+            logger.warning(
+                "⚠️ Skipping track not found in Jellyfin: %s - %s",
+                track["title"],
+                track["artist"],
+            )
 
     if not item_ids:
         raise HTTPException(status_code=400, detail="No valid Jellyfin tracks found for export.")
@@ -702,6 +796,7 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
 
 @router.post("/import_m3u")
 async def import_m3u_file(request: Request, m3u_file: UploadFile = File(...)):
+    """Import an uploaded M3U file into the user's history."""
     temp_path = f"/tmp/{m3u_file.filename}"
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(m3u_file.file, buffer)
@@ -712,6 +807,7 @@ async def import_m3u_file(request: Request, m3u_file: UploadFile = File(...)):
 
 @router.post("/analyze/export-m3u")
 async def export_m3u(request: Request):
+    """Generate an M3U file from analysis results for download."""
     payload = await request.json()
     name = payload.get("name", "analysis_export")
     tracks = payload.get("tracks", [])
@@ -723,7 +819,12 @@ async def export_m3u(request: Request):
     for track in tracks:
         artist = track.get("artist", "")
         title = track.get("title", "")
-        path = await resolve_jellyfin_path(title, artist, settings.jellyfin_url, settings.jellyfin_api_key)
+        path = await resolve_jellyfin_path(
+            title,
+            artist,
+            settings.jellyfin_url,
+            settings.jellyfin_api_key,
+        )
         if path:
             lines.append(path)
         else:
@@ -740,6 +841,7 @@ async def export_m3u(request: Request):
 
 @router.post("/export/track-metadata")
 async def export_track_metadata(request: Request):
+    """Write enriched metadata for a track back to Jellyfin."""
     from services import jellyfin
 
     data = await request.json()
@@ -753,7 +855,10 @@ async def export_track_metadata(request: Request):
     artist = track.get("artist")
     existing_item = jellyfin.fetch_jellyfin_track_metadata(title, artist)
     if not existing_item or not existing_item.get("Id"):
-        return JSONResponse({"error": "Could not resolve Jellyfin ItemId for track."}, status_code=404)
+        return JSONResponse(
+            {"error": "Could not resolve Jellyfin ItemId for track."},
+            status_code=404,
+        )
 
     item_id = existing_item["Id"]
     full_item = jellyfin.get_full_item(item_id)
