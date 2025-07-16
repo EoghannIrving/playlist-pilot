@@ -10,10 +10,9 @@ This file manages:
 """
 
 import json
+import logging
 from pathlib import Path
 from pydantic import BaseModel
-from typing import Optional
-import logging
 
 
 # ─────────────────────────────────────────────────────────────
@@ -48,7 +47,7 @@ class AppSettings(BaseModel):
     model: str = "gpt-4o-mini"
     getsongbpm_api_key: str = ""
 
-    def validate(self) -> None:
+    def validate_settings(self) -> None:
         """
         Validates that all required configuration fields are filled.
 
@@ -78,7 +77,7 @@ def load_settings() -> AppSettings:
         AppSettings: The loaded settings object.
     """
     if SETTINGS_FILE.exists():
-        with open(SETTINGS_FILE, "r") as f:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         # Normalize keys to lowercase for compatibility
         normalized = {k.lower(): v for k, v in data.items()}
@@ -92,7 +91,7 @@ def save_settings(s: AppSettings) -> None:
     Args:
         s (AppSettings): The settings object to save.
     """
-    with open(SETTINGS_FILE, "w") as f:
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(s.dict(), f, indent=2)
 
 # ─────────────────────────────────────────────────────────────
