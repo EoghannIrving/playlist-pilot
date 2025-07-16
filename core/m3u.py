@@ -4,19 +4,18 @@ m3u.py
 Generates .m3u playlist files in a temporary directory using unique filenames.
 """
 
+import os
+import re
 import tempfile
 import uuid
 from pathlib import Path
-from core.constants import *
 import httpx
-from services.jellyfin import resolve_jellyfin_path
 import logging
-from pathlib import Path
-import os
-import logging
-from services.jellyfin import search_jellyfin_for_track
+
+from core.constants import *
+from services.jellyfin import resolve_jellyfin_path, search_jellyfin_for_track
+from core.history import save_user_history, load_user_history
 from config import *
-import re
 from core.playlist import enrich_track
 
 logger = logging.getLogger("playlist-pilot")
@@ -98,11 +97,6 @@ def read_m3u(file_path: Path) -> list[dict]:
         })
 
     return tracks
-
-import logging
-from core.history import save_user_history, load_user_history
-from services.jellyfin import search_jellyfin_for_track
-from config import settings
 
 def infer_track_metadata_from_path(path):
     parts = path.replace("\\", "/").split("/")
