@@ -11,7 +11,6 @@ including:
 - Settings management
 """
 
-import os
 import json
 import logging
 import asyncio
@@ -24,7 +23,7 @@ from time import perf_counter
 from pydantic import BaseModel
 import openai
 from openai import OpenAI
-from fastapi import APIRouter, Request, Form, Query, UploadFile, File
+from fastapi import APIRouter, Request, Form, Query, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from core.templates import templates
 from config import settings, save_settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
@@ -41,10 +40,7 @@ from core.m3u import (
 )
 from core.playlist import (
     fetch_audio_playlists,
-    get_playlist_id_by_name,
-    get_playlist_tracks,
     parse_suggestion_line,
-    get_full_audio_library,
     normalize_popularity,
     combined_popularity_score,
     normalize_popularity_log,
@@ -55,16 +51,17 @@ from core.playlist import (
 from services.gpt import gpt_suggest_validated, generate_playlist_analysis_summary
 from services.jellyfin import (
     fetch_jellyfin_users,
-    search_jellyfin_for_track,
     fetch_tracks_for_playlist_id,
     fetch_jellyfin_track_metadata,
     create_jellyfin_playlist,
     resolve_jellyfin_path,
 )
+import httpx
 from services.metube import get_youtube_url_single
 from core.analysis import summarize_tracks
-from utils.cache_manager import playlist_cache, CACHE_TTLS
 from utils.helpers import get_cached_playlists, load_sorted_history
+from services import jellyfin
+from services.lastfm import get_lastfm_tags
 
 
 logger = logging.getLogger("playlist-pilot")
@@ -94,8 +91,8 @@ async def enrich_suggestion(suggestion):
             search_query = f"{suggestion['title']} {suggestion['artist']}"
             try:
                 _, youtube_url = await get_youtube_url_single(search_query)
-            except Exception as e:
-                logger.warning(f"YTDLP lookup failed for {search_query}: {e}")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.warning("YTDLP lookup failed for %s: %s", search_query, e)
         parsed = {
             "title": suggestion["title"],
             "artist": suggestion["artist"],
@@ -114,8 +111,8 @@ async def enrich_suggestion(suggestion):
             **enriched
         }
 
-    except Exception as e:
-        logger.warning(f"Skipping suggestion: {e}")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.warning("Skipping suggestion: %s", e)
         return None  # skip failed item
 
 
@@ -140,7 +137,7 @@ async def index(request: Request):
     })
 
 @router.post("/compare", response_class=HTMLResponse)
-async def compare_playlists_form(request: Request):
+async def compare_playlists_form(request: Request):  # pylint: disable=too-many-locals
     """
     Compare the overlap between two playlists (GPT or Jellyfin) via HTML form.
     """
@@ -178,8 +175,8 @@ async def compare_playlists_form(request: Request):
                         for track in entry["suggestions"]
                     ]
                     return label, tracks
-                except Exception as e:
-                    logger.warning(f"❌ Failed to resolve GPT history index {source_id}: {e}")
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.warning("\u274c Failed to resolve GPT history index %s: %s", source_id, e)
                     return None, []
             elif source_type == "jellyfin":
                 try:
@@ -193,9 +190,10 @@ async def compare_playlists_form(request: Request):
                         for t in tracks
                     ]
                     return label, formatted
-                except Exception as e:
-                    logger.warning(f"❌ Failed to resolve Jellyfin playlist {source_id}: {e}")
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.warning("\u274c Failed to resolve Jellyfin playlist %s: %s", source_id, e)
                     return None, []
+            return None, []
 
         label1, tracks1 = resolve(s1_type, s1_id)
         label2, tracks2 = resolve(s2_type, s2_id)
@@ -214,7 +212,9 @@ async def compare_playlists_form(request: Request):
                 }
             })
 
-        normalize = lambda s: s.lower().strip()
+        def normalize(string: str) -> str:
+            """Normalize track string for comparison."""
+            return string.lower().strip()
         set1_norm = set(map(normalize, tracks1))
         set2_norm = set(map(normalize, tracks2))
 
@@ -262,7 +262,7 @@ async def compare_playlists_form(request: Request):
             }
         })
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.exception("Error in compare_playlists_form")
         return templates.TemplateResponse("compare.html", {
             "request": request,
@@ -329,7 +329,7 @@ async def delete_history(request: Request):
         updated_history = [item for item in history if item.get("label") != label]
         save_whole_user_history(settings.jellyfin_user_id, updated_history)
         return RedirectResponse(url="/history", status_code=303)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.exception("Error deleting history")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -369,7 +369,7 @@ async def get_settings(request: Request):
 
 
 @router.post("/settings", response_class=HTMLResponse)
-async def update_settings(
+async def update_settings(  # pylint: disable=too-many-arguments
     request: Request,
     jellyfin_url: str = Form(""),
     jellyfin_api_key: str = Form(""),
@@ -415,7 +415,6 @@ async def update_settings(
 @router.post("/api/test/lastfm")
 async def test_lastfm(request: Request):
     """Validate a Last.fm API key by performing a simple search."""
-    import httpx
     data = await request.json()
     key = data.get("key", "").strip()
 
@@ -435,15 +434,13 @@ async def test_lastfm(request: Request):
             "status": r.status_code,
             "body": json_data
         })
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         return JSONResponse({"success": False, "error": str(e)})
 
 
 @router.post("/api/test/jellyfin")
 async def test_jellyfin(request: Request):
     """Verify the provided Jellyfin URL and API key."""
-    import httpx
-    import logging
     data = await request.json()
     url = data.get("url", "").rstrip("/")
     key = data.get("key", "")
@@ -456,14 +453,13 @@ async def test_jellyfin(request: Request):
         }
         async with httpx.AsyncClient() as client:
             r = await client.get(f"{url}/System/Info", headers=headers)
-        # DEBUG output
-        logging.warning("Jellyfin Test: %s", r.text)
+        logger.warning("Jellyfin Test: %s", r.text)
 
         json_data = r.json()
         valid = r.status_code == 200 and any(k.lower() == "version" for k in json_data)
         return JSONResponse({"success": valid, "status": r.status_code, "data": json_data})
-    except Exception as e:
-        logging.error("Jellyfin test error: %s", str(e))
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Jellyfin test error: %s", str(e))
         return JSONResponse({"success": False, "error": str(e)})
 
 
@@ -477,7 +473,7 @@ async def test_openai(request: Request):
         models = client.models.list()
         valid = any(m.id.startswith("gpt") for m in models.data)
         return JSONResponse({"success": valid})
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         return JSONResponse({"success": False})
 
 
@@ -497,7 +493,7 @@ async def show_analysis_page(request: Request):
 
 
 @router.post("/analyze/result", response_class=HTMLResponse)
-async def analyze_selected_playlist(
+async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     request: Request,
     source_type: str = Form(...),
     playlist_id: str = Form(...)
@@ -524,10 +520,10 @@ async def analyze_selected_playlist(
         playlist_name = f"{clean_label} Suggestions"
         start = perf_counter()
         enriched = [enrich_track(normalize_track(t)) for t in tracks]
-        logger.debug(f"Enriched Tracks: {perf_counter() - start:.2f}s")
+        logger.debug("Enriched Tracks: %.2fs", perf_counter() - start)
     start = perf_counter()
     parsed_enriched = [s for s in enriched if s is not None]
-    logger.debug(f"⏱️ Suggestion enrichment loop: {perf_counter() - start:.2f}s")
+    logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
     # 🔁 Calculate combined popularity
     lastfm_raw = [
         t["popularity"]
@@ -540,7 +536,6 @@ async def analyze_selected_playlist(
         if isinstance(t.get("jellyfin_play_count"), int)
     ]
 
-    min_lfm, max_lfm = min(lastfm_raw, default=0), max(lastfm_raw, default=0)
     min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
     start = perf_counter()
     for track in parsed_enriched:
@@ -562,7 +557,7 @@ async def analyze_selected_playlist(
             w_lfm=0.3,
             w_jf=0.7,
         )
-    logger.debug(f"⏱️ Calculate Combined Popularity: {perf_counter() - start:.2f}s")
+    logger.debug("\u23F1\ufe0f Calculate Combined Popularity: %.2fs", perf_counter() - start)
 
     # Compute listener count stats
     listener_counts = [t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)]
@@ -603,24 +598,22 @@ async def analyze_selected_playlist(
     })
 
 
-from services.lastfm import get_lastfm_tags
 
 @router.get("/test-lastfm-tags")
-def test_lastfm(title: str, artist: str):
+def debug_lastfm_tags(title: str, artist: str):
     """Return tags for a given track from Last.fm for debugging."""
     tags = get_lastfm_tags(title, artist)
     return {"tags": tags}
 
 
 @router.post("/suggest-playlist")
-async def suggest_from_analyzed(request: Request):
+async def suggest_from_analyzed(request: Request):  # pylint: disable=too-many-locals,too-many-statements
     """Generate playlist suggestions from the analyzed tracks."""
     try:
         data = await request.form()
         tracks_raw = data.get("tracks", "[]")
         playlist_name = data.get("playlist_name","")
-        playlist=data.get("playlist","")
-        logger.info(f"tracks_raw: {tracks_raw[:100]}")  # just log a portion if it's large
+        logger.info("tracks_raw: %s", tracks_raw[:100])  # just log a portion if it's large
 
         try:
             tracks = json.loads(tracks_raw)
@@ -629,7 +622,7 @@ async def suggest_from_analyzed(request: Request):
             tracks = []
         start = perf_counter()
         summary = summarize_tracks(tracks)
-        logger.debug(f"⏱️ Track summary: {perf_counter() - start:.2f}s")
+        logger.debug("\u23F1\ufe0f Track summary: %.2fs", perf_counter() - start)
         # Extract just the normalized "Artist - Title" strings
         seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
         suggestion_count=10
@@ -643,10 +636,9 @@ async def suggest_from_analyzed(request: Request):
             text_summary,
             exclude_pairs=exclude_pairs
         )
-        logger.debug(f"⏱️ GPT suggestions: {perf_counter() - start:.2f}s")
-        logger.info(f"📥 Route received {len(suggestions_raw)} suggestions from GPT")
+        logger.debug("\u23F1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
+        logger.info("\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw))
         parsed_suggestions = []
-        counter=0
         # ✅ Replace your old loop with this:
         start = perf_counter()
         logger.debug("Enriching suggestions received from GPT")
@@ -654,10 +646,10 @@ async def suggest_from_analyzed(request: Request):
             *[enrich_suggestion(s) for s in suggestions_raw]
         )
         parsed_suggestions = [s for s in parsed_suggestions_raw if s is not None]
-        logger.debug(f"⏱️ Suggestion enrichment loop: {perf_counter() - start:.2f}s")
+        logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
         start = perf_counter()
         parsed_suggestions.sort(key=lambda s: not s["in_jellyfin"])
-        logger.debug(f"⏱️ Sorting: {perf_counter() - start:.2f}s")
+        logger.debug("\u23F1\ufe0f Sorting: %.2fs", perf_counter() - start)
         # 🔁 Calculate combined popularity
         lastfm_raw = [
             t["popularity"]
@@ -670,7 +662,6 @@ async def suggest_from_analyzed(request: Request):
             if isinstance(t.get("jellyfin_play_count"), int)
         ]
 
-        min_lfm, max_lfm = min(lastfm_raw, default=0), max(lastfm_raw, default=0)
         min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
         start = perf_counter()
         for track in parsed_suggestions:
@@ -700,13 +691,13 @@ async def suggest_from_analyzed(request: Request):
                 raw_lfm,
                 raw_jf,
             )
-        logger.debug(f"⏱️ Calculate Combined Popularity: {perf_counter() - start:.2f}s")
+        logger.debug("\u23F1\ufe0f Calculate Combined Popularity: %.2fs", perf_counter() - start)
         start = perf_counter()
         playlist_clean = playlist_name.strip('"').strip("'")
         label = f"{playlist_clean} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         user_id = settings.jellyfin_user_id
         save_user_history(user_id, label, parsed_suggestions)
-        logger.debug(f"⏱️ History save: {perf_counter() - start:.2f}s")
+        logger.debug("\u23F1\ufe0f History save: %.2fs", perf_counter() - start)
         m3u_path = write_m3u([s["text"] for s in parsed_suggestions])
 
         return templates.TemplateResponse("results.html", {
@@ -721,8 +712,8 @@ async def suggest_from_analyzed(request: Request):
             "Popularity": int(summary['avg_popularity']),
             "Decades": summary['decades'].keys(),
         })
-    except Exception as e:
-        logger.error(f"Error in /suggest-playlist: {e}", exc_info=True)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.error("Error in /suggest-playlist: %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/history/export")
@@ -733,7 +724,7 @@ async def export_history_m3u(request: Request, label: str = Query(...)):
 
     entry = next((h for h in history if h.get("label") == label), None)
     if not entry:
-        logger.warning(f"No history entry found with label: {label}")
+        logger.warning("No history entry found with label: %s", label)
         raise HTTPException(status_code=404, detail="Playlist not found")
 
     # Call the new helper function
@@ -744,7 +735,7 @@ async def export_history_m3u(request: Request, label: str = Query(...)):
     )
 
     if not m3u_path or not m3u_path.exists():
-        logger.warning(f"Failed to generate M3U for history label: {label}")
+        logger.warning("Failed to generate M3U for history label: %s", label)
         raise HTTPException(status_code=500, detail="Failed to export playlist")
 
     return FileResponse(
@@ -753,7 +744,6 @@ async def export_history_m3u(request: Request, label: str = Query(...)):
         filename=f"{label}.m3u"
     )
 
-from services.jellyfin import create_jellyfin_playlist, fetch_jellyfin_track_metadata
 
 class ExportPlaylistRequest(BaseModel):
     """Payload model for exporting playlists to Jellyfin."""
@@ -840,9 +830,8 @@ async def export_m3u(request: Request):
     )
 
 @router.post("/export/track-metadata")
-async def export_track_metadata(request: Request):
+async def export_track_metadata(request: Request):  # pylint: disable=too-many-locals
     """Write enriched metadata for a track back to Jellyfin."""
-    from services import jellyfin
 
     data = await request.json()
     track = data.get("track")
