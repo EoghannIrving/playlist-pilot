@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Optional
+import logging
 
 
 # ─────────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ def save_settings(s: AppSettings) -> None:
 # Global Config Instance
 
 settings: AppSettings = load_settings()
-print("[DEBUG] settings loaded:", settings.dict())
+logging.getLogger("playlist-pilot").debug("settings loaded: %s", settings.dict())
 
 GLOBAL_MIN_LFM = 10_000        # anything below this is "low popularity"
 GLOBAL_MAX_LFM = 15_000_000     # extremely popular tracks

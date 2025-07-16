@@ -7,6 +7,7 @@ from utils.cache_manager import bpm_cache, CACHE_TTLS
 logger = logging.getLogger("playlist-pilot")
 
 def get_bpm_from_getsongbpm(artist: str, title: str, api_key: str) -> Optional[Dict[str, Optional[int]]]:
+    """Query GetSongBPM for tempo and related metadata."""
     lookup = quote_plus(f"song:{title} artist:{artist}")
     search_url = f"https://api.getsongbpm.com/search/?api_key={api_key}&type=both&lookup={lookup}"
 
@@ -52,6 +53,7 @@ def get_bpm_from_getsongbpm(artist: str, title: str, api_key: str) -> Optional[D
     }
 
 def get_cached_bpm(artist: str, title: str, api_key: str) -> Optional[Dict[str, Optional[int]]]:
+    """Return BPM data using cache to minimize external requests."""
     key = f"{title.strip().lower()}::{artist.strip().lower()}"
     if key in bpm_cache:
         logger.info(f"Cache hit for {key}")
