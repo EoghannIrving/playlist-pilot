@@ -30,7 +30,6 @@ from core.templates import templates
 from config import settings, save_settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
 from core.constants import BASE_DIR
 from core.history import (
-    load_user_history,
     save_user_history,
     save_whole_user_history,
     extract_date_from_label,
@@ -65,6 +64,7 @@ from services.jellyfin import (
 from services.metube import get_youtube_url_single
 from core.analysis import summarize_tracks
 from utils.cache_manager import playlist_cache, CACHE_TTLS
+from utils.helpers import get_cached_playlists, load_sorted_history
 
 
 logger = logging.getLogger("playlist-pilot")
@@ -129,14 +129,8 @@ async def index(request: Request):
     Uses cached data if available.
     """
     user_id = settings.jellyfin_user_id
-    cache_key = f"playlists:{user_id}"
-    playlists_data = playlist_cache.get(cache_key)
-    if playlists_data is None:
-        playlists_data = fetch_audio_playlists()
-        playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
-
-    history = load_user_history(user_id)
-    history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)
+    playlists_data = get_cached_playlists(user_id)
+    history = load_sorted_history(user_id)
 
     return templates.TemplateResponse("analyze.html", {
         "request": request,
@@ -149,8 +143,7 @@ async def compare_playlists_form(request: Request):
     """
     Compare the overlap between two playlists (GPT or Jellyfin) via HTML form.
     """
-    history = load_user_history(settings.jellyfin_user_id)
-    history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)
+    history = load_sorted_history(settings.jellyfin_user_id)
     all_playlists = fetch_audio_playlists()["playlists"]
     try:
         form = await request.form()
@@ -268,8 +261,7 @@ async def compare_playlists_form(request: Request):
 
 @router.get("/compare", response_class=HTMLResponse)
 async def compare_ui(request: Request):
-    history = load_user_history(settings.jellyfin_user_id)
-    history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)
+    history = load_sorted_history(settings.jellyfin_user_id)
     all_playlists = fetch_audio_playlists()["playlists"]
     return templates.TemplateResponse("compare.html", {
         "request": request,
@@ -284,7 +276,7 @@ async def history_page(
     sort: str = Query("recent"),
     deleted: int = Query(0)
 ):
-    history = load_user_history(settings.jellyfin_user_id)
+    history = load_sorted_history(settings.jellyfin_user_id)
 
     if sort == "recent":
         history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)
@@ -310,7 +302,7 @@ async def delete_history(request: Request):
     form = await request.form()
     label = form.get("playlist_name")
     try:
-        history = load_user_history(settings.jellyfin_user_id)
+        history = load_sorted_history(settings.jellyfin_user_id)
         updated_history = [item for item in history if item.get("label") != label]
         save_whole_user_history(settings.jellyfin_user_id, updated_history)
         return RedirectResponse(url="/history", status_code=303)
@@ -467,15 +459,8 @@ async def test_openai(request: Request):
 @router.get("/analyze", response_class=HTMLResponse)
 async def show_analysis_page(request: Request):
     user_id = settings.jellyfin_user_id
-    cache_key = f"playlists:{user_id}"
-
-    playlists_data = playlist_cache.get(cache_key)
-    if playlists_data is None:
-        playlists_data = fetch_audio_playlists()
-        playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
-
-    history = load_user_history(user_id)
-    history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)
+    playlists_data = get_cached_playlists(user_id)
+    history = load_sorted_history(user_id)
 
     return templates.TemplateResponse("analyze.html", {
         "request": request,
@@ -492,17 +477,8 @@ async def analyze_selected_playlist(
 ):
     if source_type == "jellyfin":
         enriched = enrich_jellyfin_playlist(playlist_id)
-        cache_key = f"playlists:{settings.jellyfin_user_id}"
-        name_data = playlist_cache.get(cache_key)
-
-        if name_data is None:
-            logger.info("Playlist cache miss — fetching from Jellyfin")
-            name_data = fetch_audio_playlists()
-            playlist_cache.set(cache_key, name_data, expire=CACHE_TTLS["playlists"])
-        else:
-            logger.info("Playlist cache hit")
-
-        playlistdetail=name_data.get("playlists", [])
+        name_data = get_cached_playlists(settings.jellyfin_user_id)
+        playlistdetail = name_data.get("playlists", [])
         playlist_name = "Temporary Name"
 
         for playlist in playlistdetail:
@@ -511,8 +487,7 @@ async def analyze_selected_playlist(
                 break
 
     else:
-        history = load_user_history(settings.jellyfin_user_id)
-        history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)  # ✅ Must match!
+        history = load_sorted_history(settings.jellyfin_user_id)
         entry = history[int(playlist_id)]
         suggestions = entry.get("suggestions", [])
         tracks = [s.get("text", "") for s in suggestions if isinstance(s, dict)]
@@ -679,7 +654,7 @@ async def bulk_delete_history(request: Request):
         return RedirectResponse(url=f"/history?sort={sort}", status_code=303)
 
     try:
-        history = load_user_history(user_id)
+        history = load_sorted_history(user_id)
         updated_history = [item for item in history if item.get("label") not in selected]
         save_whole_user_history(user_id, updated_history)
         deleted_count = len(selected)
@@ -691,7 +666,7 @@ async def bulk_delete_history(request: Request):
 @router.get("/history/export")
 async def export_history_m3u(request: Request, label: str = Query(...)):
     user_id = settings.jellyfin_user_id
-    history = load_user_history(user_id)
+    history = load_sorted_history(user_id)
 
     entry = next((h for h in history if h.get("label") == label), None)
     if not entry:
