@@ -233,7 +233,7 @@ def generate_playlist_analysis_summary(summary: dict, tracks: list):
     ])
 
     prompt = f"""
-You are an expert music curator analyzing a playlist to guide future additions. In 1–2 sentences, describe what kinds of tracks would complement and extend this playlist, focusing on the overall mood, vibe, and listening experience rather than strictly on genres or decades, but factoring in geoography. Do not suggest specific tracks by name.
+You are an expert music curator analyzing a playlist to guide future additions. In 1–2 sentences, describe what kinds of tracks would complement and extend this playlist, focusing on the overall mood, vibe, and listening experience rather than strictly on genres or decades, but factoring in geography. Do not suggest specific tracks by name.
 
 Then, suggest up to 4 tracks that feel out of place and could be removed to improve consistency under the heading Suggested Removals. Justify each suggestion briefly. You can suggest less than 4.
 
