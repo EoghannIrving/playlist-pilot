@@ -11,23 +11,34 @@ including:
 - Settings management
 """
 
+import asyncio
 import json
 import logging
-import asyncio
 import shutil
 import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
-from pydantic import BaseModel
+
+import httpx
 import openai
-from openai import OpenAI
-from fastapi import APIRouter, Request, Form, Query, UploadFile, File, HTTPException
+from fastapi import (
+    APIRouter,
+    Request,
+    Form,
+    Query,
+    UploadFile,
+    File,
+    HTTPException,
+    Depends,
+)
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
-from core.templates import templates
+from openai import OpenAI
+from pydantic import BaseModel
+
 from config import settings, save_settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
-from core.constants import BASE_DIR
+from core.templates import templates
 from core.history import (
     save_user_history,
     save_whole_user_history,
@@ -56,7 +67,6 @@ from services.jellyfin import (
     create_jellyfin_playlist,
     resolve_jellyfin_path,
 )
-import httpx
 from services.metube import get_youtube_url_single
 from core.analysis import summarize_tracks
 from utils.helpers import get_cached_playlists, load_sorted_history
@@ -67,6 +77,39 @@ from services.lastfm import get_lastfm_tags
 logger = logging.getLogger("playlist-pilot")
 
 router = APIRouter()
+
+
+class SettingsForm(BaseModel):
+    """Pydantic model for updating application settings via form."""
+
+    jellyfin_url: str = ""
+    jellyfin_api_key: str = ""
+    jellyfin_user_id: str = ""
+    openai_api_key: str = ""
+    lastfm_api_key: str = ""
+    model: str = "gpt-4o-mini"
+    getsongbpm_api_key: str = ""
+
+    @classmethod
+    def as_form(
+        cls,
+        jellyfin_url: str = Form(""),
+        jellyfin_api_key: str = Form(""),
+        jellyfin_user_id: str = Form(""),
+        openai_api_key: str = Form(""),
+        lastfm_api_key: str = Form(""),
+        model: str = Form("gpt-4o-mini"),
+        getsongbpm_api_key: str = Form(""),
+    ) -> "SettingsForm":
+        return cls(
+            jellyfin_url=jellyfin_url,
+            jellyfin_api_key=jellyfin_api_key,
+            jellyfin_user_id=jellyfin_user_id,
+            openai_api_key=openai_api_key,
+            lastfm_api_key=lastfm_api_key,
+            model=model,
+            getsongbpm_api_key=getsongbpm_api_key,
+        )
 
 # Async wrapper to process one suggestion
 async def enrich_suggestion(suggestion):
@@ -176,7 +219,11 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                     ]
                     return label, tracks
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.warning("\u274c Failed to resolve GPT history index %s: %s", source_id, e)
+                    logger.warning(
+                        "\u274c Failed to resolve GPT history index %s: %s",
+                        source_id,
+                        e,
+                    )
                     return None, []
             elif source_type == "jellyfin":
                 try:
@@ -191,7 +238,11 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                     ]
                     return label, formatted
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.warning("\u274c Failed to resolve Jellyfin playlist %s: %s", source_id, e)
+                    logger.warning(
+                        "\u274c Failed to resolve Jellyfin playlist %s: %s",
+                        source_id,
+                        e,
+                    )
                     return None, []
             return None, []
 
@@ -369,31 +420,25 @@ async def get_settings(request: Request):
 
 
 @router.post("/settings", response_class=HTMLResponse)
-async def update_settings(  # pylint: disable=too-many-arguments
+async def update_settings(
     request: Request,
-    jellyfin_url: str = Form(""),
-    jellyfin_api_key: str = Form(""),
-    jellyfin_user_id: str = Form(""),
-    openai_api_key: str = Form(""),
-    lastfm_api_key: str = Form(""),
-    model: str = Form("gpt-4o-mini"),
-    getsongbpm_api_key: str = Form(""),
+    form_data: SettingsForm = Depends(SettingsForm.as_form),
 ):
     """
     Update application configuration settings from form input.
     """
-    settings.jellyfin_url = jellyfin_url
-    settings.jellyfin_api_key = jellyfin_api_key
-    settings.jellyfin_user_id = jellyfin_user_id
-    settings.openai_api_key = openai_api_key
-    settings.lastfm_api_key = lastfm_api_key
-    settings.model = model
+    settings.jellyfin_url = form_data.jellyfin_url
+    settings.jellyfin_api_key = form_data.jellyfin_api_key
+    settings.jellyfin_user_id = form_data.jellyfin_user_id
+    settings.openai_api_key = form_data.openai_api_key
+    settings.lastfm_api_key = form_data.lastfm_api_key
+    settings.model = form_data.model
     client = OpenAI(api_key=settings.openai_api_key)
     models = [
         m.id for m in client.models.list().data
         if m.id.startswith("gpt")
     ]
-    settings.getsongbpm_api_key = getsongbpm_api_key
+    settings.getsongbpm_api_key = form_data.getsongbpm_api_key
 
     save_settings(settings)
 
@@ -525,11 +570,6 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     parsed_enriched = [s for s in enriched if s is not None]
     logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
     # 🔁 Calculate combined popularity
-    lastfm_raw = [
-        t["popularity"]
-        for t in parsed_enriched
-        if isinstance(t.get("popularity"), int)
-    ]
     jellyfin_raw = [
         t["jellyfin_play_count"]
         for t in parsed_enriched
@@ -582,7 +622,6 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
         }
 
     # Add your other metrics (e.g. genre diversity, mood profile, etc.)
-    from core.analysis import summarize_tracks
     base_summary = summarize_tracks(enriched)
     summary.update(base_summary)
 
@@ -606,8 +645,9 @@ def debug_lastfm_tags(title: str, artist: str):
     return {"tags": tags}
 
 
+# pylint: disable=too-many-locals,too-many-statements
 @router.post("/suggest-playlist")
-async def suggest_from_analyzed(request: Request):  # pylint: disable=too-many-locals,too-many-statements
+async def suggest_from_analyzed(request: Request):
     """Generate playlist suggestions from the analyzed tracks."""
     try:
         data = await request.form()
@@ -651,11 +691,6 @@ async def suggest_from_analyzed(request: Request):  # pylint: disable=too-many-l
         parsed_suggestions.sort(key=lambda s: not s["in_jellyfin"])
         logger.debug("\u23F1\ufe0f Sorting: %.2fs", perf_counter() - start)
         # 🔁 Calculate combined popularity
-        lastfm_raw = [
-            t["popularity"]
-            for t in parsed_suggestions
-            if isinstance(t.get("popularity"), int)
-        ]
         jellyfin_raw = [
             t["jellyfin_play_count"]
             for t in parsed_suggestions
@@ -717,7 +752,7 @@ async def suggest_from_analyzed(request: Request):  # pylint: disable=too-many-l
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/history/export")
-async def export_history_m3u(request: Request, label: str = Query(...)):
+async def export_history_m3u(label: str = Query(...)):
     """Export a stored GPT playlist from history as an M3U file."""
     user_id = settings.jellyfin_user_id
     history = load_sorted_history(user_id)
@@ -785,7 +820,7 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
     return {"status": "success", "playlist_id": playlist_id}
 
 @router.post("/import_m3u")
-async def import_m3u_file(request: Request, m3u_file: UploadFile = File(...)):
+async def import_m3u_file(m3u_file: UploadFile = File(...)):
     """Import an uploaded M3U file into the user's history."""
     temp_path = f"/tmp/{m3u_file.filename}"
     with open(temp_path, "wb") as buffer:
