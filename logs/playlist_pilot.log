@@ -4353,3 +4353,125 @@ Stay - The Kid LAROI & Justin Bieber - Stay (Single) - 2021 - A catchy yet emoti
 2025-07-14 19:30:12,726 |    DEBUG | playlist-pilot | ✅ Loaded 12 history entries
 2025-07-14 19:30:17,096 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
 2025-07-14 19:30:17,099 |    DEBUG | playlist-pilot | ✅ Loaded 12 history entries
+2025-07-16 05:47:08,461 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:47:08,465 |    DEBUG | playlist-pilot | ✅ Loaded 12 history entries
+2025-07-16 05:47:16,928 |    DEBUG | playlist-pilot | Fetched 3 tracks for playlist dd67fb5328e92c842884447ac25c7757
+2025-07-16 05:47:17,031 |     INFO | playlist-pilot | Loaded .lrc file: /Movies/Music/Darius Rucker/True Believers/Darius Rucker - True Believers - 03 - Wagon Wheel.lrc (53 lines)
+2025-07-16 05:47:17,032 |     INFO | playlist-pilot | Attached lyrics from .lrc for item bc5408cff9c7a3ff3db9cb1e43c5b60c (Wagon Wheel)
+2025-07-16 05:47:17,129 |     INFO | playlist-pilot | Loaded .lrc file: /Movies/Music/Toby Keith/Clancy's Tavern/Toby Keith - Clancy's Tavern - 10 - Red Solo Cup.lrc (74 lines)
+2025-07-16 05:47:17,129 |     INFO | playlist-pilot | Attached lyrics from .lrc for item 2a741afc5694c01e5fca76ae0c1bc419 (Red Solo Cup)
+2025-07-16 05:47:17,194 |     INFO | playlist-pilot | Loaded .lrc file: /Movies/Music/Chris Stapleton/Traveller/Chris Stapleton - Traveller - 03 - Tennessee Whiskey.lrc (48 lines)
+2025-07-16 05:47:17,194 |     INFO | playlist-pilot | Attached lyrics from .lrc for item 67c89ee2046ea1eb9914a154332101ec (Tennessee Whiskey)
+2025-07-16 05:47:17,197 |     INFO | playlist-pilot | Last.fm cache hit for Wagon Wheel - Darius Rucker
+2025-07-16 05:47:17,197 |     INFO | playlist-pilot | [Last.fm] Cache hit for Wagon Wheel - Darius Rucker
+2025-07-16 05:47:17,198 |     INFO | playlist-pilot | Cache hit for wagon wheel::darius rucker
+2025-07-16 05:47:17,199 |     INFO | playlist-pilot |    BPM: 148, Key: a, Danceability: 54, Acousticness: 46, Year: 2013
+2025-07-16 05:47:17,199 |     INFO | playlist-pilot |   +0.5 intense (fallback: bpm > 130)
+2025-07-16 05:47:17,199 |     INFO | playlist-pilot |   +0.5 happy (fallback: bpm > 110)
+2025-07-16 05:47:17,199 |    DEBUG | playlist-pilot | Lyrics found in track metadata for Darius Rucker - Wagon Wheel
+2025-07-16 05:47:17,200 |     INFO | playlist-pilot | GPT cache miss: 4fac56017fa8f5439d4954a3b49ab05a3d82c1481c5c49280a0b891ec1c8f1af
+2025-07-16 05:47:18,367 |    DEBUG | playlist-pilot | GPT API original text: uplifting
+2025-07-16 05:47:18,367 |     INFO | playlist-pilot | GPT lyrics mood analysis result: uplifting
+2025-07-16 05:47:18,367 |     INFO | playlist-pilot | 
+→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:
+2025-07-16 05:47:18,367 |     INFO | playlist-pilot |   Raw Tag Scores: {'happy': 0.0, 'sad': 0.0, 'chill': 0.0, 'intense': 0.0, 'romantic': 1.0, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 0.0}
+2025-07-16 05:47:18,368 |     INFO | playlist-pilot |   Raw BPM Scores: {'happy': 0.5, 'sad': 0.0, 'chill': 0.0, 'intense': 0.5, 'romantic': 0.0, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 0.0}
+2025-07-16 05:47:18,368 |     INFO | playlist-pilot |   Raw Lyrics Scores: {'happy': 0.0, 'sad': 0.0, 'chill': 0.0, 'intense': 0.0, 'romantic': 0.0, 'dark': 0.0, 'uplifting': 1, 'nostalgic': 0.0, 'party': 0.0}
+2025-07-16 05:47:18,369 |     INFO | playlist-pilot | ← Final Mood: uplifting (softmax confidence: 0.64)
+
+2025-07-16 05:47:18,369 |     INFO | playlist-pilot | ✅ Enriched: Wagon Wheel | Last.fm: 297981 | Jellyfin Plays: 1
+2025-07-16 05:47:18,369 |     INFO | playlist-pilot | Last.fm cache hit for Red Solo Cup - Toby Keith
+2025-07-16 05:47:18,369 |     INFO | playlist-pilot | [Last.fm] Cache hit for Red Solo Cup - Toby Keith
+2025-07-16 05:47:18,370 |     INFO | playlist-pilot | Cache hit for red solo cup::toby keith
+2025-07-16 05:47:18,371 |     INFO | playlist-pilot |    BPM: 163, Key: e, Danceability: 55, Acousticness: 28, Year: 2011
+2025-07-16 05:47:18,371 |     INFO | playlist-pilot |   +0.5 intense (fallback: bpm > 130)
+2025-07-16 05:47:18,371 |     INFO | playlist-pilot |   +0.5 happy (fallback: bpm > 110)
+2025-07-16 05:47:18,371 |    DEBUG | playlist-pilot | Lyrics found in track metadata for Toby Keith - Red Solo Cup
+2025-07-16 05:47:18,371 |     INFO | playlist-pilot | GPT cache miss: 895ea8a1a0090af1846b6cd66f3c10e9324f4ecdf1fd4456441f0fb3d0f9a68c
+2025-07-16 05:47:21,158 |    DEBUG | playlist-pilot | GPT API original text: party
+2025-07-16 05:47:21,158 |     INFO | playlist-pilot | GPT lyrics mood analysis result: party
+2025-07-16 05:47:21,158 |     INFO | playlist-pilot | 
+→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:
+2025-07-16 05:47:21,158 |     INFO | playlist-pilot |   Raw Tag Scores: {'happy': 5.0, 'sad': 0.0, 'chill': 0.0, 'intense': 0.0, 'romantic': 1.0, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 1.0}
+2025-07-16 05:47:21,158 |     INFO | playlist-pilot |   Raw BPM Scores: {'happy': 0.5, 'sad': 0.0, 'chill': 0.0, 'intense': 0.5, 'romantic': 0.0, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 0.0}
+2025-07-16 05:47:21,158 |     INFO | playlist-pilot |   Raw Lyrics Scores: {'happy': 0.0, 'sad': 0.0, 'chill': 0.0, 'intense': 0.0, 'romantic': 0.0, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 1}
+2025-07-16 05:47:21,158 |     INFO | playlist-pilot | ← Final Mood: happy (softmax confidence: 0.65)
+
+2025-07-16 05:47:21,159 |     INFO | playlist-pilot | ✅ Enriched: Red Solo Cup | Last.fm: 162009 | Jellyfin Plays: 0
+2025-07-16 05:47:21,159 |     INFO | playlist-pilot | Last.fm cache hit for Tennessee Whiskey - Chris Stapleton
+2025-07-16 05:47:21,159 |     INFO | playlist-pilot | [Last.fm] Cache hit for Tennessee Whiskey - Chris Stapleton
+2025-07-16 05:47:21,159 |     INFO | playlist-pilot | Cache hit for tennessee whiskey::chris stapleton
+2025-07-16 05:47:21,160 |     INFO | playlist-pilot |    BPM: 48, Key: a, Danceability: 40, Acousticness: 21, Year: 2015
+2025-07-16 05:47:21,160 |     INFO | playlist-pilot |   +0.5 chill (fallback: bpm < 90)
+2025-07-16 05:47:21,160 |     INFO | playlist-pilot |   +0.5 sad (fallback: bpm < 80)
+2025-07-16 05:47:21,160 |    DEBUG | playlist-pilot | Lyrics found in track metadata for Chris Stapleton - Tennessee Whiskey
+2025-07-16 05:47:21,160 |     INFO | playlist-pilot | GPT cache miss: 68f9e8ee5a16bf365c8cc1c0586b2a72e6d5e5a28936156e674a002730204cb7
+2025-07-16 05:47:21,794 |    DEBUG | playlist-pilot | GPT API original text: romantic
+2025-07-16 05:47:21,794 |     INFO | playlist-pilot | GPT lyrics mood analysis result: romantic
+2025-07-16 05:47:21,794 |     INFO | playlist-pilot | 
+→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:
+2025-07-16 05:47:21,794 |     INFO | playlist-pilot |   Raw Tag Scores: {'happy': 0.0, 'sad': 2.0, 'chill': 1.0, 'intense': 0.0, 'romantic': 0.0, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 0.0}
+2025-07-16 05:47:21,794 |     INFO | playlist-pilot |   Raw BPM Scores: {'happy': 0.0, 'sad': 0.5, 'chill': 0.5, 'intense': 0.0, 'romantic': 0.0, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 0.0}
+2025-07-16 05:47:21,794 |     INFO | playlist-pilot |   Raw Lyrics Scores: {'happy': 0.0, 'sad': 0.0, 'chill': 0.0, 'intense': 0.0, 'romantic': 1, 'dark': 0.0, 'uplifting': 0.0, 'nostalgic': 0.0, 'party': 0.0}
+2025-07-16 05:47:21,795 |     INFO | playlist-pilot | ← Final Mood: sad (softmax confidence: 0.42)
+
+2025-07-16 05:47:21,795 |     INFO | playlist-pilot | ✅ Enriched: Tennessee Whiskey | Last.fm: 444181 | Jellyfin Plays: 0
+2025-07-16 05:47:21,795 |     INFO | playlist-pilot | 📊 Last.fm popularity range: min=162009, max=444181
+2025-07-16 05:47:21,795 |     INFO | playlist-pilot | 📊 Jellyfin play count range: min=0, max=1
+2025-07-16 05:47:21,795 |     INFO | playlist-pilot | normalize_popularity_log called with value=297981, min_val=10000, max_val=15000000
+2025-07-16 05:47:21,796 |    DEBUG | playlist-pilot | normalize_popularity_log for lastfm returning 46.42 (normalized log scale) raw value: 297981
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | normalize_popularity called with value=1, min_val=0, max_val=1
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | normalize_popularity for jellyfin returning 100.0
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | Wagon Wheel
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | combined_popularity_score called with lastfm=46.42, jellyfin=100.0, w_lfm=0.4, w_jf=0.6
+2025-07-16 05:47:21,796 |    DEBUG | playlist-pilot | combined_popularity_score returning 78.57 (weighted average)
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | 📈 Wagon Wheel → LFM: 297981 (→ 46.42), JF: 1 (→ 100.0) → Combined: 78.57
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | normalize_popularity_log called with value=162009, min_val=10000, max_val=15000000
+2025-07-16 05:47:21,796 |    DEBUG | playlist-pilot | normalize_popularity_log for lastfm returning 38.08 (normalized log scale) raw value: 162009
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | normalize_popularity called with value=0, min_val=0, max_val=1
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | normalize_popularity for jellyfin returning 0.0
+2025-07-16 05:47:21,796 |     INFO | playlist-pilot | Red Solo Cup
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | combined_popularity_score called with lastfm=38.08, jellyfin=0.0, w_lfm=0.4, w_jf=0.6
+2025-07-16 05:47:21,797 |  WARNING | playlist-pilot | combined_popularity_score returning 38.08 (fallback to lastfm)
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | 📈 Red Solo Cup → LFM: 162009 (→ 38.08), JF: 0 (→ 0.0) → Combined: 38.08
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | normalize_popularity_log called with value=444181, min_val=10000, max_val=15000000
+2025-07-16 05:47:21,797 |    DEBUG | playlist-pilot | normalize_popularity_log for lastfm returning 51.87 (normalized log scale) raw value: 444181
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | normalize_popularity called with value=0, min_val=0, max_val=1
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | normalize_popularity for jellyfin returning 0.0
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | Tennessee Whiskey
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | combined_popularity_score called with lastfm=51.87, jellyfin=0.0, w_lfm=0.4, w_jf=0.6
+2025-07-16 05:47:21,797 |  WARNING | playlist-pilot | combined_popularity_score returning 51.87 (fallback to lastfm)
+2025-07-16 05:47:21,797 |     INFO | playlist-pilot | 📈 Tennessee Whiskey → LFM: 444181 (→ 51.87), JF: 0 (→ 0.0) → Combined: 51.87
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | normalize_popularity_log called with value=297981, min_val=10000, max_val=15000000
+2025-07-16 05:47:21,798 |    DEBUG | playlist-pilot | normalize_popularity_log for lastfm returning 46.42 (normalized log scale) raw value: 297981
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | normalize_popularity called with value=1, min_val=0, max_val=1
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | normalize_popularity for jellyfin returning 100.0
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | combined_popularity_score called with lastfm=46.42, jellyfin=100.0, w_lfm=0.3, w_jf=0.7
+2025-07-16 05:47:21,798 |    DEBUG | playlist-pilot | combined_popularity_score returning 83.93 (weighted average)
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | normalize_popularity_log called with value=162009, min_val=10000, max_val=15000000
+2025-07-16 05:47:21,798 |    DEBUG | playlist-pilot | normalize_popularity_log for lastfm returning 38.08 (normalized log scale) raw value: 162009
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | normalize_popularity called with value=0, min_val=0, max_val=1
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | normalize_popularity for jellyfin returning 0.0
+2025-07-16 05:47:21,798 |     INFO | playlist-pilot | combined_popularity_score called with lastfm=38.08, jellyfin=0.0, w_lfm=0.3, w_jf=0.7
+2025-07-16 05:47:21,798 |  WARNING | playlist-pilot | combined_popularity_score returning 38.08 (fallback to lastfm)
+2025-07-16 05:47:21,799 |     INFO | playlist-pilot | normalize_popularity_log called with value=444181, min_val=10000, max_val=15000000
+2025-07-16 05:47:21,799 |    DEBUG | playlist-pilot | normalize_popularity_log for lastfm returning 51.87 (normalized log scale) raw value: 444181
+2025-07-16 05:47:21,799 |     INFO | playlist-pilot | normalize_popularity called with value=0, min_val=0, max_val=1
+2025-07-16 05:47:21,799 |     INFO | playlist-pilot | normalize_popularity for jellyfin returning 0.0
+2025-07-16 05:47:21,799 |     INFO | playlist-pilot | combined_popularity_score called with lastfm=51.87, jellyfin=0.0, w_lfm=0.3, w_jf=0.7
+2025-07-16 05:47:21,799 |  WARNING | playlist-pilot | combined_popularity_score returning 51.87 (fallback to lastfm)
+2025-07-16 05:47:21,800 |     INFO | playlist-pilot | Prompt Cache Hit in generate_playlist_analysis_summary
+2025-07-16 05:48:29,440 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:48:29,443 |    DEBUG | playlist-pilot | ✅ Loaded 12 history entries
+2025-07-16 05:48:36,308 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:48:36,312 |    DEBUG | playlist-pilot | ✅ Loaded 12 history entries
+2025-07-16 05:48:47,977 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:48:47,981 |    DEBUG | playlist-pilot | ✅ Loaded 12 history entries
+2025-07-16 05:48:47,991 |    DEBUG | playlist-pilot | History saved to /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:48:47,991 |    DEBUG | playlist-pilot | Saved 11 history entries
+2025-07-16 05:48:48,030 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:48:48,034 |    DEBUG | playlist-pilot | ✅ Loaded 11 history entries
+2025-07-16 05:48:57,708 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:48:57,712 |    DEBUG | playlist-pilot | ✅ Loaded 11 history entries
+2025-07-16 05:49:06,409 |    DEBUG | playlist-pilot | 📂 Reading history from /app/user_data/8140746a37994cdd8e6575c951bba7e3.json
+2025-07-16 05:49:06,413 |    DEBUG | playlist-pilot | ✅ Loaded 11 history entries
