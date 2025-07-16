@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
-
+from pydantic import BaseModel
 import openai
 from openai import OpenAI
 from fastapi import APIRouter, Request, Form, Query, UploadFile, File
