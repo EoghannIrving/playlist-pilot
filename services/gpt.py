@@ -21,6 +21,7 @@ logger = logging.getLogger("playlist-pilot")
 openai_client = openai.OpenAI(api_key=settings.openai_api_key)
 
 def describe_popularity(score: float) -> str:
+    """Return a human-friendly label for a popularity score."""
     if score >= 90:
         return "Global smash hit"
     elif score >= 70:
@@ -224,7 +225,7 @@ def generate_playlist_analysis_summary(summary: dict, tracks: list):
         logger.info(f"Prompt Cache Hit in generate_playlist_analysis_summary")
         return prompt_cache[cache_key]["gpt_summary"], prompt_cache[cache_key]["removal_suggestions"]
     else:
-        print(f"Prompt Cache Miss generate_playlist_analysis_summary")
+        logger.info("Prompt Cache Miss generate_playlist_analysis_summary")
     # Build prompt
     track_blob = "\n".join([
         f"{t['title']} by {t['artist']} – genre: {t.get('genre')}, mood: {t.get('mood')}, "
@@ -277,6 +278,7 @@ Tracks:
     return result["gpt_summary"], result["removal_suggestions"]
 
 def analyze_mood_from_lyrics(lyrics: str) -> str:
+    """Classify the overall mood of a song based on its lyrics via GPT."""
     if not lyrics:
         return None
 
@@ -291,7 +293,7 @@ def analyze_mood_from_lyrics(lyrics: str) -> str:
     try:
         result = cached_chat_completion(prompt, temperature=0.4)  # Lower temperature for consistency
         mood = result.strip().lower()
-        print(f"mood: {mood}")
+        logger.debug(f"Lyrics mood classification: {mood}")
         logger.info(f"GPT lyrics mood analysis result: {mood}")
         return mood
     except Exception as e:

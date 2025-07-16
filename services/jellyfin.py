@@ -12,10 +12,11 @@ from config import settings
 logger = logging.getLogger("playlist-pilot")
 
 def normalize_search_term(term):
-    # Replace smart quotes and other common variants
+    """Normalize search term by replacing smart quotes and variants."""
     return term.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
 
 def fetch_jellyfin_users():
+    """Return a mapping of Jellyfin user names to IDs."""
     try:
         url = f"{settings.jellyfin_url.rstrip('/')}/Users"
         headers = {"X-Emby-Token": settings.jellyfin_api_key}
@@ -64,6 +65,7 @@ def search_jellyfin_for_track(title: str, artist: str) -> bool:
 
 
 def jf_get(path, **params):
+    """Helper to perform a GET request against the Jellyfin API."""
     url = f"{settings.jellyfin_url.rstrip('/')}{path}?api_key={settings.jellyfin_api_key}"
     if params:
         query = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
@@ -319,8 +321,6 @@ def read_lrc_for_track(track_path: str) -> str:
                 logger.info(f"Loaded .lrc file: {lrc_path} ({len(contents.splitlines())} lines)")
                 return contents
         except Exception as e:
-            print(f"Error reading .lrc file {lrc_path}: {e}")
-
             logger.warning(f"Error reading .lrc file {lrc_path}: {e}")
     else:
         logger.debug(f"No .lrc file found for {track_path}")
