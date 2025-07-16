@@ -643,26 +643,6 @@ async def suggest_from_analyzed(request: Request):
         logger.error(f"Error in /suggest-playlist: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@router.post("/history/bulk-delete", response_class=HTMLResponse)
-async def bulk_delete_history(request: Request):
-    form = await request.form()
-    selected = form.getlist("selected_playlists")
-    user_id = settings.jellyfin_user_id
-    sort = request.query_params.get("sort", "recent")
-
-    if not selected:
-        return RedirectResponse(url=f"/history?sort={sort}", status_code=303)
-
-    try:
-        history = load_sorted_history(user_id)
-        updated_history = [item for item in history if item.get("label") not in selected]
-        save_whole_user_history(user_id, updated_history)
-        deleted_count = len(selected)
-        return RedirectResponse(url=f"/history?sort={sort}&deleted={deleted_count}", status_code=303)
-    except Exception as e:
-        logger.exception("Error in bulk delete")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
 @router.get("/history/export")
 async def export_history_m3u(request: Request, label: str = Query(...)):
     user_id = settings.jellyfin_user_id
