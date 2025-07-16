@@ -1,10 +1,13 @@
-from config import settings
-from core.constants import *
-import urllib.parse
-from urllib.parse import quote_plus
-import requests
+import json
 import logging
+import os
+import re
+from urllib.parse import quote_plus
+
 import httpx
+import requests
+
+from config import settings
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -297,8 +300,6 @@ def update_item_metadata(item_id: str, full_item: dict) -> bool:
         logger.error(f"❌ Failed to update Jellyfin item {item_id}: {e}")
         return False
 
-import os
-
 def read_lrc_for_track(track_path: str) -> str:
     """
     Attempt to read an adjacent .lrc file for the given track path.
@@ -325,8 +326,6 @@ def read_lrc_for_track(track_path: str) -> str:
         logger.debug(f"No .lrc file found for {track_path}")
     return None
 
-
-import re
 
 def strip_lrc_timecodes(lrc_text: str) -> str:
     """
