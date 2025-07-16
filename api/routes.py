@@ -37,41 +37,41 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Redirect
 from openai import OpenAI
 from pydantic import BaseModel
 
-from config import settings, save_settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
-from core.templates import templates
+from config import GLOBAL_MAX_LFM, GLOBAL_MIN_LFM, save_settings, settings
+from core.analysis import summarize_tracks
 from core.history import (
+    extract_date_from_label,
     save_user_history,
     save_whole_user_history,
-    extract_date_from_label,
 )
 from core.m3u import (
-    write_m3u,
     export_history_entry_as_m3u,
     import_m3u_as_history_entry,
+    write_m3u,
 )
 from core.playlist import (
-    fetch_audio_playlists,
-    parse_suggestion_line,
-    normalize_popularity,
     combined_popularity_score,
+    enrich_jellyfin_playlist,
+    enrich_track,
+    fetch_audio_playlists,
+    normalize_popularity,
     normalize_popularity_log,
     normalize_track,
-    enrich_track,
-    enrich_jellyfin_playlist,
+    parse_suggestion_line,
 )
-from services.gpt import gpt_suggest_validated, generate_playlist_analysis_summary
+from core.templates import templates
+from services import jellyfin
+from services.gpt import generate_playlist_analysis_summary, gpt_suggest_validated
 from services.jellyfin import (
+    create_jellyfin_playlist,
+    fetch_jellyfin_track_metadata,
     fetch_jellyfin_users,
     fetch_tracks_for_playlist_id,
-    fetch_jellyfin_track_metadata,
-    create_jellyfin_playlist,
     resolve_jellyfin_path,
 )
-from services.metube import get_youtube_url_single
-from core.analysis import summarize_tracks
-from utils.helpers import get_cached_playlists, load_sorted_history
-from services import jellyfin
 from services.lastfm import get_lastfm_tags
+from services.metube import get_youtube_url_single
+from utils.helpers import get_cached_playlists, load_sorted_history
 
 
 logger = logging.getLogger("playlist-pilot")
@@ -91,7 +91,7 @@ class SettingsForm(BaseModel):
     getsongbpm_api_key: str = ""
 
     @classmethod
-    def as_form(
+    def as_form(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         cls,
         jellyfin_url: str = Form(""),
         jellyfin_api_key: str = Form(""),
@@ -101,6 +101,7 @@ class SettingsForm(BaseModel):
         model: str = Form("gpt-4o-mini"),
         getsongbpm_api_key: str = Form(""),
     ) -> "SettingsForm":
+        """Create a SettingsForm instance from submitted form data."""
         return cls(
             jellyfin_url=jellyfin_url,
             jellyfin_api_key=jellyfin_api_key,
@@ -399,7 +400,7 @@ async def get_settings(request: Request):
     Display current configuration and available Jellyfin users.
     """
     try:
-        settings.validate()
+        settings.validate_settings()
         validation_message = None
     except ValueError as ve:
         validation_message = str(ve)
@@ -443,7 +444,7 @@ async def update_settings(
     save_settings(settings)
 
     try:
-        settings.validate()
+        settings.validate_settings()
         validation_message = "Settings saved successfully."
     except ValueError as ve:
         validation_message = str(ve)
