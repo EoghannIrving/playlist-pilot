@@ -5,20 +5,14 @@ Handles YouTube fallback logic using yt-dlp for audio tracks not found in Jellyf
 Includes duration filtering and VEVO prioritization.
 """
 
-import re
 import yt_dlp
 import asyncio
 import logging
 from urllib.parse import quote_plus
-from core.playlist import build_search_query
+from core.playlist import build_search_query, clean
 from utils.cache_manager import yt_search_cache, CACHE_TTLS
 
-
 logger = logging.getLogger("playlist-pilot")
-
-def clean(text: str) -> str:
-    """Normalize text: lowercase, trim, remove punctuation."""
-    return re.sub(r"[^\w\s]", "", text.lower().strip())
 
 def _yt_search_sync(search_term: str) -> dict:
     """Perform a synchronous YouTube search using yt-dlp."""
