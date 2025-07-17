@@ -1,7 +1,7 @@
 """Utility functions for analyzing playlists and track metadata."""
 
 from collections import Counter
-from typing import List, Dict
+from typing import Dict, List
 from statistics import mean
 import math
 import logging
@@ -11,11 +11,13 @@ logger = logging.getLogger("playlist-pilot")
 
 
 def most_common(values: List[str]) -> str:
+    """Return the most common element in *values* or ``'Unknown'`` if empty."""
     if not values:
         return "Unknown"
     return Counter(values).most_common(1)[0][0]
 
 def percent_distribution(values: List[str]) -> Dict[str, str]:
+    """Return a mapping of value to percentage occurrence."""
     total = len(values)
     if total == 0:
         return {}
@@ -23,30 +25,45 @@ def percent_distribution(values: List[str]) -> Dict[str, str]:
     return {k: f"{v * 100 // total}%" for k, v in counts.items()}
 
 def average_tempo(tracks: List[dict]) -> int:
-    tempos = [t["tempo"] for t in tracks if isinstance(t.get("tempo"), (int, float))]
+    """Calculate the rounded average tempo for a list of tracks."""
+    tempos = [
+        t["tempo"]
+        for t in tracks
+        if isinstance(t.get("tempo"), (int, float))
+    ]
     return round(sum(tempos) / len(tempos)) if tempos else 0
 
 def normalized_entropy(values: list[str]) -> float:
-    from collections import Counter
-    import math
+    """Return the normalized Shannon entropy of *values*."""
     total = len(values)
     if total == 0:
         return 0.0
     counts = Counter(values)
-    entropy = -sum((v/total) * math.log2(v/total) for v in counts.values())
+    entropy = -sum((v / total) * math.log2(v / total) for v in counts.values())
     max_entropy = math.log2(len(counts))
     return round(entropy / max_entropy, 2) if max_entropy > 0 else 0.0
 
 def average_duration(tracks: List[dict]) -> int:
-    durations = [t["duration"] for t in tracks if isinstance(t.get("duration"), (int, float))]
+    """Return the average duration in seconds for the given tracks."""
+    durations = [
+        t["duration"]
+        for t in tracks
+        if isinstance(t.get("duration"), (int, float))
+    ]
     return round(sum(durations) / len(durations)) if durations else 0
 
 def summarize_tracks(tracks: List[dict]) -> dict:
+    """Return a summary dictionary for a list of track metadata."""
     genres = [t["genre"] for t in tracks if t.get("genre")]
     moods = [t["mood"] for t in tracks if t.get("mood")]
     decades = [t["decade"] for t in tracks if t.get("decade")]
 
     avg_tempo = average_tempo(tracks)
+    popularity_values = [
+        t["combined_popularity"]
+        for t in tracks
+        if t.get("combined_popularity") is not None
+    ]
 
     base_summary = {
         "dominant_genre": most_common(genres),
@@ -59,16 +76,17 @@ def summarize_tracks(tracks: List[dict]) -> dict:
         "mood_distribution": percent_distribution(moods),
         "tempo_ranges": classify_tempo_ranges(tracks),
         "avg_listeners": mean([t.get("popularity", 0) for t in tracks]),
-        "avg_popularity": sum(t["combined_popularity"] for t in tracks if t.get("combined_popularity") is not None) / len(tracks),
+        "avg_popularity": sum(popularity_values) / len(tracks),
     }
 
     base_summary["outliers"] = detect_outliers(tracks, base_summary)
     return base_summary
 
 def classify_tempo_ranges(tracks: list[dict]) -> dict:
+    """Group track tempos into broad BPM ranges."""
     ranges = []
-    for t in tracks:
-        tempo = t.get("tempo")
+    for track in tracks:
+        tempo = track.get("tempo")
         if isinstance(tempo, (int, float)):
             if tempo < 90:
                 ranges.append("<90 BPM")
@@ -80,6 +98,7 @@ def classify_tempo_ranges(tracks: list[dict]) -> dict:
 
 
 def detect_outliers(tracks: List[dict], summary: dict) -> List[str]:
+    """Identify tracks that deviate strongly from the provided summary."""
     avg_tempo = summary.get("tempo_avg")
     dominant_genre = summary.get("dominant_genre")
     avg_listeners = summary.get("avg_listeners", 0)
@@ -118,30 +137,52 @@ def detect_outliers(tracks: List[dict], summary: dict) -> List[str]:
     return outliers[:5]
 
 def normalize_popularity(value, min_val, max_val):
-    logger.info(f"normalize_popularity called with value={value}, min_val={min_val}, max_val={max_val}")
+    """Normalize a value to a 0-100 scale given its min and max bounds."""
+    logger.info(
+        "normalize_popularity called with value=%s, min_val=%s, max_val=%s",
+        value,
+        min_val,
+        max_val,
+    )
     if min_val == max_val:
         logger.warning("normalize_popularity returning 0 due to min_val == max_val")
         return 0
     result = round(100 * (value - min_val) / (max_val - min_val), 2)
-    logger.info(f"normalize_popularity for jellyfin returning {result}")
+    logger.info("normalize_popularity for jellyfin returning %s", result)
     return result
 
 def combined_popularity_score(lastfm, jellyfin, w_lfm=0.4, w_jf=0.6):
-    logger.info(f"combined_popularity_score called with lastfm={lastfm}, jellyfin={jellyfin}, w_lfm={w_lfm}, w_jf={w_jf}")
-    
+    """Combine popularity metrics from Last.fm and Jellyfin."""
+    logger.info(
+        "combined_popularity_score called with lastfm=%s, jellyfin=%s, w_lfm=%s, w_jf=%s",
+        lastfm,
+        jellyfin,
+        w_lfm,
+        w_jf,
+    )
+
     result = None
 
     if (jellyfin is None or jellyfin == 0) and lastfm is not None:
         result = round(lastfm, 2)
-        logger.warning(f"combined_popularity_score returning {result} (fallback to lastfm)")
+        logger.warning(
+            "combined_popularity_score returning %s (fallback to lastfm)",
+            result,
+        )
 
     elif (lastfm is None or lastfm == 0) and jellyfin is not None:
         result = round(jellyfin, 2)
-        logger.warning(f"combined_popularity_score returning {result} (fallback to jellyfin)")
+        logger.warning(
+            "combined_popularity_score returning %s (fallback to jellyfin)",
+            result,
+        )
 
     elif lastfm is not None and jellyfin is not None:
         result = round((lastfm * w_lfm + jellyfin * w_jf) / (w_lfm + w_jf), 2)
-        logger.debug(f"combined_popularity_score returning {result} (weighted average)")
+        logger.debug(
+            "combined_popularity_score returning %s (weighted average)",
+            result,
+        )
 
     else:
         logger.warning("combined_popularity_score returning None (no valid inputs)")
@@ -153,21 +194,33 @@ def combined_popularity_score(lastfm, jellyfin, w_lfm=0.4, w_jf=0.6):
     return result
 
 def normalize_popularity_log(value, min_val, max_val):
-    logger.info(f"normalize_popularity_log called with value={value}, min_val={min_val}, max_val={max_val}")
+    """Normalize logarithmic popularity values to a 0-100 scale."""
+    logger.info(
+        "normalize_popularity_log called with value=%s, min_val=%s, max_val=%s",
+        value,
+        min_val,
+        max_val,
+    )
     if value is None or value <= 0:
-        logger.warning("normalize_popularity_log for lastfm returning 0 (value is None or <= 0)")
+        logger.warning(
+            "normalize_popularity_log for lastfm returning 0 (value is None or <= 0)"
+        )
         return 0
     log_min = math.log10(min_val)
     log_max = math.log10(max_val)
     log_val = math.log10(value)
     score = 100 * (log_val - log_min) / (log_max - log_min)
     result = round(max(0, min(score, 100)), 2)
-    logger.debug(f"normalize_popularity_log for lastfm returning {result} (normalized log scale) raw value: {value}")
+    logger.debug(
+        "normalize_popularity_log for lastfm returning %s (normalized log scale) raw value: %s",
+        result,
+        value,
+    )
     return result
 
 
 MOOD_TAGS = {
-    "happy": {"happy", "fun", "cheerful", "feel good", "sunny", "fun"},
+    "happy": {"happy", "fun", "cheerful", "feel good", "sunny"},
     "sad": {"sad", "melancholy", "emotional", "heartbreak", "blue"},
     "chill": {"chill", "relaxing", "calm", "downtempo", "smooth"},
     "intense": {"aggressive", "intense", "dark", "heavy", "angry", "epic"},
@@ -180,6 +233,8 @@ MOOD_TAGS = {
 
 
 def mood_scores_from_bpm_data(data: dict) -> dict:
+    """Infer mood scores from BPM-related audio features."""
+    # pylint: disable=too-many-branches, too-many-statements
     bpm = data.get("bpm")
     key = (data.get("key") or "").lower()
     dance = data.get("danceability", 0)
@@ -187,7 +242,14 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
     year = data.get("year")
 
     scores = {mood: 0.0 for mood in MOOD_TAGS}
-    logger.info(f"   BPM: {bpm}, Key: {key}, Danceability: {dance}, Acousticness: {acoustic}, Year: {year}")
+    logger.info(
+        "   BPM: %s, Key: %s, Danceability: %s, Acousticness: %s, Year: %s",
+        bpm,
+        key,
+        dance,
+        acoustic,
+        year,
+    )
 
     # --- Primary rules (high-confidence) ---
     if bpm and 110 <= bpm <= 140 and dance > 65 and acoustic < 40:
@@ -300,10 +362,12 @@ MOOD_MAPPING = {
 }
 
 def map_lyrics_mood_to_internal_mood(lyrics_mood: str) -> str:
+    """Convert a raw lyrics mood string to an internal mood label."""
     mood = lyrics_mood.strip().lower()
     return MOOD_MAPPING.get(mood)
 
 def build_lyrics_scores(lyrics_mood: str) -> dict:
+    """Return a mood score dictionary derived from lyrics analysis."""
     scores = {mood: 0.0 for mood in MOOD_TAGS}
     mapped_mood = map_lyrics_mood_to_internal_mood(lyrics_mood)
     if mapped_mood:
@@ -311,11 +375,17 @@ def build_lyrics_scores(lyrics_mood: str) -> dict:
     return scores
 
 # Updated combine_mood_scores()
-def combine_mood_scores(tag_scores: dict, bpm_scores: dict, lyrics_scores: dict = None) -> tuple[str, float]:
+def combine_mood_scores(
+    tag_scores: dict,
+    bpm_scores: dict,
+    lyrics_scores: dict | None = None,
+) -> tuple[str, float]:
+    """Merge mood scores from tags, BPM analysis and optional lyrics."""
+    # pylint: disable=too-many-locals
     logger.info("\n→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:")
-    logger.info(f"  Raw Tag Scores: {tag_scores}")
-    logger.info(f"  Raw BPM Scores: {bpm_scores}")
-    logger.info(f"  Raw Lyrics Scores: {lyrics_scores}")
+    logger.info("  Raw Tag Scores: %s", tag_scores)
+    logger.info("  Raw BPM Scores: %s", bpm_scores)
+    logger.info("  Raw Lyrics Scores: %s", lyrics_scores)
 
 
 
@@ -345,7 +415,7 @@ def combine_mood_scores(tag_scores: dict, bpm_scores: dict, lyrics_scores: dict 
     # Filter top 3 moods
     sorted_moods = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     filtered = dict(sorted_moods[:3])
-    logger.debug(f"Filtered mood scores: {filtered}")
+    logger.debug("Filtered mood scores: %s", filtered)
     if not filtered or max(filtered.values()) < 0.3:
         logger.warning("← Final Mood: unknown (no strong scores)\n")
         return "unknown", 0.0
@@ -370,10 +440,15 @@ def combine_mood_scores(tag_scores: dict, bpm_scores: dict, lyrics_scores: dict 
     top_moods = [m for m, s in filtered.items() if s == top_score]
     best_mood = next((m for m in preferred_order if m in top_moods), top_mood)
 
-    logger.info(f"← Final Mood: {best_mood} (softmax confidence: {confidence:.2f})\n")
+    logger.info(
+        "← Final Mood: %s (softmax confidence: %.2f)\n",
+        best_mood,
+        confidence,
+    )
     return best_mood, round(confidence, 2)
 
 def mood_scores_from_lastfm_tags(tags: list[str]) -> dict:
+    """Calculate mood scores from a list of Last.fm tags."""
     if not isinstance(tags, list) or not tags:
         return {mood: 0.0 for mood in MOOD_TAGS}
 
