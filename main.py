@@ -48,7 +48,7 @@ if not logger.handlers:
 # ─────────────────────────────────────────────────────────────
 # Validate Configuration
 try:
-    settings.validate()
+    settings.validate_settings()
 except ValueError as e:
     import sys
     logger.error("[Startup Error] %s", e)
