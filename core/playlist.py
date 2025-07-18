@@ -16,6 +16,7 @@ import requests
 import logging
 import math
 import cloudscraper
+import asyncio
 
 from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
 from core.constants import *
@@ -395,22 +396,26 @@ def extract_year_from_string(releasedate: str) -> str:
     match = re.search(r"\b(19|20)\d{2}\b", releasedate)
     return match.group(0) if match else ""
 
-def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list:
-    raw_tracks = fetch_tracks_for_playlist_id(playlist_id)
-    enriched = []
-    for t in raw_tracks:
+async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list:
+    """Fetch tracks for a playlist and enrich them concurrently."""
+    raw_tracks = await asyncio.to_thread(fetch_tracks_for_playlist_id, playlist_id)
+    async def process(track: dict) -> dict | None:
         try:
-            norm = normalize_track(t)
-            norm["jellyfin_play_count"] = t.get("UserData", {}).get("PlayCount", 0)
-            enriched_data = enrich_track(norm)
+            norm = normalize_track(track)
+            norm["jellyfin_play_count"] = track.get("UserData", {}).get("PlayCount", 0)
+            enriched_data = await asyncio.to_thread(enrich_track, norm)
             logger.info(
-            f"✅ Enriched: {norm.get('title', 'Unknown')} "
-            f"| Last.fm: {enriched_data.get('popularity', 'N/A')} "
-            f"| Jellyfin Plays: {norm.get('jellyfin_play_count', 'N/A')}"
+                f"✅ Enriched: {norm.get('title', 'Unknown')} "
+                f"| Last.fm: {enriched_data.get('popularity', 'N/A')} "
+                f"| Jellyfin Plays: {norm.get('jellyfin_play_count', 'N/A')}"
             )
-            enriched.append(enriched_data)
-        except Exception as e:
-            logger.warning(f"Track enrichment failed for '{t.get('Name')}': {e}")
+            return enriched_data
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning("Track enrichment failed for '%s': %s", track.get("Name"), exc)
+            return None
+
+    enriched_tasks = await asyncio.gather(*(process(t) for t in raw_tracks))
+    enriched = [e for e in enriched_tasks if e is not None]
 
     # Collect raw popularity values
     lastfm_raw = [t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)]
