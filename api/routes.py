@@ -626,7 +626,7 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     base_summary = summarize_tracks(enriched)
     summary.update(base_summary)
 
-    gpt_summary, removal_suggestions = generate_playlist_analysis_summary(summary, enriched)
+    gpt_summary, removal_suggestions = await generate_playlist_analysis_summary(summary, enriched)
 
     return templates.TemplateResponse("analysis_result.html", {
         "request": request,
