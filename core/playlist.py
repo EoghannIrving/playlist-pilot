@@ -24,7 +24,7 @@ from services.jellyfin import jf_get, fetch_tracks_for_playlist_id
 from services.lastfm import enrich_with_lastfm
 from typing import Optional, Dict
 from urllib.parse import quote_plus
-from utils.cache_manager import bpm_cache, CACHE_TTLS
+from utils.cache_manager import bpm_cache, library_cache, CACHE_TTLS
 from services.getsongbpm import get_cached_bpm
 from services.gpt import analyze_mood_from_lyrics
 from core.analysis import (
@@ -101,18 +101,24 @@ async def get_playlist_tracks(playlist_id: str) -> list[str]:
         logger.error(f"Failed to fetch playlist tracks for ID {playlist_id}: {e}")
         return []
 
-def get_full_audio_library():
-    """Fetches the full audio library as a list of track labels."""
-    items = []
+async def get_full_audio_library(force_refresh: bool = False) -> list[str]:
+    """Return the user's full audio library with caching."""
+    cache_key = f"library:{settings.jellyfin_user_id}"
+    if not force_refresh:
+        cached = library_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+    items: list[str] = []
     start_index = 0
     limit = 1000
     while True:
-        response = jf_get(
+        response = await jf_get(
             f"/Users/{settings.jellyfin_user_id}/Items",
             Recursive="true",
             IncludeItemTypes="Audio",
             StartIndex=start_index,
-            Limit=limit
+            Limit=limit,
         )
         chunk = response.get("Items", [])
         for item in chunk:
@@ -123,6 +129,8 @@ def get_full_audio_library():
         if len(chunk) < limit:
             break
         start_index += limit
+
+    library_cache.set(cache_key, items, expire=CACHE_TTLS["full_library"])
     return items
 
 def clean(text: str) -> str:
