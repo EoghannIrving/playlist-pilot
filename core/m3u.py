@@ -138,7 +138,8 @@ async def import_m3u_as_history_entry(filepath: str):
         artist = meta['artist']
         if result:
             track_dict = {"title": title, "artist": artist}
-            enriched = await enrich_track(track_dict) or track_dict   # fallback to base if enrich returns None
+            enriched_obj = await enrich_track(track_dict)
+            enriched = enriched_obj.dict() if enriched_obj else track_dict   # fallback to base if enrich returns None
             enriched.setdefault('text', f"{title} - {artist}")
             enriched.setdefault('reason', "Imported from M3U file.")
             enriched.setdefault('youtube_url', f"https://www.youtube.com/results?search_query={title}+{artist}")
