@@ -546,7 +546,7 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
 ):
     """Analyze a selected playlist from Jellyfin or GPT history."""
     if source_type == "jellyfin":
-        enriched = enrich_jellyfin_playlist(playlist_id)
+        enriched = await enrich_jellyfin_playlist(playlist_id)
         name_data = get_cached_playlists(settings.jellyfin_user_id)
         playlistdetail = name_data.get("playlists", [])
         playlist_name = "Temporary Name"
