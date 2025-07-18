@@ -41,6 +41,9 @@ jellyfin_track_cache = Cache(BASE_CACHE / "jellyfin_tracks")
 # Caches track BPM, key, acousticness, danceability, etc. from GetSongBPM
 bpm_cache = Cache(BASE_CACHE / "bpm")
 
+# Caches results of a full Jellyfin library scan
+library_cache = Cache(BASE_CACHE / "full_library")
+
 
 # TTL configuration (in seconds) for each named cache
 CACHE_TTLS = {
@@ -50,5 +53,6 @@ CACHE_TTLS = {
     "lastfm_popularity": 60 * 60 * 24 * 7,
     "playlists": 60 * 30,              # 30 minutes
     "bpm": 60 * 60 * 24 * 30,          # 30-day TTL
-    "jellyfin_tracks": 60 * 60 * 24    # 24 hours
+    "jellyfin_tracks": 60 * 60 * 24,   # 24 hours
+    "full_library": 60 * 60 * 24       # 24 hours
 }
