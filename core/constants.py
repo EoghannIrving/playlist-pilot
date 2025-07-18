@@ -1,8 +1,8 @@
 """
 Centralized constants for Playlist Pilot
 """
-from config import settings
 from pathlib import Path
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 USER_DATA_DIR = BASE_DIR / "user_data"

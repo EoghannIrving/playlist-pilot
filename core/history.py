@@ -19,7 +19,8 @@ logger = logging.getLogger("playlist-pilot")
 
 
 def extract_date_from_label(label: str) -> datetime:
-    match = re.search(r'- (.+)$', label)
+    """Extract a datetime object from a history label string."""
+    match = re.search(r"- (.+)$", label)
     if match:
         try:
             return datetime.strptime(match.group(1), "%Y-%m-%d %H:%M")
@@ -45,10 +46,12 @@ def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None
 
     if os.path.exists(history_file):
         try:
-            with open(history_file, "r") as f:
+            with open(history_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except json.JSONDecodeError:
-            logger.warning(f"History file for user {user_id} is empty or invalid. Resetting.")
+            logger.warning(
+                "History file for user %s is empty or invalid. Resetting.", user_id
+            )
             data = []
     else:
         data = []
@@ -59,11 +62,11 @@ def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None
     })
 
     try:
-        with open(history_file, "w") as f:
+        with open(history_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
-        logger.debug(f"History saved to {history_file}")
-    except Exception as e:
-        logger.error(f"Failed to write history for {user_id}: {e}")
+        logger.debug("History saved to %s", history_file)
+    except (OSError, TypeError) as exc:
+        logger.error("Failed to write history for %s: %s", user_id, exc)
 
 def load_user_history(user_id: str) -> list[dict]:
     """
@@ -76,14 +79,14 @@ def load_user_history(user_id: str) -> list[dict]:
         list[dict]: All labeled suggestion entries
     """
     history_file = user_history_path(user_id)
-    logger.debug(f"📂 Reading history from {history_file}")
+    logger.debug("📂 Reading history from %s", history_file)
     try:
-        with open(history_file, "r") as f:
+        with open(history_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-            logger.debug(f"✅ Loaded {len(data)} history entries")
+            logger.debug("✅ Loaded %d history entries", len(data))
             return data
-    except Exception as e:
-        logger.warning(f"⚠️ Could not load history: {e}")
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("⚠️ Could not load history: %s", exc)
         return []
 
 def save_whole_user_history(user_id: str, history: list[dict]) -> None:
@@ -95,7 +98,7 @@ def save_whole_user_history(user_id: str, history: list[dict]) -> None:
         history (list[dict]): The full history to save
     """
     history_file = user_history_path(user_id)
-    with open(history_file, "w") as f:
+    with open(history_file, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2)
-    logger.debug(f"History saved to {history_file}")
-    logger.debug(f"Saved {len(history)} history entries")
+    logger.debug("History saved to %s", history_file)
+    logger.debug("Saved %d history entries", len(history))

@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field
+"""Data models for playlist-pilot."""
+
 from typing import List, Optional
+from pydantic import BaseModel, Field
 
 class Track(BaseModel):
     """Normalized track metadata."""
@@ -16,6 +18,7 @@ class Track(BaseModel):
     jellyfin_play_count: int = 0
 
     class Config:
+        """Pydantic configuration."""
         extra = "allow"
 
 class EnrichedTrack(Track):
@@ -33,4 +36,5 @@ class EnrichedTrack(Track):
     FinalYear: Optional[str] = None
 
     class Config:
+        """Pydantic configuration."""
         extra = "allow"

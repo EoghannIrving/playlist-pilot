@@ -254,7 +254,9 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
     # --- Primary rules (high-confidence) ---
     if bpm and 110 <= bpm <= 140 and dance > 65 and acoustic < 40:
         scores["party"] += 1.0
-        logger.debug("  +1.0 party (strong match: bpm 110–140, high danceability, low acousticness)")
+        logger.debug(
+            "  +1.0 party (strong match: bpm 110–140, high danceability, low acousticness)"
+        )
 
     if bpm and bpm < 95 and acoustic > 50 and dance < 55:
         scores["chill"] += 1.0
