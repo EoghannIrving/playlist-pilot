@@ -35,6 +35,9 @@ playlist_cache = Cache(BASE_CACHE / "playlists")
 # Stores Last.fm listener count (popularity data)
 LASTFM_POP_CACHE = Cache(BASE_CACHE / "lastfm_popularity")
 
+# Cache results of Jellyfin track search queries
+jellyfin_track_cache = Cache(BASE_CACHE / "jellyfin_tracks")
+
 # Caches track BPM, key, acousticness, danceability, etc. from GetSongBPM
 bpm_cache = Cache(BASE_CACHE / "bpm")
 
@@ -46,5 +49,6 @@ CACHE_TTLS = {
     "lastfm": 60 * 60 * 24 * 7,        # 7 days
     "lastfm_popularity": 60 * 60 * 24 * 7,
     "playlists": 60 * 30,              # 30 minutes
-    "bpm": 60 * 60 * 24 * 30           # 30-day TTL
+    "bpm": 60 * 60 * 24 * 30,          # 30-day TTL
+    "jellyfin_tracks": 60 * 60 * 24    # 24 hours
 }
