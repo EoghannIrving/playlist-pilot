@@ -6,19 +6,20 @@ Handles GPT prompt generation, caching, and result validation for playlist sugge
 
 import hashlib
 import logging
-import openai
-import requests
 import asyncio
+import requests
+import os
+import json
+from typing import Tuple
+
+from openai import OpenAI, AsyncOpenAI
 from config import settings
 from utils.cache_manager import prompt_cache, CACHE_TTLS
 from services.lastfm import get_lastfm_track_info
-from openai import OpenAI
-from typing import Tuple
-import os
-import json
 
 logger = logging.getLogger("playlist-pilot")
-openai_client = openai.OpenAI(api_key=settings.openai_api_key)
+sync_openai_client = OpenAI(api_key=settings.openai_api_key)
+async_openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 def describe_popularity(score: float) -> str:
     """Return a human-friendly label for a popularity score."""
@@ -93,7 +94,7 @@ def prompt_fingerprint(prompt: str) -> str:
     """Generate SHA256 fingerprint of the prompt."""
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
-def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
+def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
     """
     Get a GPT completion from cache or OpenAI, allowing temperature override.
 
@@ -111,7 +112,27 @@ def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
         return content
 
     logger.info(f"GPT cache miss: {key}")
-    response = openai_client.chat.completions.create(
+    response = sync_openai_client.chat.completions.create(
+        model=settings.model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+    )
+    content = response.choices[0].message.content.strip()
+    prompt_cache.set(key, content, expire=CACHE_TTLS["prompt"])
+    logger.debug(f"GPT API original text: {content}")
+    return content
+
+
+async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
+    """Asynchronous variant of cached_chat_completion."""
+    key = prompt_fingerprint(f"{prompt}|temperature={temperature}")
+    content = prompt_cache.get(key)
+    if content is not None:
+        logger.info(f"GPT cache hit: {key}")
+        return content
+
+    logger.info(f"GPT cache miss: {key}")
+    response = await async_openai_client.chat.completions.create(
         model=settings.model,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
@@ -149,7 +170,7 @@ async def gpt_suggest_validated(existing_tracks: list[str], count: int, summary:
     """
     prompt = _build_gpt_prompt(existing_tracks, count * 3, summary)
     logger.debug(f"Sending GPT prompt:\n{prompt[:500]}...")
-    result = cached_chat_completion(prompt)
+    result = await cached_chat_completion(prompt)
     response_content = result.strip()
 
     raw_lines = response_content.splitlines()
@@ -199,7 +220,7 @@ async def gpt_suggest_validated(existing_tracks: list[str], count: int, summary:
     return suggestions_raw[:count]
 
 
-def generate_playlist_analysis_summary(summary: dict, tracks: list):
+async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     """
     Returns (gpt_summary, removal_suggestions) using cached GPT response if available.
     """
@@ -242,7 +263,7 @@ Tracks:
 {track_blob}
 """
 
-    response = openai_client.chat.completions.create(
+    response = await async_openai_client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
@@ -291,7 +312,7 @@ def analyze_mood_from_lyrics(lyrics: str) -> str:
         f"""\n{lyrics}\n"""
     )
     try:
-        result = cached_chat_completion(prompt, temperature=0.4)  # Lower temperature for consistency
+        result = cached_chat_completion_sync(prompt, temperature=0.4)  # Lower temperature for consistency
         mood = result.strip().lower()
         logger.debug(f"Lyrics mood classification: {mood}")
         logger.info(f"GPT lyrics mood analysis result: {mood}")
