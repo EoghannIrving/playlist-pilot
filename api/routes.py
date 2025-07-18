@@ -160,6 +160,89 @@ async def enrich_suggestion(suggestion):
         return None  # skip failed item
 
 
+async def _parse_suggest_request(request: Request) -> tuple[list[dict], str, str]:
+    """Extract tracks and related fields from the POST request."""
+    data = await request.form()
+    tracks_raw = data.get("tracks", "[]")
+    logger.info("tracks_raw: %s", tracks_raw[:100])  # log only a portion if large
+    playlist_name = data.get("playlist_name", "")
+    text_summary = data.get("text_summary", "")
+
+    try:
+        tracks = json.loads(tracks_raw)
+    except json.JSONDecodeError:
+        logger.warning("Failed to decode tracks JSON from form.")
+        tracks = []
+
+    return tracks, playlist_name, text_summary
+
+
+async def _fetch_gpt_suggestions(tracks: list[dict], text_summary: str, count: int) -> list[dict]:
+    """Request suggestions from GPT based on seed tracks."""
+    seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
+    exclude_pairs = {(t["title"], t["artist"]) for t in tracks}
+    return await gpt_suggest_validated(
+        seed_lines,
+        count,
+        text_summary,
+        exclude_pairs=exclude_pairs,
+    )
+
+
+async def _enrich_and_score_suggestions(suggestions_raw: list[dict]) -> list[dict]:
+    """Enrich suggestions with metadata and compute popularity score."""
+    parsed_raw = await asyncio.gather(*[enrich_suggestion(s) for s in suggestions_raw])
+    suggestions = [s for s in parsed_raw if s is not None]
+
+    suggestions.sort(key=lambda s: not s["in_jellyfin"])
+
+    jellyfin_raw = [
+        t["jellyfin_play_count"]
+        for t in suggestions
+        if isinstance(t.get("jellyfin_play_count"), int)
+    ]
+    min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
+
+    for track in suggestions:
+        raw_lfm = track.get("popularity")
+        raw_jf = track.get("jellyfin_play_count")
+        norm_lfm = (
+            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+            if raw_lfm is not None
+            else None
+        )
+        norm_jf = (
+            normalize_popularity(raw_jf, min_jf, max_jf)
+            if raw_jf is not None
+            else None
+        )
+        track["combined_popularity"] = combined_popularity_score(
+            norm_lfm,
+            norm_jf,
+            w_lfm=0.3,
+            w_jf=0.7,
+        )
+        logger.info(
+            "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
+            track["title"],
+            track["artist"],
+            track["combined_popularity"],
+            raw_lfm,
+            raw_jf,
+        )
+
+    return suggestions
+
+
+def _persist_history_and_m3u(suggestions: list[dict], playlist_name: str) -> Path:
+    """Save generated playlist to history and disk."""
+    playlist_clean = playlist_name.strip('"').strip("'")
+    label = f"{playlist_clean} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    user_id = settings.jellyfin_user_id
+    save_user_history(user_id, label, suggestions)
+    return write_m3u([s["text"] for s in suggestions])
+
+
 
 # ─────────────────────────────────────────────────────────────
 # ROUTES
@@ -651,90 +734,27 @@ def debug_lastfm_tags(title: str, artist: str):
 async def suggest_from_analyzed(request: Request):
     """Generate playlist suggestions from the analyzed tracks."""
     try:
-        data = await request.form()
-        tracks_raw = data.get("tracks", "[]")
-        playlist_name = data.get("playlist_name","")
-        logger.info("tracks_raw: %s", tracks_raw[:100])  # just log a portion if it's large
+        tracks, playlist_name, text_summary = await _parse_suggest_request(request)
 
-        try:
-            tracks = json.loads(tracks_raw)
-        except json.JSONDecodeError:
-            logger.warning("Failed to decode tracks JSON from form.")
-            tracks = []
         start = perf_counter()
         summary = summarize_tracks(tracks)
         logger.debug("\u23F1\ufe0f Track summary: %.2fs", perf_counter() - start)
-        # Extract just the normalized "Artist - Title" strings
-        seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
-        suggestion_count=10
-        text_summary = data.get("text_summary", "")
+
+        suggestion_count = 10
         start = perf_counter()
         logger.debug("Requesting GPT Response using text summary")
-        exclude_pairs = set((t["title"], t["artist"]) for t in tracks)
-        suggestions_raw = await gpt_suggest_validated(
-            seed_lines,
-            suggestion_count,
-            text_summary,
-            exclude_pairs=exclude_pairs
-        )
+        suggestions_raw = await _fetch_gpt_suggestions(tracks, text_summary, suggestion_count)
         logger.debug("\u23F1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
         logger.info("\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw))
-        parsed_suggestions = []
-        # ✅ Replace your old loop with this:
+
         start = perf_counter()
         logger.debug("Enriching suggestions received from GPT")
-        parsed_suggestions_raw = await asyncio.gather(
-            *[enrich_suggestion(s) for s in suggestions_raw]
-        )
-        parsed_suggestions = [s for s in parsed_suggestions_raw if s is not None]
+        parsed_suggestions = await _enrich_and_score_suggestions(suggestions_raw)
         logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
-        start = perf_counter()
-        parsed_suggestions.sort(key=lambda s: not s["in_jellyfin"])
-        logger.debug("\u23F1\ufe0f Sorting: %.2fs", perf_counter() - start)
-        # 🔁 Calculate combined popularity
-        jellyfin_raw = [
-            t["jellyfin_play_count"]
-            for t in parsed_suggestions
-            if isinstance(t.get("jellyfin_play_count"), int)
-        ]
 
-        min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
         start = perf_counter()
-        for track in parsed_suggestions:
-            raw_lfm = track.get("popularity")
-            raw_jf = track.get("jellyfin_play_count")
-            norm_lfm = (
-                normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
-                if raw_lfm is not None
-                else None
-            )
-            norm_jf = (
-                normalize_popularity(raw_jf, min_jf, max_jf)
-                if raw_jf is not None
-                else None
-            )
-            track["combined_popularity"] = combined_popularity_score(
-                norm_lfm,
-                norm_jf,
-                w_lfm=0.3,
-                w_jf=0.7,
-            )
-            logger.info(
-                "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
-                track["title"],
-                track["artist"],
-                track["combined_popularity"],
-                raw_lfm,
-                raw_jf,
-            )
-        logger.debug("\u23F1\ufe0f Calculate Combined Popularity: %.2fs", perf_counter() - start)
-        start = perf_counter()
-        playlist_clean = playlist_name.strip('"').strip("'")
-        label = f"{playlist_clean} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        user_id = settings.jellyfin_user_id
-        save_user_history(user_id, label, parsed_suggestions)
+        m3u_path = _persist_history_and_m3u(parsed_suggestions, playlist_name)
         logger.debug("\u23F1\ufe0f History save: %.2fs", perf_counter() - start)
-        m3u_path = write_m3u([s["text"] for s in parsed_suggestions])
 
         return templates.TemplateResponse("results.html", {
             "request": request,
