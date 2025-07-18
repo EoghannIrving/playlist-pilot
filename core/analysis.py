@@ -242,7 +242,7 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
     year = data.get("year")
 
     scores = {mood: 0.0 for mood in MOOD_TAGS}
-    logger.info(
+    logger.debug(
         "   BPM: %s, Key: %s, Danceability: %s, Acousticness: %s, Year: %s",
         bpm,
         key,
@@ -254,75 +254,75 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
     # --- Primary rules (high-confidence) ---
     if bpm and 110 <= bpm <= 140 and dance > 65 and acoustic < 40:
         scores["party"] += 1.0
-        logger.info("  +1.0 party (strong match: bpm 110–140, high danceability, low acousticness)")
+        logger.debug("  +1.0 party (strong match: bpm 110–140, high danceability, low acousticness)")
 
     if bpm and bpm < 95 and acoustic > 50 and dance < 55:
         scores["chill"] += 1.0
-        logger.info("  +1.0 chill (strong match: slow, acoustic, low danceability)")
+        logger.debug("  +1.0 chill (strong match: slow, acoustic, low danceability)")
 
     if bpm and bpm > 125 and acoustic < 30 and dance > 55:
         scores["intense"] += 1.0
-        logger.info("  +1.0 intense (strong match: fast, synthetic, danceable)")
+        logger.debug("  +1.0 intense (strong match: fast, synthetic, danceable)")
 
     if bpm and bpm < 95 and acoustic > 55 and "m" not in key:
         scores["romantic"] += 1.0
-        logger.info("  +1.0 romantic (strong match: slow, acoustic, major key)")
+        logger.debug("  +1.0 romantic (strong match: slow, acoustic, major key)")
 
     if bpm and bpm > 95 and "m" not in key and acoustic < 50 and dance > 55:
         scores["uplifting"] += 1.0
-        logger.info("  +1.0 uplifting (strong match: upbeat, major key, synthetic, danceable)")
+        logger.debug("  +1.0 uplifting (strong match: upbeat, major key, synthetic, danceable)")
 
     if year and year < 2005 and acoustic > 45 and bpm and bpm < 105:
         scores["nostalgic"] += 1.0
-        logger.info("  +1.0 nostalgic (strong match: pre-2005, mellow, acoustic)")
+        logger.debug("  +1.0 nostalgic (strong match: pre-2005, mellow, acoustic)")
 
     if bpm and bpm < 115 and "m" in key and acoustic < 40:
         scores["dark"] += 1.0
-        logger.info("  +1.0 dark (strong match: slow, minor key, synthetic)")
+        logger.debug("  +1.0 dark (strong match: slow, minor key, synthetic)")
 
     if bpm and bpm > 105 and "m" not in key and dance > 55:
         scores["happy"] += 1.0
-        logger.info("  +1.0 happy (strong match: fast, major key, danceable)")
+        logger.debug("  +1.0 happy (strong match: fast, major key, danceable)")
 
     if bpm and bpm < 90 and "m" in key and dance < 55:
         scores["sad"] += 1.0
-        logger.info("  +1.0 sad (strong match: slow, minor key, low danceability)")
+        logger.debug("  +1.0 sad (strong match: slow, minor key, low danceability)")
 
     # --- Fallback rules (low-confidence signals, +0.5) ---
 
     if bpm:
         if bpm > 130:
             scores["intense"] += 0.5
-            logger.info("  +0.5 intense (fallback: bpm > 130)")
+            logger.debug("  +0.5 intense (fallback: bpm > 130)")
         if bpm > 110:
             scores["happy"] += 0.5
-            logger.info("  +0.5 happy (fallback: bpm > 110)")
+            logger.debug("  +0.5 happy (fallback: bpm > 110)")
         if 90 <= bpm <= 110:
             scores["uplifting"] += 0.5
-            logger.info("  +0.5 uplifting (fallback: mid-tempo)")
+            logger.debug("  +0.5 uplifting (fallback: mid-tempo)")
         if bpm < 90:
             scores["chill"] += 0.5
-            logger.info("  +0.5 chill (fallback: bpm < 90)")
+            logger.debug("  +0.5 chill (fallback: bpm < 90)")
         if bpm < 80:
             scores["sad"] += 0.5
-            logger.info("  +0.5 sad (fallback: bpm < 80)")
+            logger.debug("  +0.5 sad (fallback: bpm < 80)")
 
     if acoustic > 60:
         scores["chill"] += 0.5
         scores["romantic"] += 0.5
-        logger.info("  +0.5 chill, +0.5 romantic (fallback: acousticness > 60)")
+        logger.debug("  +0.5 chill, +0.5 romantic (fallback: acousticness > 60)")
     elif acoustic < 20:
         scores["intense"] += 0.5
-        logger.info("  +0.5 intense (fallback: acousticness < 20)")
+        logger.debug("  +0.5 intense (fallback: acousticness < 20)")
 
     if dance > 70:
         scores["party"] += 0.5
         scores["happy"] += 0.5
-        logger.info("  +0.5 party, +0.5 happy (fallback: danceability > 70)")
+        logger.debug("  +0.5 party, +0.5 happy (fallback: danceability > 70)")
     elif dance < 30:
         scores["sad"] += 0.5
         scores["chill"] += 0.5
-        logger.info("  +0.5 sad, +0.5 chill (fallback: danceability < 30)")
+        logger.debug("  +0.5 sad, +0.5 chill (fallback: danceability < 30)")
     return scores
 
 # Apply mood-specific weightings
