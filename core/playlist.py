@@ -12,11 +12,11 @@ Functions included:
 
 import re
 import random
-import requests
 import logging
 import math
 import cloudscraper
 import asyncio
+import httpx
 
 from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
 from core.constants import *
@@ -39,39 +39,40 @@ from core.analysis import (
 
 logger = logging.getLogger("playlist-pilot")
 
-def fetch_audio_playlists() -> dict:
+async def fetch_audio_playlists() -> dict:
     """Fetch all playlists that contain at least one audio track."""
-    playlists = jf_get(
+    playlists = (await jf_get(
         f"/Users/{settings.jellyfin_user_id}/Items",
         IncludeItemTypes="Playlist",
         Recursive="true"
-    ).get("Items", [])
+    )).get("Items", [])
 
     audio_playlists = []
     for pl in playlists:
         pl_id = pl["Id"]
-        contents = jf_get(
+        contents = (await jf_get(
             f"/Users/{settings.jellyfin_user_id}/Items",
             ParentId=pl_id,
             IncludeItemTypes="Audio",
             Recursive="true",
             Limit=1,
-        ).get("Items", [])
+        )).get("Items", [])
         if contents:
             audio_playlists.append({"name": pl["Name"], "id": pl["Id"]})
 
     audio_playlists.sort(key=lambda p: p["name"].lower())
     return {"playlists": audio_playlists}
 
-def get_playlist_id_by_name(name: str) -> str | None:
+async def get_playlist_id_by_name(name: str) -> str | None:
     """Return the ID of a Jellyfin playlist given its name."""
     try:
-        resp = requests.get(
-            f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
-            headers={"X-Emby-Token": settings.jellyfin_api_key},
-            params={"IncludeItemTypes": "Playlist", "Recursive": "true"},
-            timeout=10
-        )
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
+                headers={"X-Emby-Token": settings.jellyfin_api_key},
+                params={"IncludeItemTypes": "Playlist", "Recursive": "true"},
+                timeout=10
+            )
         resp.raise_for_status()
         for item in resp.json().get("Items", []):
             if item.get("Name") == name:
@@ -80,15 +81,16 @@ def get_playlist_id_by_name(name: str) -> str | None:
         logger.error(f"Failed to get playlist ID for '{name}': {e}")
     return None
 
-def get_playlist_tracks(playlist_id: str) -> list[str]:
+async def get_playlist_tracks(playlist_id: str) -> list[str]:
     """Fetch and return track titles from a Jellyfin playlist by ID."""
     try:
-        resp = requests.get(
-            f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
-            headers={"X-Emby-Token": settings.jellyfin_api_key},
-            params={"ParentId": playlist_id, "IncludeItemTypes": "Audio", "Recursive": "true"},
-            timeout=10
-        )
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
+                headers={"X-Emby-Token": settings.jellyfin_api_key},
+                params={"ParentId": playlist_id, "IncludeItemTypes": "Audio", "Recursive": "true"},
+                timeout=10
+            )
         resp.raise_for_status()
         items = resp.json().get("Items", [])
         return [
@@ -189,7 +191,7 @@ def normalize_track(raw: str | dict) -> dict:
     else:
         return {"raw": str(raw), "title": "", "artist": "", "album": "", "year": ""}
 
-def enrich_track(parsed: dict) -> dict:
+async def enrich_track(parsed: dict) -> dict:
     # ✅ 0. Ensure essential fields
     if not parsed.get("title") or not parsed.get("artist"):
         raise ValueError("Missing required track metadata (title/artist)")
@@ -198,7 +200,7 @@ def enrich_track(parsed: dict) -> dict:
     artist = parsed["artist"]
 
     # ✅ 1. Last.fm enrichment
-    lastfm_data = enrich_with_lastfm(title, artist)
+    lastfm_data = await enrich_with_lastfm(title, artist)
     tags = lastfm_data["tags"]
     listeners = lastfm_data["listeners"]
     releasedate = lastfm_data["releasedate"]
@@ -225,10 +227,11 @@ def enrich_track(parsed: dict) -> dict:
 
     if artist and title and settings.getsongbpm_api_key:
         try:
-            bpm_data = get_cached_bpm(
+            bpm_data = await asyncio.to_thread(
+                get_cached_bpm,
                 artist=artist,
                 title=title,
-                api_key=settings.getsongbpm_api_key
+                api_key=settings.getsongbpm_api_key,
             )
         except Exception as e:
             logger.warning(f"GetSongBPM API failed for {artist} - {title}: {e}")
@@ -268,7 +271,7 @@ def enrich_track(parsed: dict) -> dict:
     bpm_scores = mood_scores_from_bpm_data(bpm_data or {})
     lyrics_scores = None
     lyrics = get_lyrics_for_enrich(parsed)
-    lyrics_mood = analyze_mood_from_lyrics(lyrics)  # GPT API call result
+    lyrics_mood = await asyncio.to_thread(analyze_mood_from_lyrics, lyrics)
     lyrics_scores = build_lyrics_scores(lyrics_mood) if lyrics_mood else None
     mood, confidence = combine_mood_scores(tag_scores, bpm_scores, lyrics_scores)
 
@@ -398,12 +401,12 @@ def extract_year_from_string(releasedate: str) -> str:
 
 async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list:
     """Fetch tracks for a playlist and enrich them concurrently."""
-    raw_tracks = await asyncio.to_thread(fetch_tracks_for_playlist_id, playlist_id)
+    raw_tracks = await fetch_tracks_for_playlist_id(playlist_id)
     async def process(track: dict) -> dict | None:
         try:
             norm = normalize_track(track)
             norm["jellyfin_play_count"] = track.get("UserData", {}).get("PlayCount", 0)
-            enriched_data = await asyncio.to_thread(enrich_track, norm)
+            enriched_data = await enrich_track(norm)
             logger.info(
                 f"✅ Enriched: {norm.get('title', 'Unknown')} "
                 f"| Last.fm: {enriched_data.get('popularity', 'N/A')} "

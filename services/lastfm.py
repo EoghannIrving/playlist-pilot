@@ -7,7 +7,8 @@ Provides Last.fm integration for:
 """
 
 import re
-import requests
+import asyncio
+import httpx
 import logging
 from config import settings
 from utils.cache_manager import lastfm_cache, LASTFM_POP_CACHE, CACHE_TTLS
@@ -21,7 +22,7 @@ def normalize(text: str) -> str:
     text = re.sub(r"[^a-z0-9 ]", "", text)     # Remove punctuation
     return text.strip()
 
-def get_lastfm_tags(title: str, artist: str) -> list[str]:
+async def get_lastfm_tags(title: str, artist: str) -> list[str]:
 
     """
     Retrieve top genre-like tags for a given track from Last.fm.
@@ -34,17 +35,18 @@ def get_lastfm_tags(title: str, artist: str) -> list[str]:
         return cached
 
     try:
-        response = requests.get(
-            "https://ws.audioscrobbler.com/2.0/",
-            params={
-                "method": "track.getTopTags",
-                "api_key": settings.lastfm_api_key,
-                "artist": artist,
-                "track": title,
-                "format": "json",
-            },
-            timeout=5,
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://ws.audioscrobbler.com/2.0/",
+                params={
+                    "method": "track.getTopTags",
+                    "api_key": settings.lastfm_api_key,
+                    "artist": artist,
+                    "track": title,
+                    "format": "json",
+                },
+                timeout=5,
+            )
         response.raise_for_status()
         data = response.json()
         tags = [tag["name"] for tag in data.get("toptags", {}).get("tag", [])]
@@ -55,7 +57,7 @@ def get_lastfm_tags(title: str, artist: str) -> list[str]:
         logger.warning(f"Last.fm tag fetch failed for {title} - {artist}: {e}")
         return []
 
-def get_lastfm_track_info(title: str, artist: str) -> dict | None:
+async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
     """
     Retrieve and cache Last.fm track.getInfo data.
 
@@ -70,17 +72,18 @@ def get_lastfm_track_info(title: str, artist: str) -> dict | None:
 
     logger.info(f"Last.fm cache miss for {title} - {artist}")
     try:
-        response = requests.get(
-            "https://ws.audioscrobbler.com/2.0/",
-            params={
-                "method": "track.getInfo",
-                "api_key": settings.lastfm_api_key,
-                "artist": artist,
-                "track": title,
-                "format": "json",
-            },
-            timeout=10,
-        )
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://ws.audioscrobbler.com/2.0/",
+                params={
+                    "method": "track.getInfo",
+                    "api_key": settings.lastfm_api_key,
+                    "artist": artist,
+                    "track": title,
+                    "format": "json",
+                },
+                timeout=10,
+            )
         response.raise_for_status()
         data = response.json()
         track = data.get("track")
@@ -95,13 +98,14 @@ def get_lastfm_track_info(title: str, artist: str) -> dict | None:
         lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
         return None
 
-def enrich_with_lastfm(title: str, artist: str) -> dict:
+async def enrich_with_lastfm(title: str, artist: str) -> dict:
     """
     Returns a dict with Last.fm metadata for a track.
     Includes: existence, listeners, release date, tags
     """
-    track_data = get_lastfm_track_info(title, artist)
-    tags = get_lastfm_tags(title, artist)
+    track_task = asyncio.create_task(get_lastfm_track_info(title, artist))
+    tags_task = asyncio.create_task(get_lastfm_tags(title, artist))
+    track_data, tags = await asyncio.gather(track_task, tags_task)
 
     return {
         "exists": track_data is not None,
