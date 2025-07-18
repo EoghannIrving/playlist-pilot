@@ -7,6 +7,7 @@ from urllib.parse import quote_plus
 import httpx
 
 from config import settings
+from utils.cache_manager import jellyfin_track_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -29,6 +30,12 @@ async def fetch_jellyfin_users():
 
 async def search_jellyfin_for_track(title: str, artist: str) -> bool:
     logger.debug(f"🔍 search_jellyfin_for_track() called with: {title} - {artist}")
+    key = f"{title.strip().lower()}::{artist.strip().lower()}"
+    cached = jellyfin_track_cache.get(key)
+    if cached is not None:
+        logger.info(f"Jellyfin cache hit for {title} - {artist}")
+        return bool(cached)
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -55,13 +62,16 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
 
             if title.lower() in name.lower() and any(artist.lower() in a.lower() for a in artists):
                 logger.debug("✅ Match found!")
+                jellyfin_track_cache.set(key, True, expire=CACHE_TTLS["jellyfin_tracks"])
                 return True
 
         logger.debug("❌ No matching track found")
+        jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
         return False
 
     except Exception as e:
         logger.warning(f"Jellyfin search failed for {title} - {artist}: {e}")
+        jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
         return False
 
 
