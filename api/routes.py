@@ -119,7 +119,7 @@ async def enrich_suggestion(suggestion):
         text, reason = parse_suggestion_line(suggestion["text"])
         title=suggestion["title"]
         artist=suggestion["artist"]
-        jellyfin_data = fetch_jellyfin_track_metadata(title, artist)
+        jellyfin_data = await fetch_jellyfin_track_metadata(title, artist)
         in_jellyfin = bool(jellyfin_data)
         play_count = 0
         genres = []
@@ -144,7 +144,7 @@ async def enrich_suggestion(suggestion):
             "Genres": genres,
             "RunTimeTicks": duration_ticks
         }
-        enriched = enrich_track(parsed)
+        enriched = await enrich_track(parsed)
         return {
             "text": text,
             "reason": reason,
@@ -171,7 +171,7 @@ async def index(request: Request):
     Uses cached data if available.
     """
     user_id = settings.jellyfin_user_id
-    playlists_data = get_cached_playlists(user_id)
+    playlists_data = await get_cached_playlists(user_id)
     history = load_sorted_history(user_id)
 
     return templates.TemplateResponse("analyze.html", {
@@ -186,7 +186,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
     Compare the overlap between two playlists (GPT or Jellyfin) via HTML form.
     """
     history = load_sorted_history(settings.jellyfin_user_id)
-    all_playlists = fetch_audio_playlists()["playlists"]
+    all_playlists = (await fetch_audio_playlists())["playlists"]
     try:
         form = await request.form()
         s1_type = form.get("source1_type")
@@ -208,7 +208,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 }
             })
 
-        def resolve(source_type, source_id):
+        async def resolve(source_type, source_id):
             """Resolve playlist details for comparison."""
             if source_type == "history":
                 try:
@@ -228,7 +228,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                     return None, []
             elif source_type == "jellyfin":
                 try:
-                    tracks = fetch_tracks_for_playlist_id(source_id)
+                    tracks = await fetch_tracks_for_playlist_id(source_id)
                     label = next(
                         (p["name"] for p in all_playlists if p["id"] == source_id),
                         "Jellyfin Playlist"
@@ -247,8 +247,8 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                     return None, []
             return None, []
 
-        label1, tracks1 = resolve(s1_type, s1_id)
-        label2, tracks2 = resolve(s2_type, s2_id)
+        label1, tracks1 = await resolve(s1_type, s1_id)
+        label2, tracks2 = await resolve(s2_type, s2_id)
 
         if not tracks1 or not tracks2:
             return templates.TemplateResponse("compare.html", {
@@ -333,7 +333,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
 async def compare_ui(request: Request):
     """Render the playlist comparison form."""
     history = load_sorted_history(settings.jellyfin_user_id)
-    all_playlists = fetch_audio_playlists()["playlists"]
+    all_playlists = (await fetch_audio_playlists())["playlists"]
     return templates.TemplateResponse(
         "compare.html",
         {
@@ -404,7 +404,7 @@ async def get_settings(request: Request):
         validation_message = None
     except ValueError as ve:
         validation_message = str(ve)
-    users = fetch_jellyfin_users()
+    users = await fetch_jellyfin_users()
     client = OpenAI(api_key=settings.openai_api_key)
     models = [
         m.id for m in client.models.list().data
@@ -449,7 +449,7 @@ async def update_settings(
     except ValueError as ve:
         validation_message = str(ve)
 
-    users = fetch_jellyfin_users()
+    users = await fetch_jellyfin_users()
     return templates.TemplateResponse("settings.html", {
         "request": request,
         "settings": settings.dict(),
@@ -528,7 +528,7 @@ async def test_openai(request: Request):
 async def show_analysis_page(request: Request):
     """Display the playlist analysis form."""
     user_id = settings.jellyfin_user_id
-    playlists_data = get_cached_playlists(user_id)
+    playlists_data = await get_cached_playlists(user_id)
     history = load_sorted_history(user_id)
 
     return templates.TemplateResponse("analyze.html", {
@@ -547,7 +547,7 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     """Analyze a selected playlist from Jellyfin or GPT history."""
     if source_type == "jellyfin":
         enriched = await enrich_jellyfin_playlist(playlist_id)
-        name_data = get_cached_playlists(settings.jellyfin_user_id)
+        name_data = await get_cached_playlists(settings.jellyfin_user_id)
         playlistdetail = name_data.get("playlists", [])
         playlist_name = "Temporary Name"
 
@@ -800,7 +800,7 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
     item_ids = []
 
     for track in payload.tracks:
-        metadata = fetch_jellyfin_track_metadata(track["title"], track["artist"])
+        metadata = await fetch_jellyfin_track_metadata(track["title"], track["artist"])
         if metadata:
             item_ids.append(metadata["Id"])
         else:
@@ -813,7 +813,7 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
     if not item_ids:
         raise HTTPException(status_code=400, detail="No valid Jellyfin tracks found for export.")
 
-    playlist_id = create_jellyfin_playlist(payload.name, item_ids)
+    playlist_id = await create_jellyfin_playlist(payload.name, item_ids)
 
     if not playlist_id:
         raise HTTPException(status_code=500, detail="Failed to create Jellyfin playlist.")
@@ -827,7 +827,7 @@ async def import_m3u_file(m3u_file: UploadFile = File(...)):
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(m3u_file.file, buffer)
 
-    import_m3u_as_history_entry(temp_path)
+    await import_m3u_as_history_entry(temp_path)
     return RedirectResponse(url="/history", status_code=303)
 
 
@@ -878,7 +878,7 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
 
     title = track.get("title")
     artist = track.get("artist")
-    existing_item = jellyfin.fetch_jellyfin_track_metadata(title, artist)
+    existing_item = await jellyfin.fetch_jellyfin_track_metadata(title, artist)
     if not existing_item or not existing_item.get("Id"):
         return JSONResponse(
             {"error": "Could not resolve Jellyfin ItemId for track."},
@@ -886,7 +886,7 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
         )
 
     item_id = existing_item["Id"]
-    full_item = jellyfin.get_full_item(item_id)
+    full_item = await jellyfin.get_full_item(item_id)
     if not full_item:
         return JSONResponse({"error": "Could not retrieve full item metadata."}, status_code=500)
 
@@ -922,7 +922,7 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
     full_item["Tags"] = merged_tags
     full_item["Album"] = album_to_use
     logger.debug("Calling update_item_metadata")
-    success = jellyfin.update_item_metadata(item_id, full_item)
+    success = await jellyfin.update_item_metadata(item_id, full_item)
 
     if not success:
         return JSONResponse({"error": "Failed to update Jellyfin metadata."}, status_code=500)

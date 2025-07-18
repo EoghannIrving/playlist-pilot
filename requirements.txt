@@ -9,3 +9,4 @@ uvicorn
 yt-dlp
 python-multipart
 cloudscraper
+httpx
