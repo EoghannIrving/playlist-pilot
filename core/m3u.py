@@ -8,6 +8,7 @@ import os
 import re
 import tempfile
 import uuid
+import asyncio
 from pathlib import Path
 import httpx
 import logging
@@ -123,11 +124,18 @@ async def import_m3u_as_history_entry(filepath: str):
     with open(filepath, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
+    metas = []
+    tasks = []
     for path in lines:
         meta = infer_track_metadata_from_path(path)
+        metas.append((path, meta))
+        tasks.append(asyncio.create_task(search_jellyfin_for_track(meta['title'], meta['artist'])))
+
+    results = await asyncio.gather(*tasks)
+
+    for (path, meta), result in zip(metas, results):
         title = meta['title']
         artist = meta['artist']
-        result = await search_jellyfin_for_track(title, artist)
         if result:
             track_dict = {"title": title, "artist": artist}
             enriched = await enrich_track(track_dict) or track_dict   # fallback to base if enrich returns None
