@@ -142,7 +142,7 @@ async def enrich_suggestion(suggestion):
             "artist": suggestion["artist"],
             "jellyfin_play_count": play_count,
             "Genres": genres,
-            "RunTimeTicks": duration_ticks
+            "RunTimeTicks": duration_ticks,
         }
         enriched = await enrich_track(parsed)
         return {
@@ -152,7 +152,7 @@ async def enrich_suggestion(suggestion):
             "artist": suggestion["artist"],
             "youtube_url": youtube_url,
             "in_jellyfin": in_jellyfin,
-            **enriched
+            **enriched.dict()
         }
 
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -648,7 +648,10 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
         clean_label = label_parts[0].strip() if len(label_parts) > 1 else entry.get("label")
         playlist_name = f"{clean_label} Suggestions"
         start = perf_counter()
-        enriched = [enrich_track(normalize_track(t)) for t in tracks]
+        enriched = []
+        for t in tracks:
+            res = await enrich_track(normalize_track(t))
+            enriched.append(res.dict())
         logger.debug("Enriched Tracks: %.2fs", perf_counter() - start)
     start = perf_counter()
     parsed_enriched = [s for s in enriched if s is not None]
