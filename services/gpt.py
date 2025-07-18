@@ -7,7 +7,6 @@ Handles GPT prompt generation, caching, and result validation for playlist sugge
 import hashlib
 import logging
 import asyncio
-import requests
 import os
 import json
 from typing import Tuple

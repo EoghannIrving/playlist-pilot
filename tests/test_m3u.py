@@ -7,10 +7,14 @@ import types
 sys.modules.setdefault('httpx', types.ModuleType('httpx'))
 services_stub = types.ModuleType('services.jellyfin')
 services_stub.resolve_jellyfin_path = lambda *a, **kw: None
-services_stub.search_jellyfin_for_track = lambda *a, **kw: None
+async def _dummy_search(*a, **kw):
+    return None
+services_stub.search_jellyfin_for_track = _dummy_search
 sys.modules.setdefault('services.jellyfin', services_stub)
 playlist_stub = types.ModuleType('core.playlist')
-playlist_stub.enrich_track = lambda *a, **kw: {}
+async def _dummy_enrich(*a, **kw):
+    return {}
+playlist_stub.enrich_track = _dummy_enrich
 sys.modules.setdefault('core.playlist', playlist_stub)
 
 from core.m3u import parse_track_text, infer_track_metadata_from_path
