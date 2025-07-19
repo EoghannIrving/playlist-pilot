@@ -12,13 +12,10 @@ including:
 """
 # pylint: disable=too-many-lines
 
-import asyncio
-import json
 import logging
 import shutil
 import tempfile
 import uuid
-from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 
@@ -47,7 +44,6 @@ from config import (
 from core.analysis import summarize_tracks
 from core.history import (
     extract_date_from_label,
-    save_user_history,
     save_whole_user_history,
 )
 from core.m3u import (
@@ -67,6 +63,7 @@ from core.playlist import (
     enrich_and_score_suggestions,
 )
 from core.templates import templates
+from core.models import ExportPlaylistRequest
 from services import jellyfin
 from services.gpt import generate_playlist_analysis_summary, fetch_gpt_suggestions
 from services.jellyfin import (
@@ -77,10 +74,8 @@ from services.jellyfin import (
     resolve_jellyfin_path,
 )
 from services.lastfm import get_lastfm_tags
-from services.metube import get_youtube_url_single
 from utils.helpers import get_cached_playlists, load_sorted_history, parse_suggest_request
 from api.forms import SettingsForm
-from core.models import ExportPlaylistRequest
 
 
 logger = logging.getLogger("playlist-pilot")
