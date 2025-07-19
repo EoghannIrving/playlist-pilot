@@ -104,20 +104,20 @@ async def index(request: Request):
 
 @router.post("/compare", response_class=HTMLResponse)
 async def compare_playlists_form(request: Request):  # pylint: disable=too-many-locals
-    """
-    Compare the overlap between two playlists (GPT or Jellyfin) via HTML form.
-    """
+    """Compare the overlap between two playlists (GPT or Jellyfin)."""
     history = load_sorted_history(settings.jellyfin_user_id)
     all_playlists = (await fetch_audio_playlists())["playlists"]
-    try:
-        form = await request.form()
-        s1_type = form.get("source1_type")
-        s1_id = form.get("source1_id")
-        s2_type = form.get("source2_type")
-        s2_id = form.get("source2_id")
 
-        if not all([s1_type, s1_id, s2_type, s2_id]):
-            return templates.TemplateResponse("compare.html", {
+    form = await request.form()
+    s1_type = form.get("source1_type")
+    s1_id = form.get("source1_id")
+    s2_type = form.get("source2_type")
+    s2_id = form.get("source2_id")
+
+    if not all([s1_type, s1_id, s2_type, s2_id]):
+        return templates.TemplateResponse(
+            "compare.html",
+            {
                 "request": request,
                 "history": history,
                 "playlists": all_playlists,
@@ -127,53 +127,44 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                     "source1_id": s1_id,
                     "source2_type": s2_type,
                     "source2_id": s2_id,
-                }
-            })
+                },
+            },
+        )
 
-        async def resolve(source_type, source_id):
-            """Resolve playlist details for comparison."""
-            if source_type == "history":
-                try:
-                    entry = history[int(source_id)]
-                    label = entry["label"]
-                    tracks = [
-                        " - ".join(track["text"].split(" - ")[:2])
-                        for track in entry["suggestions"]
-                    ]
-                    return label, tracks
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.warning(
-                        "\u274c Failed to resolve GPT history index %s: %s",
-                        source_id,
-                        e,
-                    )
-                    return None, []
-            elif source_type == "jellyfin":
-                try:
-                    tracks = await fetch_tracks_for_playlist_id(source_id)
-                    label = next(
-                        (p["name"] for p in all_playlists if p["id"] == source_id),
-                        "Jellyfin Playlist"
-                    )
-                    formatted = [
-                        f'{t["Name"]} - {t.get("AlbumArtist") or t.get("Artist", "")}'
-                        for t in tracks
-                    ]
-                    return label, formatted
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.warning(
-                        "\u274c Failed to resolve Jellyfin playlist %s: %s",
-                        source_id,
-                        e,
-                    )
-                    return None, []
-            return None, []
+    async def resolve(source_type, source_id):
+        """Resolve playlist details for comparison."""
+        if source_type == "history":
+            try:
+                entry = history[int(source_id)]
+                label = entry["label"]
+                tracks = [
+                    " - ".join(track["text"].split(" - ")[:2])
+                    for track in entry["suggestions"]
+                ]
+                return label, tracks
+            except (ValueError, IndexError, KeyError) as exc:
+                logger.warning("\u274c Failed to resolve GPT history index %s: %s", source_id, exc)
+                return None, []
+        if source_type == "jellyfin":
+            tracks = await fetch_tracks_for_playlist_id(source_id)
+            label = next(
+                (p["name"] for p in all_playlists if p["id"] == source_id),
+                "Jellyfin Playlist",
+            )
+            formatted = [
+                f'{t["Name"]} - {t.get("AlbumArtist") or t.get("Artist", "")}'
+                for t in tracks
+            ]
+            return label, formatted
+        return None, []
 
-        label1, tracks1 = await resolve(s1_type, s1_id)
-        label2, tracks2 = await resolve(s2_type, s2_id)
+    label1, tracks1 = await resolve(s1_type, s1_id)
+    label2, tracks2 = await resolve(s2_type, s2_id)
 
-        if not tracks1 or not tracks2:
-            return templates.TemplateResponse("compare.html", {
+    if not tracks1 or not tracks2:
+        return templates.TemplateResponse(
+            "compare.html",
+            {
                 "request": request,
                 "history": history,
                 "playlists": all_playlists,
@@ -183,47 +174,35 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                     "source1_id": s1_id,
                     "source2_type": s2_type,
                     "source2_id": s2_id,
-                }
-            })
+                },
+            },
+        )
 
-        def normalize(string: str) -> str:
-            """Normalize track string for comparison."""
-            return string.lower().strip()
-        set1_norm = set(map(normalize, tracks1))
-        set2_norm = set(map(normalize, tracks2))
+    def normalize(string: str) -> str:
+        """Normalize track string for comparison."""
+        return string.lower().strip()
 
-        only_in_1 = sorted([t for t in tracks1 if normalize(t) not in set2_norm])
-        only_in_2 = sorted([t for t in tracks2 if normalize(t) not in set1_norm])
-        common_tracks = sorted([t for t in tracks1 if normalize(t) in set2_norm])
+    set1_norm = set(map(normalize, tracks1))
+    set2_norm = set(map(normalize, tracks2))
 
-        comparison = []
+    only_in_1 = sorted([t for t in tracks1 if normalize(t) not in set2_norm])
+    only_in_2 = sorted([t for t in tracks2 if normalize(t) not in set1_norm])
+    common_tracks = sorted([t for t in tracks1 if normalize(t) in set2_norm])
 
-        if only_in_1:
-            comparison.append({
-                "side": "only_in_1",
-                "label": f"🎵 Only in {label1}",
-                "tracks": only_in_1,
-            })
-        if only_in_2:
-            comparison.append({
-                "side": "only_in_2",
-                "label": f"🎶 Only in {label2}",
-                "tracks": only_in_2,
-            })
-        if common_tracks:
-            comparison.append({
-                "side": "shared",
-                "label": "✅ Shared Tracks",
-                "tracks": common_tracks,
-            })
-        if not comparison:
-            comparison.append({
-                "label": "✅ The playlists contain the same tracks.",
-                "tracks": [],
-                "side": "shared",
-            })
+    comparison = []
 
-        return templates.TemplateResponse("compare.html", {
+    if only_in_1:
+        comparison.append({"side": "only_in_1", "label": f"🎵 Only in {label1}", "tracks": only_in_1})
+    if only_in_2:
+        comparison.append({"side": "only_in_2", "label": f"🎶 Only in {label2}", "tracks": only_in_2})
+    if common_tracks:
+        comparison.append({"side": "shared", "label": "✅ Shared Tracks", "tracks": common_tracks})
+    if not comparison:
+        comparison.append({"label": "✅ The playlists contain the same tracks.", "tracks": [], "side": "shared"})
+
+    return templates.TemplateResponse(
+        "compare.html",
+        {
             "request": request,
             "history": history,
             "playlists": all_playlists,
@@ -233,24 +212,9 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 "source1_id": s1_id,
                 "source2_type": s2_type,
                 "source2_id": s2_id,
-            }
-        })
-
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Error in compare_playlists_form")
-        return templates.TemplateResponse("compare.html", {
-            "request": request,
-            "history": history,
-            "playlists": all_playlists,
-            "comparison": [f"❌ Unexpected error: {str(e)}"],
-            "selected": {
-                "source1_type": s1_type,
-                "source1_id": s1_id,
-                "source2_type": s2_type,
-                "source2_id": s2_id,
-            }
-        })
-
+            },
+        },
+    )
 @router.get("/compare", response_class=HTMLResponse)
 async def compare_ui(request: Request):
     """Render the playlist comparison form."""
@@ -298,14 +262,10 @@ async def delete_history(request: Request):
     """
     form = await request.form()
     label = form.get("playlist_name")
-    try:
-        history = load_sorted_history(settings.jellyfin_user_id)
-        updated_history = [item for item in history if item.get("label") != label]
-        save_whole_user_history(settings.jellyfin_user_id, updated_history)
-        return RedirectResponse(url="/history", status_code=303)
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Error deleting history")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    history = load_sorted_history(settings.jellyfin_user_id)
+    updated_history = [item for item in history if item.get("label") != label]
+    save_whole_user_history(settings.jellyfin_user_id, updated_history)
+    return RedirectResponse(url="/history", status_code=303)
 
 
 @router.get("/health", response_class=JSONResponse)
@@ -394,22 +354,26 @@ async def test_lastfm(request: Request):
 
     try:
         async with httpx.AsyncClient() as client:
-            r = await client.get("https://ws.audioscrobbler.com/2.0/", params={
-                "method": "artist.search",
-                "artist": "radiohead",
-                "api_key": key,
-                "format": "json"
-            })
+            r = await client.get(
+                "https://ws.audioscrobbler.com/2.0/",
+                params={
+                    "method": "artist.search",
+                    "artist": "radiohead",
+                    "api_key": key,
+                    "format": "json",
+                },
+            )
 
         json_data = r.json()
-
-        return JSONResponse({
-            "success": "error" not in json_data,
-            "status": r.status_code,
-            "body": json_data
-        })
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        return JSONResponse({"success": False, "error": str(e)})
+        return JSONResponse(
+            {
+                "success": "error" not in json_data,
+                "status": r.status_code,
+                "body": json_data,
+            }
+        )
+    except httpx.HTTPError as exc:
+        return JSONResponse({"success": False, "error": str(exc)})
 
 
 @router.post("/api/test/jellyfin")
@@ -423,7 +387,7 @@ async def test_jellyfin(request: Request):
         headers = {
             "X-Emby-Token": key,
             "Accept": "application/json",
-            "User-Agent": "PlaylistPilotTest/1.0"
+            "User-Agent": "PlaylistPilotTest/1.0",
         }
         async with httpx.AsyncClient() as client:
             r = await client.get(f"{url}/System/Info", headers=headers)
@@ -432,9 +396,9 @@ async def test_jellyfin(request: Request):
         json_data = r.json()
         valid = r.status_code == 200 and any(k.lower() == "version" for k in json_data)
         return JSONResponse({"success": valid, "status": r.status_code, "data": json_data})
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Jellyfin test error: %s", str(e))
-        return JSONResponse({"success": False, "error": str(e)})
+    except httpx.HTTPError as exc:
+        logger.error("Jellyfin test error: %s", str(exc))
+        return JSONResponse({"success": False, "error": str(exc)})
 
 
 @router.post("/api/test/openai")
@@ -447,8 +411,8 @@ async def test_openai(request: Request):
         models = client.models.list()
         valid = any(m.id.startswith("gpt") for m in models.data)
         return JSONResponse({"success": valid})
-    except Exception:  # pylint: disable=broad-exception-caught
-        return JSONResponse({"success": False})
+    except openai.OpenAIError as exc:
+        return JSONResponse({"success": False, "error": str(exc)})
 
 
 
@@ -559,44 +523,40 @@ def debug_lastfm_tags(title: str, artist: str):
 @router.post("/suggest-playlist")
 async def suggest_from_analyzed(request: Request):
     """Generate playlist suggestions from the analyzed tracks."""
-    try:
-        tracks, playlist_name, text_summary = await parse_suggest_request(request)
+    tracks, playlist_name, text_summary = await parse_suggest_request(request)
 
-        start = perf_counter()
-        summary = summarize_tracks(tracks)
-        logger.debug("\u23F1\ufe0f Track summary: %.2fs", perf_counter() - start)
+    start = perf_counter()
+    summary = summarize_tracks(tracks)
+    logger.debug("\u23F1\ufe0f Track summary: %.2fs", perf_counter() - start)
 
-        suggestion_count = 10
-        start = perf_counter()
-        logger.debug("Requesting GPT Response using text summary")
-        suggestions_raw = await fetch_gpt_suggestions(tracks, text_summary, suggestion_count)
-        logger.debug("\u23F1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
-        logger.info("\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw))
+    suggestion_count = 10
+    start = perf_counter()
+    logger.debug("Requesting GPT Response using text summary")
+    suggestions_raw = await fetch_gpt_suggestions(tracks, text_summary, suggestion_count)
+    logger.debug("\u23F1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
+    logger.info("\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw))
 
-        start = perf_counter()
-        logger.debug("Enriching suggestions received from GPT")
-        parsed_suggestions = await enrich_and_score_suggestions(suggestions_raw)
-        logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
+    start = perf_counter()
+    logger.debug("Enriching suggestions received from GPT")
+    parsed_suggestions = await enrich_and_score_suggestions(suggestions_raw)
+    logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
 
-        start = perf_counter()
-        m3u_path = persist_history_and_m3u(parsed_suggestions, playlist_name)
-        logger.debug("\u23F1\ufe0f History save: %.2fs", perf_counter() - start)
+    start = perf_counter()
+    m3u_path = persist_history_and_m3u(parsed_suggestions, playlist_name)
+    logger.debug("\u23F1\ufe0f History save: %.2fs", perf_counter() - start)
 
-        return templates.TemplateResponse("results.html", {
-            "request": request,
-            "suggestions": parsed_suggestions,
-            "download_link": f"/download/{m3u_path.name}",
-            "count": suggestion_count,
-            "playlist_name": playlist_name,
-            "Dominant_Genre": summary['dominant_genre'],
-            "Moods": summary['mood_profile'].keys(),
-            "Average_BPM": int(summary['tempo_avg']),
-            "Popularity": int(summary['avg_popularity']),
-            "Decades": summary['decades'].keys(),
-        })
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Error in /suggest-playlist: %s", e, exc_info=True)
-        return JSONResponse({"error": str(e)}, status_code=500)
+    return templates.TemplateResponse("results.html", {
+        "request": request,
+        "suggestions": parsed_suggestions,
+        "download_link": f"/download/{m3u_path.name}",
+        "count": suggestion_count,
+        "playlist_name": playlist_name,
+        "Dominant_Genre": summary['dominant_genre'],
+        "Moods": summary['mood_profile'].keys(),
+        "Average_BPM": int(summary['tempo_avg']),
+        "Popularity": int(summary['avg_popularity']),
+        "Decades": summary['decades'].keys(),
+    })
 
 @router.get("/history/export")
 async def export_history_m3u(label: str = Query(...)):
