@@ -92,6 +92,11 @@ async def index(request: Request):
     Render the homepage with a list of audio playlists.
     Uses cached data if available.
     """
+    try:
+        settings.validate_settings()
+    except ValueError:
+        return RedirectResponse(url="/settings", status_code=302)
+
     user_id = settings.jellyfin_user_id
     playlists_data = await get_cached_playlists(user_id)
     history = load_sorted_history(user_id)
