@@ -105,6 +105,7 @@ def read_m3u(file_path: Path) -> list[dict]:
     Returns:
         list[dict]: List of track dictionaries
     """
+    logger.debug("Reading M3U file: %s", file_path)
     tracks = []
 
     lines = file_path.read_text(encoding="utf-8").splitlines()
@@ -119,6 +120,7 @@ def read_m3u(file_path: Path) -> list[dict]:
             "title": title
         })
 
+    logger.info("Parsed %d tracks from %s", len(tracks), file_path)
     return tracks
 
 def infer_track_metadata_from_path(path: str) -> dict:

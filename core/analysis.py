@@ -139,7 +139,7 @@ def detect_outliers(tracks: List[dict], summary: dict) -> List[str]:
 
 def normalize_popularity(value, min_val, max_val):
     """Normalize a value to a 0-100 scale given its min and max bounds."""
-    logger.info(
+    logger.debug(
         "normalize_popularity called with value=%s, min_val=%s, max_val=%s",
         value,
         min_val,
@@ -149,12 +149,12 @@ def normalize_popularity(value, min_val, max_val):
         logger.warning("normalize_popularity returning 0 due to min_val == max_val")
         return 0
     result = round(100 * (value - min_val) / (max_val - min_val), 2)
-    logger.info("normalize_popularity for jellyfin returning %s", result)
+    logger.debug("normalize_popularity for jellyfin returning %s", result)
     return result
 
 def combined_popularity_score(lastfm, jellyfin, w_lfm=0.4, w_jf=0.6):
     """Combine popularity metrics from Last.fm and Jellyfin."""
-    logger.info(
+    logger.debug(
         "combined_popularity_score called with lastfm=%s, jellyfin=%s, w_lfm=%s, w_jf=%s",
         lastfm,
         jellyfin,
@@ -196,7 +196,7 @@ def combined_popularity_score(lastfm, jellyfin, w_lfm=0.4, w_jf=0.6):
 
 def normalize_popularity_log(value, min_val, max_val):
     """Normalize logarithmic popularity values to a 0-100 scale."""
-    logger.info(
+    logger.debug(
         "normalize_popularity_log called with value=%s, min_val=%s, max_val=%s",
         value,
         min_val,
@@ -420,10 +420,10 @@ def combine_mood_scores(
 ) -> tuple[str, float]:
     """Merge mood scores from tags, BPM analysis and optional lyrics."""
     # pylint: disable=too-many-locals
-    logger.info("\n→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:")
-    logger.info("  Raw Tag Scores: %s", tag_scores)
-    logger.info("  Raw BPM Scores: %s", bpm_scores)
-    logger.info("  Raw Lyrics Scores: %s", lyrics_scores)
+    logger.debug("\n→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:")
+    logger.debug("  Raw Tag Scores: %s", tag_scores)
+    logger.debug("  Raw BPM Scores: %s", bpm_scores)
+    logger.debug("  Raw Lyrics Scores: %s", lyrics_scores)
 
 
 
@@ -455,7 +455,7 @@ def combine_mood_scores(
     filtered = dict(sorted_moods[:3])
     logger.debug("Filtered mood scores: %s", filtered)
     if not filtered or max(filtered.values()) < 0.3:
-        logger.warning("← Final Mood: unknown (no strong scores)\n")
+        logger.info("← Final Mood: unknown (no strong scores)\n")
         return "unknown", 0.0
 
     # Softmax confidence
