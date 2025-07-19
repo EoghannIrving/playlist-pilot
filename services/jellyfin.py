@@ -31,6 +31,7 @@ async def fetch_jellyfin_users():
         return {}
 
 async def search_jellyfin_for_track(title: str, artist: str) -> bool:
+    """Return True if the track exists in Jellyfin."""
     logger.debug("🔍 search_jellyfin_for_track() called with: %s - %s", title, artist)
     key = f"{title.strip().lower()}::{artist.strip().lower()}"
     cached = jellyfin_track_cache.get(key)
@@ -117,53 +118,7 @@ async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
         logger.debug("Fetched %d tracks for playlist %s", len(items), playlist_id)
 
         for item in items:
-            track_path = item.get("Path")
-            lyrics_attached = False
-            if track_path:
-                lrc_contents = read_lrc_for_track(track_path)
-                if lrc_contents:
-                    plain_lyrics = strip_lrc_timecodes(lrc_contents)
-                    item["lyrics"] = plain_lyrics
-                    logger.info(
-                        "Attached lyrics from .lrc for item %s (%s)",
-                        item.get("Id"),
-                        item.get("Name"),
-                    )
-                    lyrics_attached = True
-            if not lyrics_attached and item.get("HasLyrics"):
-                item_id = item.get("Id")
-                logger.debug(
-                    "HasLyrics true but no .lrc found, checking Jellyfin API for item %s",
-                    item_id,
-                )
-                lyrics_json = await fetch_lyrics_for_item(item_id)
-                if lyrics_json:
-                    try:
-                        parsed = json.loads(lyrics_json)
-                        text_lines = [
-                            entry.get("Text")
-                            for entry in parsed.get("Lyrics", [])
-                            if entry.get("Text")
-                        ]
-                        if text_lines:
-                            item["lyrics"] = "\n".join(text_lines)
-                            logger.info(
-                                "Extracted %d lines of Jellyfin API lyrics for item %s",
-                                len(text_lines),
-                                item_id,
-                            )
-                            logger.debug(
-                                "Lyrics for item %s (%s):\n%s",
-                                item_id,
-                                item.get("Name"),
-                                item["lyrics"],
-                            )
-                    except Exception as exc:  # pylint: disable=broad-exception-caught
-                        logger.warning(
-                            "Failed to parse structured lyrics for item %s: %s",
-                            item_id,
-                            exc,
-                        )
+            await _attach_lyrics(item)
 
         return items
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -193,6 +148,56 @@ async def fetch_lyrics_for_item(item_id: str) -> str:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.warning("Failed to fetch lyrics for item %s: %s", item_id, exc)
     return None
+
+
+async def _attach_lyrics(item: dict) -> None:
+    """Attach lyrics to a track dictionary if available."""
+    track_path = item.get("Path")
+    if track_path:
+        lrc_contents = read_lrc_for_track(track_path)
+        if lrc_contents:
+            item["lyrics"] = strip_lrc_timecodes(lrc_contents)
+            logger.info(
+                "Attached lyrics from .lrc for item %s (%s)",
+                item.get("Id"),
+                item.get("Name"),
+            )
+            return
+
+    if item.get("HasLyrics"):
+        item_id = item.get("Id")
+        logger.debug(
+            "HasLyrics true but no .lrc found, checking Jellyfin API for item %s",
+            item_id,
+        )
+        lyrics_json = await fetch_lyrics_for_item(item_id)
+        if lyrics_json:
+            try:
+                parsed = json.loads(lyrics_json)
+                text_lines = [
+                    entry.get("Text")
+                    for entry in parsed.get("Lyrics", [])
+                    if entry.get("Text")
+                ]
+                if text_lines:
+                    item["lyrics"] = "\n".join(text_lines)
+                    logger.info(
+                        "Extracted %d lines of Jellyfin API lyrics for item %s",
+                        len(text_lines),
+                        item_id,
+                    )
+                    logger.debug(
+                        "Lyrics for item %s (%s):\n%s",
+                        item_id,
+                        item.get("Name"),
+                        item["lyrics"],
+                    )
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                logger.warning(
+                    "Failed to parse structured lyrics for item %s: %s",
+                    item_id,
+                    exc,
+                )
 
 
 
@@ -245,7 +250,8 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
         return None
 
 
-async def resolve_jellyfin_path(title, artist, jellyfin_url, jellyfin_api_key):
+async def resolve_jellyfin_path(title: str, artist: str, jellyfin_url: str, jellyfin_api_key: str):
+    """Return the filesystem path for a track if Jellyfin knows it."""
     url = f"{jellyfin_url}/Items"
     headers = {
         "X-Emby-Token": jellyfin_api_key,
@@ -276,12 +282,12 @@ async def resolve_jellyfin_path(title, artist, jellyfin_url, jellyfin_api_key):
                 path = data["Items"][0].get("Path")
                 logger.debug("[resolve_jellyfin_path] Resolved path: %s", path)
                 return path
-            else:
-                logger.debug(
-                    "[resolve_jellyfin_path] No items found for Artist='%s', Title='%s'",
-                    artist,
-                    title,
-                )
+
+            logger.debug(
+                "[resolve_jellyfin_path] No items found for Artist='%s', Title='%s'",
+                artist,
+                title,
+            )
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.warning(
@@ -340,6 +346,7 @@ async def create_jellyfin_playlist(
         return None
 
 async def get_full_item(item_id: str) -> dict | None:
+    """Fetch the full Jellyfin item JSON for the given ID."""
     url = f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items/{item_id}"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
     try:
@@ -352,6 +359,7 @@ async def get_full_item(item_id: str) -> dict | None:
         return None
 
 async def update_item_metadata(item_id: str, full_item: dict) -> bool:
+    """Update a Jellyfin item with the provided metadata."""
     url = f"{settings.jellyfin_url.rstrip('/')}/Items/{item_id}"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
     logger.info("Updating Item Metadata - Url:%s", url)
