@@ -98,6 +98,20 @@ class SettingsForm(AppSettings):
         lastfm_api_key: str = Form(""),
         model: str = Form("gpt-4o-mini"),
         getsongbpm_api_key: str = Form(""),
+        global_min_lfm: int = Form(10000),
+        global_max_lfm: int = Form(15000000),
+        cache_ttls: str = Form(""),
+        getsongbpm_base_url: str = Form("https://api.getsongbpm.com/search/"),
+        getsongbpm_headers: str = Form(""),
+        http_timeout_short: int = Form(5),
+        http_timeout_long: int = Form(10),
+        youtube_min_duration: int = Form(120),
+        youtube_max_duration: int = Form(360),
+        library_scan_limit: int = Form(1000),
+        music_library_root: str = Form("Movies/Music"),
+        lyrics_weight: float = Form(1.5),
+        bpm_weight: float = Form(1.0),
+        tags_weight: float = Form(0.7),
     ) -> "SettingsForm":
         """Create a SettingsForm instance from submitted form data."""
         return cls(
@@ -108,6 +122,20 @@ class SettingsForm(AppSettings):
             lastfm_api_key=lastfm_api_key,
             model=model,
             getsongbpm_api_key=getsongbpm_api_key,
+            global_min_lfm=global_min_lfm,
+            global_max_lfm=global_max_lfm,
+            cache_ttls=json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls,
+            getsongbpm_base_url=getsongbpm_base_url,
+            getsongbpm_headers=json.loads(getsongbpm_headers) if getsongbpm_headers else AppSettings().getsongbpm_headers,
+            http_timeout_short=http_timeout_short,
+            http_timeout_long=http_timeout_long,
+            youtube_min_duration=youtube_min_duration,
+            youtube_max_duration=youtube_max_duration,
+            library_scan_limit=library_scan_limit,
+            music_library_root=music_library_root,
+            lyrics_weight=lyrics_weight,
+            bpm_weight=bpm_weight,
+            tags_weight=tags_weight,
         )
 
 # Async wrapper to process one suggestion
@@ -521,6 +549,20 @@ async def update_settings(
         if m.id.startswith("gpt")
     ]
     settings.getsongbpm_api_key = form_data.getsongbpm_api_key
+    settings.global_min_lfm = form_data.global_min_lfm
+    settings.global_max_lfm = form_data.global_max_lfm
+    settings.cache_ttls = form_data.cache_ttls
+    settings.getsongbpm_base_url = form_data.getsongbpm_base_url
+    settings.getsongbpm_headers = form_data.getsongbpm_headers
+    settings.http_timeout_short = form_data.http_timeout_short
+    settings.http_timeout_long = form_data.http_timeout_long
+    settings.youtube_min_duration = form_data.youtube_min_duration
+    settings.youtube_max_duration = form_data.youtube_max_duration
+    settings.library_scan_limit = form_data.library_scan_limit
+    settings.music_library_root = form_data.music_library_root
+    settings.lyrics_weight = form_data.lyrics_weight
+    settings.bpm_weight = form_data.bpm_weight
+    settings.tags_weight = form_data.tags_weight
 
     save_settings(settings)
 
