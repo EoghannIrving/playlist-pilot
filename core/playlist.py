@@ -14,6 +14,8 @@ import asyncio
 import logging
 import re
 
+from utils.text_utils import build_search_query, clean
+
 import httpx
 
 from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
@@ -25,6 +27,7 @@ from core.analysis import (
     combined_popularity_score,
     normalize_popularity_log,
     build_lyrics_scores,
+    add_combined_popularity,
 )
 from core.models import Track, EnrichedTrack
 from services.getsongbpm import get_cached_bpm
@@ -138,10 +141,6 @@ async def get_full_audio_library(force_refresh: bool = False) -> list[str]:
     library_cache.set(cache_key, items, expire=CACHE_TTLS["full_library"])
     return items
 
-def clean(text: str) -> str:
-    """Normalize text by lowercasing and removing punctuation."""
-    return re.sub(r"[^\w\s]", "", text.lower().strip())
-
 def parse_suggestion_line(line: str) -> tuple[str, str]:
     """
     Parse a GPT suggestion line formatted as:
@@ -156,11 +155,6 @@ def parse_suggestion_line(line: str) -> tuple[str, str]:
     text = " - ".join(parts[:4])
     reason = parts[4]
     return text, reason
-
-def build_search_query(line: str) -> str:
-    """Extract a basic search query from a track label."""
-    parts = [part.strip() for part in line.split("-")]
-    return f"{parts[0]} {parts[1]}" if len(parts) >= 2 else line.strip()
 
 def normalize_track(raw: str | dict) -> Track:
     """
@@ -588,32 +582,10 @@ async def enrich_and_score_suggestions(suggestions_raw: list[dict]) -> list[dict
 
     suggestions.sort(key=lambda s: not s["in_jellyfin"])
 
-    jellyfin_raw = [
-        t["jellyfin_play_count"]
-        for t in suggestions
-        if isinstance(t.get("jellyfin_play_count"), int)
-    ]
-    min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
-
+    add_combined_popularity(suggestions, w_lfm=0.3, w_jf=0.7)
     for track in suggestions:
         raw_lfm = track.get("popularity")
         raw_jf = track.get("jellyfin_play_count")
-        norm_lfm = (
-            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
-            if raw_lfm is not None
-            else None
-        )
-        norm_jf = (
-            normalize_popularity(raw_jf, min_jf, max_jf)
-            if raw_jf is not None
-            else None
-        )
-        track["combined_popularity"] = combined_popularity_score(
-            norm_lfm,
-            norm_jf,
-            w_lfm=0.3,
-            w_jf=0.7,
-        )
         logger.info(
             "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
             track["title"],
