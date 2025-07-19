@@ -20,7 +20,7 @@ async def _dummy_enrich(*_a, **_kw):
 playlist_stub.enrich_track = _dummy_enrich
 sys.modules.setdefault('core.playlist', playlist_stub)
 
-from core.m3u import parse_track_text, infer_track_metadata_from_path
+from core.m3u import parse_track_text, infer_track_metadata_from_path  # pylint: disable=wrong-import-position
 
 
 def test_parse_track_text_basic():
