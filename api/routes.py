@@ -36,8 +36,6 @@ from starlette.background import BackgroundTask
 from openai import OpenAI
 
 from config import (
-    GLOBAL_MAX_LFM,
-    GLOBAL_MIN_LFM,
     save_settings,
     settings,
 )

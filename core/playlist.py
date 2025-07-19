@@ -14,8 +14,6 @@ import asyncio
 import logging
 import re
 
-from utils.text_utils import build_search_query, clean
-
 import httpx
 
 from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
