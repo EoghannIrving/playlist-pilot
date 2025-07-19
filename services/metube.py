@@ -10,7 +10,7 @@ import logging
 from urllib.parse import quote_plus
 
 import yt_dlp
-from core.playlist import build_search_query, clean
+from utils.text_utils import build_search_query, clean
 from utils.cache_manager import yt_search_cache, CACHE_TTLS
 from config import settings
 
