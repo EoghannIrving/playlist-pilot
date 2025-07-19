@@ -1,4 +1,5 @@
 """Helper functions for cached playlist retrieval and history sorting."""
+# pylint: disable=duplicate-code
 
 from core.playlist import fetch_audio_playlists
 from core.history import load_user_history, extract_date_from_label
