@@ -216,7 +216,7 @@ async def gpt_suggest_validated(
         artist = track["artist"]
 
         try:
-            track_data = get_lastfm_track_info(title, artist)
+            track_data = await get_lastfm_track_info(title, artist)
             if not track_data:
                 return None
 
