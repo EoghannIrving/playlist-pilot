@@ -89,7 +89,7 @@ class SettingsForm(AppSettings):
     """Pydantic model for updating application settings via form."""
 
     @classmethod
-    def as_form(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def as_form(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         cls,
         jellyfin_url: str = Form(""),
         jellyfin_api_key: str = Form(""),
@@ -124,9 +124,17 @@ class SettingsForm(AppSettings):
             getsongbpm_api_key=getsongbpm_api_key,
             global_min_lfm=global_min_lfm,
             global_max_lfm=global_max_lfm,
-            cache_ttls=json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls,
+            cache_ttls=(
+                json.loads(cache_ttls)
+                if cache_ttls
+                else AppSettings().cache_ttls
+            ),
             getsongbpm_base_url=getsongbpm_base_url,
-            getsongbpm_headers=json.loads(getsongbpm_headers) if getsongbpm_headers else AppSettings().getsongbpm_headers,
+            getsongbpm_headers=(
+                json.loads(getsongbpm_headers)
+                if getsongbpm_headers
+                else AppSettings().getsongbpm_headers
+            ),
             http_timeout_short=http_timeout_short,
             http_timeout_long=http_timeout_long,
             youtube_min_duration=youtube_min_duration,
