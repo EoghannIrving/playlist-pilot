@@ -37,12 +37,10 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 from openai import OpenAI
-from pydantic import BaseModel
 
 from config import (
     GLOBAL_MAX_LFM,
     GLOBAL_MIN_LFM,
-    AppSettings,
     save_settings,
     settings,
 )
@@ -55,7 +53,8 @@ from core.history import (
 from core.m3u import (
     export_history_entry_as_m3u,
     import_m3u_as_history_entry,
-    write_m3u,
+    persist_history_and_m3u,
+    cleanup_temp_file,
 )
 from core.playlist import (
     combined_popularity_score,
@@ -65,11 +64,11 @@ from core.playlist import (
     normalize_popularity,
     normalize_popularity_log,
     normalize_track,
-    parse_suggestion_line,
+    enrich_and_score_suggestions,
 )
 from core.templates import templates
 from services import jellyfin
-from services.gpt import generate_playlist_analysis_summary, gpt_suggest_validated
+from services.gpt import generate_playlist_analysis_summary, fetch_gpt_suggestions
 from services.jellyfin import (
     create_jellyfin_playlist,
     fetch_jellyfin_track_metadata,
@@ -79,213 +78,15 @@ from services.jellyfin import (
 )
 from services.lastfm import get_lastfm_tags
 from services.metube import get_youtube_url_single
-from utils.helpers import get_cached_playlists, load_sorted_history
+from utils.helpers import get_cached_playlists, load_sorted_history, parse_suggest_request
+from api.forms import SettingsForm
+from core.models import ExportPlaylistRequest
 
 
 logger = logging.getLogger("playlist-pilot")
 
+
 router = APIRouter()
-
-
-def _cleanup_temp_file(path: Path):
-    """Delete a temporary file if it exists."""
-    try:
-        path.unlink(missing_ok=True)
-        logger.debug("Deleted temporary file: %s", path)
-    except OSError as exc:
-        logger.warning("Failed to delete temp file %s: %s", path, exc)
-
-
-class SettingsForm(AppSettings):
-    """Pydantic model for updating application settings via form."""
-
-    @classmethod
-    def as_form(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
-        cls,
-        jellyfin_url: str = Form(""),
-        jellyfin_api_key: str = Form(""),
-        jellyfin_user_id: str = Form(""),
-        openai_api_key: str = Form(""),
-        lastfm_api_key: str = Form(""),
-        model: str = Form("gpt-4o-mini"),
-        getsongbpm_api_key: str = Form(""),
-        global_min_lfm: int = Form(10000),
-        global_max_lfm: int = Form(15000000),
-        cache_ttls: str = Form(""),
-        getsongbpm_base_url: str = Form("https://api.getsongbpm.com/search/"),
-        getsongbpm_headers: str = Form(""),
-        http_timeout_short: int = Form(5),
-        http_timeout_long: int = Form(10),
-        youtube_min_duration: int = Form(120),
-        youtube_max_duration: int = Form(360),
-        library_scan_limit: int = Form(1000),
-        music_library_root: str = Form("Movies/Music"),
-        lyrics_weight: float = Form(1.5),
-        bpm_weight: float = Form(1.0),
-        tags_weight: float = Form(0.7),
-    ) -> "SettingsForm":
-        """Create a SettingsForm instance from submitted form data."""
-        return cls(
-            jellyfin_url=jellyfin_url,
-            jellyfin_api_key=jellyfin_api_key,
-            jellyfin_user_id=jellyfin_user_id,
-            openai_api_key=openai_api_key,
-            lastfm_api_key=lastfm_api_key,
-            model=model,
-            getsongbpm_api_key=getsongbpm_api_key,
-            global_min_lfm=global_min_lfm,
-            global_max_lfm=global_max_lfm,
-            cache_ttls=(
-                json.loads(cache_ttls)
-                if cache_ttls
-                else AppSettings().cache_ttls
-            ),
-            getsongbpm_base_url=getsongbpm_base_url,
-            getsongbpm_headers=(
-                json.loads(getsongbpm_headers)
-                if getsongbpm_headers
-                else AppSettings().getsongbpm_headers
-            ),
-            http_timeout_short=http_timeout_short,
-            http_timeout_long=http_timeout_long,
-            youtube_min_duration=youtube_min_duration,
-            youtube_max_duration=youtube_max_duration,
-            library_scan_limit=library_scan_limit,
-            music_library_root=music_library_root,
-            lyrics_weight=lyrics_weight,
-            bpm_weight=bpm_weight,
-            tags_weight=tags_weight,
-        )
-
-# Async wrapper to process one suggestion
-async def enrich_suggestion(suggestion):
-    """Return enriched data for a single GPT suggestion."""
-    try:
-        text, reason = parse_suggestion_line(suggestion["text"])
-        title=suggestion["title"]
-        artist=suggestion["artist"]
-        jellyfin_data = await fetch_jellyfin_track_metadata(title, artist)
-        in_jellyfin = bool(jellyfin_data)
-        play_count = 0
-        genres = []
-        duration_ticks = 0
-        youtube_url = None
-        if in_jellyfin:
-            play_count = jellyfin_data.get("UserData", {}).get("PlayCount", 0)
-            genres = jellyfin_data.get("Genres", [])
-            duration_ticks = jellyfin_data.get("RunTimeTicks", 0)
-        else:
-            youtube_url = None
-        if not in_jellyfin:
-            search_query = f"{suggestion['title']} {suggestion['artist']}"
-            try:
-                _, youtube_url = await get_youtube_url_single(search_query)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.warning("YTDLP lookup failed for %s: %s", search_query, e)
-        parsed = {
-            "title": suggestion["title"],
-            "artist": suggestion["artist"],
-            "jellyfin_play_count": play_count,
-            "Genres": genres,
-            "RunTimeTicks": duration_ticks,
-        }
-        enriched = await enrich_track(parsed)
-        return {
-            "text": text,
-            "reason": reason,
-            "title": suggestion["title"],
-            "artist": suggestion["artist"],
-            "youtube_url": youtube_url,
-            "in_jellyfin": in_jellyfin,
-            **enriched.dict()
-        }
-
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.warning("Skipping suggestion: %s", e)
-        return None  # skip failed item
-
-
-async def _parse_suggest_request(request: Request) -> tuple[list[dict], str, str]:
-    """Extract tracks and related fields from the POST request."""
-    data = await request.form()
-    tracks_raw = data.get("tracks", "[]")
-    logger.info("tracks_raw: %s", tracks_raw[:100])  # log only a portion if large
-    playlist_name = data.get("playlist_name", "")
-    text_summary = data.get("text_summary", "")
-
-    try:
-        tracks = json.loads(tracks_raw)
-    except json.JSONDecodeError:
-        logger.warning("Failed to decode tracks JSON from form.")
-        tracks = []
-
-    return tracks, playlist_name, text_summary
-
-
-async def _fetch_gpt_suggestions(tracks: list[dict], text_summary: str, count: int) -> list[dict]:
-    """Request suggestions from GPT based on seed tracks."""
-    seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
-    exclude_pairs = {(t["title"], t["artist"]) for t in tracks}
-    return await gpt_suggest_validated(
-        seed_lines,
-        count,
-        text_summary,
-        exclude_pairs=exclude_pairs,
-    )
-
-
-async def _enrich_and_score_suggestions(suggestions_raw: list[dict]) -> list[dict]:
-    """Enrich suggestions with metadata and compute popularity score."""
-    parsed_raw = await asyncio.gather(*[enrich_suggestion(s) for s in suggestions_raw])
-    suggestions = [s for s in parsed_raw if s is not None]
-
-    suggestions.sort(key=lambda s: not s["in_jellyfin"])
-
-    jellyfin_raw = [
-        t["jellyfin_play_count"]
-        for t in suggestions
-        if isinstance(t.get("jellyfin_play_count"), int)
-    ]
-    min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
-
-    for track in suggestions:
-        raw_lfm = track.get("popularity")
-        raw_jf = track.get("jellyfin_play_count")
-        norm_lfm = (
-            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
-            if raw_lfm is not None
-            else None
-        )
-        norm_jf = (
-            normalize_popularity(raw_jf, min_jf, max_jf)
-            if raw_jf is not None
-            else None
-        )
-        track["combined_popularity"] = combined_popularity_score(
-            norm_lfm,
-            norm_jf,
-            w_lfm=0.3,
-            w_jf=0.7,
-        )
-        logger.info(
-            "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
-            track["title"],
-            track["artist"],
-            track["combined_popularity"],
-            raw_lfm,
-            raw_jf,
-        )
-
-    return suggestions
-
-
-def _persist_history_and_m3u(suggestions: list[dict], playlist_name: str) -> Path:
-    """Save generated playlist to history and disk."""
-    playlist_clean = playlist_name.strip('"').strip("'")
-    label = f"{playlist_clean} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    user_id = settings.jellyfin_user_id
-    save_user_history(user_id, label, suggestions)
-    return write_m3u([s["text"] for s in suggestions])
 
 
 
@@ -796,7 +597,7 @@ def debug_lastfm_tags(title: str, artist: str):
 async def suggest_from_analyzed(request: Request):
     """Generate playlist suggestions from the analyzed tracks."""
     try:
-        tracks, playlist_name, text_summary = await _parse_suggest_request(request)
+        tracks, playlist_name, text_summary = await parse_suggest_request(request)
 
         start = perf_counter()
         summary = summarize_tracks(tracks)
@@ -805,17 +606,17 @@ async def suggest_from_analyzed(request: Request):
         suggestion_count = 10
         start = perf_counter()
         logger.debug("Requesting GPT Response using text summary")
-        suggestions_raw = await _fetch_gpt_suggestions(tracks, text_summary, suggestion_count)
+        suggestions_raw = await fetch_gpt_suggestions(tracks, text_summary, suggestion_count)
         logger.debug("\u23F1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
         logger.info("\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw))
 
         start = perf_counter()
         logger.debug("Enriching suggestions received from GPT")
-        parsed_suggestions = await _enrich_and_score_suggestions(suggestions_raw)
+        parsed_suggestions = await enrich_and_score_suggestions(suggestions_raw)
         logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
 
         start = perf_counter()
-        m3u_path = _persist_history_and_m3u(parsed_suggestions, playlist_name)
+        m3u_path = persist_history_and_m3u(parsed_suggestions, playlist_name)
         logger.debug("\u23F1\ufe0f History save: %.2fs", perf_counter() - start)
 
         return templates.TemplateResponse("results.html", {
@@ -860,15 +661,10 @@ async def export_history_m3u(label: str = Query(...)):
         m3u_path,
         media_type="audio/x-mpegurl",
         filename=f"{label}.m3u",
-        background=BackgroundTask(_cleanup_temp_file, m3u_path),
+        background=BackgroundTask(cleanup_temp_file, m3u_path),
     )
 
 
-class ExportPlaylistRequest(BaseModel):
-    """Payload model for exporting playlists to Jellyfin."""
-
-    name: str
-    tracks: list[dict]  # Expecting list of { "title": str, "artist": str }
 
 
 @router.post("/export/jellyfin")
@@ -911,7 +707,7 @@ async def import_m3u_file(m3u_file: UploadFile = File(...)):
         shutil.copyfileobj(m3u_file.file, buffer)
 
     await import_m3u_as_history_entry(temp_path)
-    _cleanup_temp_file(Path(temp_path))
+    cleanup_temp_file(Path(temp_path))
     return RedirectResponse(url="/history", status_code=303)
 
 
@@ -947,7 +743,7 @@ async def export_m3u(request: Request):
         m3u_path,
         media_type="audio/x-mpegurl",
         filename=f"{name}.m3u",
-        background=BackgroundTask(_cleanup_temp_file, m3u_path),
+        background=BackgroundTask(cleanup_temp_file, m3u_path),
     )
 
 @router.post("/export/track-metadata")
