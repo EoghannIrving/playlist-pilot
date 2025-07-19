@@ -11,21 +11,16 @@ Functions included:
 """
 
 import re
-import random
 import logging
-import math
-import cloudscraper
 import asyncio
+
 import httpx
 
 from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
-from core.constants import *
+from core.models import Track, EnrichedTrack
 from services.jellyfin import jf_get, fetch_tracks_for_playlist_id
 from services.lastfm import enrich_with_lastfm
-from typing import Optional, Dict
-from core.models import Track, EnrichedTrack
-from urllib.parse import quote_plus
-from utils.cache_manager import bpm_cache, library_cache, CACHE_TTLS
+from utils.cache_manager import library_cache, CACHE_TTLS
 from services.getsongbpm import get_cached_bpm
 from services.gpt import analyze_mood_from_lyrics
 from core.analysis import (
@@ -78,8 +73,8 @@ async def get_playlist_id_by_name(name: str) -> str | None:
         for item in resp.json().get("Items", []):
             if item.get("Name") == name:
                 return item.get("Id")
-    except Exception as e:
-        logger.error(f"Failed to get playlist ID for '{name}': {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to get playlist ID for '%s': %s", name, exc)
     return None
 
 async def get_playlist_tracks(playlist_id: str) -> list[str]:
@@ -98,8 +93,12 @@ async def get_playlist_tracks(playlist_id: str) -> list[str]:
             f"{track.get('Name')} - {track.get('AlbumArtist')}"
             for track in items if track.get("Name") and track.get("AlbumArtist")
         ]
-    except Exception as e:
-        logger.error(f"Failed to fetch playlist tracks for ID {playlist_id}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error(
+            "Failed to fetch playlist tracks for ID %s: %s",
+            playlist_id,
+            exc,
+        )
         return []
 
 async def get_full_audio_library(force_refresh: bool = False) -> list[str]:
@@ -161,7 +160,7 @@ def build_search_query(line: str) -> str:
 def normalize_track(raw: str | dict) -> Track:
     """
     Normalize a track from either a raw string (GPT) or a Jellyfin track dict.
-    
+
     Returns a consistent track structure:
         {
             "raw": ...,
@@ -182,7 +181,7 @@ def normalize_track(raw: str | dict) -> Track:
             year=parts[3] if len(parts) > 3 else "",
         )
 
-    elif isinstance(raw, dict):
+    if isinstance(raw, dict):
         # Jellyfin track dict
         tempo = extract_tag_value(raw.get("Tags"), "tempo")
         return Track(
@@ -197,8 +196,7 @@ def normalize_track(raw: str | dict) -> Track:
             RunTimeTicks=raw.get("RunTimeTicks", 0),
         )
 
-    else:
-        return Track(raw=str(raw), title="", artist="", album="", year="")
+    return Track(raw=str(raw), title="", artist="", album="", year="")
 
 async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     # ✅ 0. Ensure essential fields
@@ -215,8 +213,6 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     lastfm_data = await enrich_with_lastfm(title, artist)
     tags = lastfm_data["tags"]
     listeners = lastfm_data["listeners"]
-    releasedate = lastfm_data["releasedate"]
-    album = "Not in Last.fm"
     album = lastfm_data["album"]
     parsed.tags = tags  # used by mood scoring
 
@@ -229,8 +225,6 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     # ✅ 3. Duration and tempo estimation
     ticks = parsed.RunTimeTicks
     duration_sec = int(ticks / 10_000_000) if ticks else 0
-    tempo = estimate_tempo(duration_sec, genre)
-
     # ✅ 4. BPM + Year handling from GetSongBPM
     bpm_data = {}
     bpm = None
@@ -245,14 +239,19 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
                 title=title,
                 api_key=settings.getsongbpm_api_key,
             )
-        except Exception as e:
-            logger.warning(f"GetSongBPM API failed for {artist} - {title}: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "GetSongBPM API failed for %s - %s: %s",
+                artist,
+                title,
+                exc,
+            )
 
     bpm = bpm_data.get("bpm") if bpm_data else None
     if not bpm:
         bpm = parsed.tempo
-        logger.debug(f"BPM from Jellyfin metadata: {bpm}")
-    
+        logger.debug("BPM from Jellyfin metadata: %s", bpm)
+
     bpmdatayear = bpm_data.get("year") if bpm_data else 0
     jellyfin_year = parsed.year or ""
 
@@ -268,9 +267,12 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
             if abs(int(jellyfin_year) - int(bpmdatayear)) > 1:
                 year_flag = f"GetSongBPM Date: {bpmdatayear} or Jellyfin Date: {jellyfin_year}"
     except (ValueError, TypeError):
-        logger.warning(f"Invalid year data: Jellyfin={jellyfin_year}, BPM={bpmdatayear}")
+        logger.warning(
+            "Invalid year data: Jellyfin=%s, BPM=%s",
+            jellyfin_year,
+            bpmdatayear,
+        )
 
-    bpm_duration=bpm_data.get("duration")
     if not duration_sec and bpm_data.get("duration"):
         duration_sec = bpm_data["duration"]
 
@@ -278,7 +280,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     decade = infer_decade(final_year)
 
     # ✅ 6. Mood classification
-    logger.debug(f"Enriching track: {parsed.title}")
+    logger.debug("Enriching track: %s", parsed.title)
     tag_scores = mood_scores_from_lastfm_tags(tags)
     bpm_scores = mood_scores_from_bpm_data(bpm_data or {})
     lyrics_scores = None
@@ -304,19 +306,22 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     )
 
 def infer_decade(year_str: str) -> str:
+    """Return the decade string (e.g. ``1990s``) for a given year string."""
     try:
         year = int(year_str)
         return f"{year // 10 * 10}s"
-    except Exception:
+    except (ValueError, TypeError):
         return "Unknown"
 
 def extract_year(track: dict) -> str:
+    """Extract the production year from a Jellyfin track dict."""
     try:
         return str(track.get("ProductionYear")) or str(track.get("PremiereDate", "")[:4])
-    except:
+    except (AttributeError, TypeError):
         return ""
 
 def clean_genre(genre: str) -> str:
+    """Normalize capitalization and whitespace of a genre string."""
     return genre.strip().lower().title()  # " hip hop " → "Hip Hop"
 
 GENRE_SYNONYMS = {
@@ -368,21 +373,22 @@ GENRE_SYNONYMS = {
 
 
 def normalize_genre(raw: str) -> str:
+    """Map genre synonyms to canonical names."""
     cleaned = raw.strip().lower()
     return GENRE_SYNONYMS.get(cleaned, cleaned)
 
 def estimate_tempo(duration_sec: int, genre: str = "") -> int:
+    """Return a rough BPM estimate based on duration and genre heuristics."""
     genre = genre.lower()
     if "electronic" in genre or "edm" in genre:
         return 140 if duration_sec < 300 else 120
-    elif "rock" in genre:
+    if "rock" in genre:
         return 120
-    elif "hip hop" in genre:
+    if "hip hop" in genre:
         return 90
-    elif "ambient" in genre:
+    if "ambient" in genre:
         return 70
-    else:
-        return 100
+    return 100
 KNOWN_GENRES = {
     "rock", "pop", "hip hop", "rap", "r&b", "jazz", "blues", "metal", "punk",
     "edm", "electronic", "folk", "classical", "indie", "alternative", "reggae",
@@ -390,10 +396,11 @@ KNOWN_GENRES = {
     "ska", "emo", "drum and bass", "breakbeat", "dubstep", "trap",
     "lo-fi", "garage", "k-pop", "j-pop", "afrobeat", "new wave",
     "grime", "chillout", "chillwave", "synthpop", "industrial",
-    "world", "latin", "reggaeton", "opera", "musical", "post-rock", "folk"
+    "world", "latin", "reggaeton", "opera", "musical", "post-rock"
 }
 
 def filter_valid_genre(tags: list[str]) -> str:
+    """Return the first tag that matches a known genre."""
     for tag in tags:
         normalized = normalize_genre(tag).lower()
         if normalized in KNOWN_GENRES:
@@ -414,15 +421,18 @@ def extract_year_from_string(releasedate: str) -> str:
 async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list[dict]:
     """Fetch tracks for a playlist and enrich them concurrently."""
     raw_tracks = await fetch_tracks_for_playlist_id(playlist_id)
+    if limit:
+        raw_tracks = raw_tracks[:limit]
     async def process(track: dict) -> dict | None:
         try:
             norm = normalize_track(track)
             norm.jellyfin_play_count = track.get("UserData", {}).get("PlayCount", 0)
             enriched_data = await enrich_track(norm)
             logger.info(
-                f"✅ Enriched: {norm.title or 'Unknown'} "
-                f"| Last.fm: {enriched_data.popularity if hasattr(enriched_data, 'popularity') else 'N/A'} "
-                f"| Jellyfin Plays: {norm.jellyfin_play_count}"
+                "✅ Enriched: %s | Last.fm: %s | Jellyfin Plays: %s",
+                norm.title or "Unknown",
+                enriched_data.popularity if hasattr(enriched_data, "popularity") else "N/A",
+                norm.jellyfin_play_count,
             )
             return enriched_data.dict()
         except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -436,8 +446,16 @@ async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list[di
     lastfm_raw = [t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)]
     jellyfin_raw = [t["jellyfin_play_count"] for t in enriched if isinstance(t.get("jellyfin_play_count"), int)]
 
-    logger.info(f"📊 Last.fm popularity range: min={min(lastfm_raw, default=0)}, max={max(lastfm_raw, default=0)}")
-    logger.info(f"📊 Jellyfin play count range: min={min(jellyfin_raw, default=0)}, max={max(jellyfin_raw, default=0)}")
+    logger.info(
+        "📊 Last.fm popularity range: min=%s, max=%s",
+        min(lastfm_raw, default=0),
+        max(lastfm_raw, default=0),
+    )
+    logger.info(
+        "📊 Jellyfin play count range: min=%s, max=%s",
+        min(jellyfin_raw, default=0),
+        max(jellyfin_raw, default=0),
+    )
 
     max_jf = max(jellyfin_raw, default=1)
 
@@ -446,11 +464,19 @@ async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list[di
         raw_jf = t.get("jellyfin_play_count")
         norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
         norm_jf = normalize_popularity(raw_jf, 0, max_jf)
-        logger.info(f"{t['title']}")
+        logger.info("%s", t["title"])
         combined = combined_popularity_score(norm_lfm, norm_jf)
         t["combined_popularity"] = combined
 
-        logger.info(f"📈 {t['title']} → LFM: {raw_lfm} (→ {norm_lfm}), JF: {raw_jf} (→ {norm_jf}) → Combined: {combined}")
+        logger.info(
+            "📈 %s → LFM: %s (→ %s), JF: %s (→ %s) → Combined: %s",
+            t["title"],
+            raw_lfm,
+            norm_lfm,
+            raw_jf,
+            norm_jf,
+            combined,
+        )
 
     return enriched
 
@@ -468,10 +494,18 @@ def get_lyrics_for_enrich(track: dict) -> str:
     """
     lyrics = track.get("lyrics")
     if lyrics:
-        logger.debug(f"Lyrics found in track metadata for {track.get('artist')} - {track.get('title')}")
+        logger.debug(
+            "Lyrics found in track metadata for %s - %s",
+            track.get("artist"),
+            track.get("title"),
+        )
         return lyrics.strip()
 
-    logger.debug(f"No lyrics found for {track.get('artist')} - {track.get('title')}")
+    logger.debug(
+        "No lyrics found for %s - %s",
+        track.get("artist"),
+        track.get("title"),
+    )
     return None
 
 # Usage in enrich_track():
@@ -482,7 +516,7 @@ def get_lyrics_for_enrich(track: dict) -> str:
 def extract_tag_value(tags: list[str], prefix: str) -> str | None:
     """
     Look for a tag that starts with '{prefix}:' and return its value (after colon).
-    
+
     Args:
         tags (list[str]): List of tag strings like ['tempo:105', 'mood:uplifting']
         prefix (str): The prefix to search for (e.g., 'tempo')
