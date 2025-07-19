@@ -1,6 +1,8 @@
+"""Form utilities for validating settings updates through FastAPI."""
+
+import json
 from fastapi import Form
 from config import AppSettings
-import json
 
 class SettingsForm(AppSettings):
     """Pydantic model for updating application settings via form."""
@@ -43,7 +45,11 @@ class SettingsForm(AppSettings):
             global_max_lfm=global_max_lfm,
             cache_ttls=(json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls),
             getsongbpm_base_url=getsongbpm_base_url,
-            getsongbpm_headers=(json.loads(getsongbpm_headers) if getsongbpm_headers else AppSettings().getsongbpm_headers),
+            getsongbpm_headers=(
+                json.loads(getsongbpm_headers)
+                if getsongbpm_headers
+                else AppSettings().getsongbpm_headers
+            ),
             http_timeout_short=http_timeout_short,
             http_timeout_long=http_timeout_long,
             youtube_min_duration=youtube_min_duration,
