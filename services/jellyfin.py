@@ -1,3 +1,5 @@
+"""Helpers for interacting with Jellyfin's API and local media files."""
+
 import json
 import logging
 import os
@@ -24,16 +26,16 @@ async def fetch_jellyfin_users():
             resp = await client.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
         return {u["Name"]: u["Id"] for u in resp.json()}
-    except Exception as e:
-        logger.error(f"Failed to fetch Jellyfin users: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to fetch Jellyfin users: %s", exc)
         return {}
 
 async def search_jellyfin_for_track(title: str, artist: str) -> bool:
-    logger.debug(f"🔍 search_jellyfin_for_track() called with: {title} - {artist}")
+    logger.debug("🔍 search_jellyfin_for_track() called with: %s - %s", title, artist)
     key = f"{title.strip().lower()}::{artist.strip().lower()}"
     cached = jellyfin_track_cache.get(key)
     if cached is not None:
-        logger.info(f"Jellyfin cache hit for {title} - {artist}")
+        logger.info("Jellyfin cache hit for %s - %s", title, artist)
         return bool(cached)
 
     try:
@@ -53,12 +55,12 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
         data = response.json()
 
         items = data.get("Items", [])
-        logger.debug(f"Found {len(items)} items")
+        logger.debug("Found %d items", len(items))
 
         for item in items:
             name = item.get("Name", "")
             artists = item.get("Artists", [])
-            logger.debug(f"→ Track: {name}, Artists: {artists}")
+            logger.debug("→ Track: %s, Artists: %s", name, artists)
 
             if title.lower() in name.lower() and any(artist.lower() in a.lower() for a in artists):
                 logger.debug("✅ Match found!")
@@ -69,11 +71,10 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
         jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
         return False
 
-    except Exception as e:
-        logger.warning(f"Jellyfin search failed for {title} - {artist}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Jellyfin search failed for %s - %s: %s", title, artist, exc)
         jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
         return False
-
 
 async def jf_get(path, **params):
     """Helper to perform a GET request against the Jellyfin API."""
@@ -99,7 +100,10 @@ async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
     params = {
         "ParentId": playlist_id,
         "IncludeItemTypes": "Audio",
-        "Fields": "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate,Genres,RunTimeTicks,Genres,UserData,HasLyrics,Path,Tags",
+        "Fields": (
+            "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate," \
+            "Genres,RunTimeTicks,Genres,UserData,HasLyrics,Path,Tags"
+        ),
         "Recursive": True,
         "api_key": settings.jellyfin_api_key
     }
@@ -110,37 +114,60 @@ async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
         response.raise_for_status()
         data = response.json()
         items = data.get("Items", [])
-        logger.debug(f"Fetched {len(items)} tracks for playlist {playlist_id}")
+        logger.debug("Fetched %d tracks for playlist %s", len(items), playlist_id)
 
         for item in items:
             track_path = item.get("Path")
             lyrics_attached = False
-            track_tags = item.get("Tags")
             if track_path:
                 lrc_contents = read_lrc_for_track(track_path)
                 if lrc_contents:
                     plain_lyrics = strip_lrc_timecodes(lrc_contents)
                     item["lyrics"] = plain_lyrics
-                    logger.info(f"Attached lyrics from .lrc for item {item.get('Id')} ({item.get('Name')})")
+                    logger.info(
+                        "Attached lyrics from .lrc for item %s (%s)",
+                        item.get("Id"),
+                        item.get("Name"),
+                    )
                     lyrics_attached = True
             if not lyrics_attached and item.get("HasLyrics"):
                 item_id = item.get("Id")
-                logger.debug(f"HasLyrics true but no .lrc found, checking Jellyfin API for item {item_id}")
+                logger.debug(
+                    "HasLyrics true but no .lrc found, checking Jellyfin API for item %s",
+                    item_id,
+                )
                 lyrics_json = await fetch_lyrics_for_item(item_id)
                 if lyrics_json:
                     try:
                         parsed = json.loads(lyrics_json)
-                        text_lines = [entry.get("Text") for entry in parsed.get("Lyrics", []) if entry.get("Text")]
+                        text_lines = [
+                            entry.get("Text")
+                            for entry in parsed.get("Lyrics", [])
+                            if entry.get("Text")
+                        ]
                         if text_lines:
                             item["lyrics"] = "\n".join(text_lines)
-                            logger.info(f"Extracted {len(text_lines)} lines of Jellyfin API lyrics for item {item_id}")
-                            logger.debug(f"Lyrics for item {item_id} ({item.get('Name')}):\n{item['lyrics']}")
-                    except Exception as e:
-                        logger.warning(f"Failed to parse structured lyrics for item {item_id}: {e}")
+                            logger.info(
+                                "Extracted %d lines of Jellyfin API lyrics for item %s",
+                                len(text_lines),
+                                item_id,
+                            )
+                            logger.debug(
+                                "Lyrics for item %s (%s):\n%s",
+                                item_id,
+                                item.get("Name"),
+                                item["lyrics"],
+                            )
+                    except Exception as exc:  # pylint: disable=broad-exception-caught
+                        logger.warning(
+                            "Failed to parse structured lyrics for item %s: %s",
+                            item_id,
+                            exc,
+                        )
 
         return items
-    except Exception as e:
-        logger.error(f"Failed to fetch tracks for playlist {playlist_id}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to fetch tracks for playlist %s: %s", playlist_id, exc)
         return []
 
 
@@ -160,11 +187,11 @@ async def fetch_lyrics_for_item(item_id: str) -> str:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, timeout=5)
         if response.status_code == 200 and response.text.strip():
-            logger.info(f"Fetched raw lyrics JSON from Jellyfin for item {item_id}")
+            logger.info("Fetched raw lyrics JSON from Jellyfin for item %s", item_id)
             return response.text.strip()
-        logger.info(f"No lyrics available for item {item_id}")
-    except Exception as e:
-        logger.warning(f"Failed to fetch lyrics for item {item_id}: {e}")
+        logger.info("No lyrics available for item %s", item_id)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Failed to fetch lyrics for item %s: %s", item_id, exc)
     return None
 
 
@@ -176,13 +203,6 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
     Returns None if no match is found.
     """
     title_cleaned = normalize_search_term(title)
-    url=f"{settings.jellyfin_url}/Items"
-    params={ "IncludeItemTypes": "Audio",
-                "Recursive": "true",
-                "SearchTerm": title_cleaned,
-                "api_key": settings.jellyfin_api_key,
-                "userId": settings.jellyfin_user_id,
-            }
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -200,20 +220,28 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
         data = response.json()
 
         items = data.get("Items", [])
-        logger.debug(f"🎧 Jellyfin metadata search: Found {len(items)} items for {title_cleaned} - {artist}")
+        logger.debug(
+            "🎧 Jellyfin metadata search: Found %d items for %s - %s",
+            len(items),
+            title_cleaned,
+            artist,
+        )
         for item in items:
             name = normalize_search_term(item.get("Name", ""))
             artists_list = item.get("Artists", [])
             artists = [normalize_search_term(a) for a in artists_list]
-            if title_cleaned.lower() in name.lower() and any(artist.lower() in a.lower() for a in artists):
-                logger.debug(f"✅ Match found: {name} by {artists}")
+            if (
+                title_cleaned.lower() in name.lower()
+                and any(artist.lower() in a.lower() for a in artists)
+            ):
+                logger.debug("✅ Match found: %s by %s", name, artists)
                 return item
 
-        logger.debug(f"❌ No matching track metadata found for {title_cleaned} - {artist}")
+        logger.debug("❌ No matching track metadata found for %s - %s", title_cleaned, artist)
         return None
 
-    except Exception as e:
-        logger.warning(f"Jellyfin metadata fetch failed for {title} - {artist}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Jellyfin metadata fetch failed for %s - %s: %s", title, artist, exc)
         return None
 
 
@@ -232,9 +260,9 @@ async def resolve_jellyfin_path(title, artist, jellyfin_url, jellyfin_api_key):
         "Fields": "Path"
     }
 
-    logger.debug(f"[resolve_jellyfin_path] Querying Jellyfin: Artist='{artist}' Title='{title}'")
-    logger.debug(f"[resolve_jellyfin_path] API URL: {url}")
-    logger.debug(f"[resolve_jellyfin_path] Params: {params}")
+    logger.debug("[resolve_jellyfin_path] Querying Jellyfin: Artist='%s' Title='%s'", artist, title)
+    logger.debug("[resolve_jellyfin_path] API URL: %s", url)
+    logger.debug("[resolve_jellyfin_path] Params: %s", params)
 
     async with httpx.AsyncClient() as client:
         try:
@@ -242,21 +270,34 @@ async def resolve_jellyfin_path(title, artist, jellyfin_url, jellyfin_api_key):
             resp.raise_for_status()
 
             data = resp.json()
-            logger.debug(f"[resolve_jellyfin_path] Response JSON: {data}")
+            logger.debug("[resolve_jellyfin_path] Response JSON: %s", data)
 
             if "Items" in data and len(data["Items"]) > 0:
                 path = data["Items"][0].get("Path")
-                logger.debug(f"[resolve_jellyfin_path] Resolved path: {path}")
+                logger.debug("[resolve_jellyfin_path] Resolved path: %s", path)
                 return path
             else:
-                logger.debug(f"[resolve_jellyfin_path] No items found for Artist='{artist}', Title='{title}'")
+                logger.debug(
+                    "[resolve_jellyfin_path] No items found for Artist='%s', Title='%s'",
+                    artist,
+                    title,
+                )
 
-        except Exception as e:
-            logger.warning(f"[resolve_jellyfin_path] Error during API call for '{artist} - {title}': {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "[resolve_jellyfin_path] Error during API call for '%s - %s': %s",
+                artist,
+                title,
+                exc,
+            )
 
     return None
 
-async def create_jellyfin_playlist(name: str, track_item_ids: list[str], user_id: str = None) -> str | None:
+async def create_jellyfin_playlist(
+    name: str,
+    track_item_ids: list[str],
+    user_id: str | None = None,
+) -> str | None:
     """
     Create a native Jellyfin playlist with the given name and list of track ItemIds.
 
@@ -279,18 +320,23 @@ async def create_jellyfin_playlist(name: str, track_item_ids: list[str], user_id
         "Ids": track_item_ids
     }
 
-    logger.info(f"🎵 Creating Jellyfin playlist '{name}' for user {user_id} with {len(track_item_ids)} tracks")
+    logger.info(
+        "🎵 Creating Jellyfin playlist '%s' for user %s with %d tracks",
+        name,
+        user_id,
+        len(track_item_ids),
+    )
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
         playlist_id = response.json().get("Id")
-        logger.info(f"✅ Jellyfin playlist created with Id: {playlist_id}")
+        logger.info("✅ Jellyfin playlist created with Id: %s", playlist_id)
         return playlist_id
 
-    except Exception as e:
-        logger.error(f"❌ Failed to create Jellyfin playlist '{name}': {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("❌ Failed to create Jellyfin playlist '%s': %s", name, exc)
         return None
 
 async def get_full_item(item_id: str) -> dict | None:
@@ -301,22 +347,22 @@ async def get_full_item(item_id: str) -> dict | None:
             resp = await client.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
         return resp.json()
-    except Exception as e:
-        logger.error(f"❌ Failed to fetch full Jellyfin item {item_id}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("❌ Failed to fetch full Jellyfin item %s: %s", item_id, exc)
         return None
 
 async def update_item_metadata(item_id: str, full_item: dict) -> bool:
     url = f"{settings.jellyfin_url.rstrip('/')}/Items/{item_id}"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
-    logger.info(f"Updating Item Metadata - Url:{url}")
+    logger.info("Updating Item Metadata - Url:%s", url)
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, headers=headers, json=full_item, timeout=10)
         resp.raise_for_status()
-        logger.info(f"✅ Successfully updated Jellyfin item {item_id}")
+        logger.info("✅ Successfully updated Jellyfin item %s", item_id)
         return True
-    except Exception as e:
-        logger.error(f"❌ Failed to update Jellyfin item {item_id}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("❌ Failed to update Jellyfin item %s: %s", item_id, exc)
         return False
 
 def read_lrc_for_track(track_path: str) -> str:
@@ -335,12 +381,16 @@ def read_lrc_for_track(track_path: str) -> str:
         try:
             with open(lrc_path, 'r', encoding='utf-8') as f:
                 contents = f.read()
-                logger.info(f"Loaded .lrc file: {lrc_path} ({len(contents.splitlines())} lines)")
+                logger.info(
+                    "Loaded .lrc file: %s (%d lines)",
+                    lrc_path,
+                    len(contents.splitlines()),
+                )
                 return contents
-        except Exception as e:
-            logger.warning(f"Error reading .lrc file {lrc_path}: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning("Error reading .lrc file %s: %s", lrc_path, exc)
     else:
-        logger.debug(f"No .lrc file found for {track_path}")
+        logger.debug("No .lrc file found for %s", track_path)
     return None
 
 

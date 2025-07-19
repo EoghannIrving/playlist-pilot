@@ -11,8 +11,8 @@ Defines named persistent caches using diskcache for various subsystems:
 All caches are file-backed and located in the `cache/` directory.
 """
 
-from diskcache import Cache
 from pathlib import Path
+from diskcache import Cache
 
 # Root directory for all cache files
 BASE_CACHE = Path("cache")
