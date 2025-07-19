@@ -256,10 +256,10 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     # Return from cache if available
     if cache_key in prompt_cache:
         logger.info("Prompt Cache Hit in generate_playlist_analysis_summary")
-        cached = prompt_cache[cache_key]
+        cached: dict = prompt_cache[cache_key]
         return (
-            cached["gpt_summary"],
-            cached["removal_suggestions"],
+            cached.get("gpt_summary"),
+            cached.get("removal_suggestions"),
         )
 
     logger.info("Prompt Cache Miss generate_playlist_analysis_summary")

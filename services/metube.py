@@ -65,12 +65,12 @@ async def get_youtube_url_single(search_line: str) -> tuple[str, str | None]:
             uploader = clean(entry.get("uploader", ""))
             if ref in title or all(word in title for word in ref.split()):
                 if 'vevo' in uploader or any(w in uploader for w in ref.split()):
-            yt_search_cache.set(
-                search_term,
-                entry["webpage_url"],
-                expire=CACHE_TTLS["youtube"],
-            )
-            logger.debug("Returning match URL: %s", entry["webpage_url"])
+                    yt_search_cache.set(
+                        search_term,
+                        entry["webpage_url"],
+                        expire=CACHE_TTLS["youtube"],
+                    )
+                    logger.debug("Returning match URL: %s", entry["webpage_url"])
                     return search_line, entry["webpage_url"]
                 if not best_match:
                     best_match = entry
