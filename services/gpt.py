@@ -346,7 +346,8 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
             "gpt_summary": content.strip(),
             "removal_suggestions": ""
         }
-    prompt_cache.set(cache_key, result)
+    # Store the analysis summary in the prompt cache with a TTL
+    prompt_cache.set(cache_key, result, expire=CACHE_TTLS["prompt"])
     return result["gpt_summary"], result["removal_suggestions"]
 
 def analyze_mood_from_lyrics(lyrics: str) -> str:
