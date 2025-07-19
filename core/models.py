@@ -17,8 +17,8 @@ class Track(BaseModel):
     RunTimeTicks: int = 0
     jellyfin_play_count: int = 0
 
-    class Config:
-        """Pydantic configuration."""
+    class Config:  # pylint: disable=too-few-public-methods
+        """Pydantic configuration for ``Track`` model."""
         extra = "allow"
 
 class EnrichedTrack(Track):
@@ -35,6 +35,6 @@ class EnrichedTrack(Track):
     combined_popularity: Optional[float] = None
     FinalYear: Optional[str] = None
 
-    class Config:
-        """Pydantic configuration."""
+    class Config:  # pylint: disable=too-few-public-methods
+        """Pydantic configuration for ``EnrichedTrack`` model."""
         extra = "allow"

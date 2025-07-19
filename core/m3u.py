@@ -69,7 +69,11 @@ async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
     m3u_path = Path(tempfile.gettempdir()) / f"suggest_{uuid.uuid4().hex}.m3u"
     m3u_path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
-    logger.info(f"Wrote hybrid M3U playlist with {len(lines)-1} entries: {m3u_path}")
+    logger.info(
+        "Wrote hybrid M3U playlist with %d entries: %s",
+        len(lines) - 1,
+        m3u_path,
+    )
     return m3u_path
 
 def read_m3u(file_path: Path) -> list[dict]:
