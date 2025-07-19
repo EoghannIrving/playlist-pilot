@@ -391,7 +391,7 @@ async def test_jellyfin(request: Request):
         }
         async with httpx.AsyncClient() as client:
             r = await client.get(f"{url}/System/Info", headers=headers)
-        logger.warning("Jellyfin Test: %s", r.text)
+        logger.debug("Jellyfin Test: %s", r.text)
 
         json_data = r.json()
         valid = r.status_code == 200 and any(k.lower() == "version" for k in json_data)

@@ -21,6 +21,7 @@ def get_bpm_from_getsongbpm(
     )
 
     headers = settings.getsongbpm_headers
+    logger.debug("Fetching GetSongBPM URL: %s", search_url)
 
     try:
         data = (
@@ -32,8 +33,9 @@ def get_bpm_from_getsongbpm(
             )
             .json()
         )
+        logger.debug("GetSongBPM response: %s", data)
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.info("GetSongBPM API error: %s", exc)
+        logger.warning("GetSongBPM API error: %s", exc)
         return None
 
     songs = data.get("search", [])
@@ -42,6 +44,7 @@ def get_bpm_from_getsongbpm(
         return None
 
     song = songs[0]
+    logger.debug("Selected song entry: %s", song)
     duration_str = song.get("duration")
     duration_sec = None
     if duration_str and isinstance(duration_str, str) and ":" in duration_str:

@@ -444,12 +444,12 @@ async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list[di
         if isinstance(t.get("jellyfin_play_count"), int)
     ]
 
-    logger.info(
+    logger.debug(
         "📊 Last.fm popularity range: min=%s, max=%s",
         min(lastfm_raw, default=0),
         max(lastfm_raw, default=0),
     )
-    logger.info(
+    logger.debug(
         "📊 Jellyfin play count range: min=%s, max=%s",
         min(jellyfin_raw, default=0),
         max(jellyfin_raw, default=0),
@@ -462,11 +462,11 @@ async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list[di
         raw_jf = t.get("jellyfin_play_count")
         norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
         norm_jf = normalize_popularity(raw_jf, 0, max_jf)
-        logger.info("%s", t["title"])
+        logger.debug("%s", t["title"])
         combined = combined_popularity_score(norm_lfm, norm_jf)
         t["combined_popularity"] = combined
 
-        logger.info(
+        logger.debug(
             "📈 %s → LFM: %s (→ %s), JF: %s (→ %s) → Combined: %s",
             t["title"],
             raw_lfm,
