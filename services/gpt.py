@@ -232,6 +232,18 @@ async def gpt_suggest_validated(
     return suggestions_raw[:count]
 
 
+async def fetch_gpt_suggestions(tracks: list[dict], text_summary: str, count: int) -> list[dict]:
+    """Wrapper to request suggestions from GPT based on seed tracks."""
+    seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
+    exclude_pairs = {(t["title"], t["artist"]) for t in tracks}
+    return await gpt_suggest_validated(
+        seed_lines,
+        count,
+        text_summary,
+        exclude_pairs=exclude_pairs,
+    )
+
+
 async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     """
     Returns (gpt_summary, removal_suggestions) using cached GPT response if available.
