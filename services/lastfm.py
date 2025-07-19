@@ -6,12 +6,13 @@ Provides Last.fm integration for:
 - Optionally retrieving track popularity via listener counts
 """
 
+import logging
 import re
 import asyncio
 import httpx
-import logging
+
 from config import settings
-from utils.cache_manager import lastfm_cache, LASTFM_POP_CACHE, CACHE_TTLS
+from utils.cache_manager import lastfm_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -31,7 +32,7 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
     cache_key = f"tags:{normalize(artist)}:{normalize(title)}"
     cached = lastfm_cache.get(cache_key)
     if cached is not None:
-        logger.info(f"[Last.fm] Cache hit for {title} - {artist}")
+        logger.info("[Last.fm] Cache hit for %s - %s", title, artist)
         return cached
 
     try:
@@ -50,11 +51,11 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
         response.raise_for_status()
         data = response.json()
         tags = [tag["name"] for tag in data.get("toptags", {}).get("tag", [])]
-        logger.info(f"[Last.fm] Extracted tags for {title} - {artist}: {tags}")
+        logger.info("[Last.fm] Extracted tags for %s - %s: %s", title, artist, tags)
         lastfm_cache.set(cache_key, tags, expire=CACHE_TTLS["lastfm"])
         return tags
-    except Exception as e:
-        logger.warning(f"Last.fm tag fetch failed for {title} - {artist}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
         return []
 
 async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
@@ -67,10 +68,10 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
     key = f"lastfm:{normalize(artist)}:{normalize(title)}"
     cached = lastfm_cache.get(key)
     if cached:
-        logger.info(f"Last.fm cache hit for {title} - {artist}")
+        logger.info("Last.fm cache hit for %s - %s", title, artist)
         return cached if isinstance(cached, dict) else None
 
-    logger.info(f"Last.fm cache miss for {title} - {artist}")
+    logger.info("Last.fm cache miss for %s - %s", title, artist)
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -93,8 +94,8 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
         lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
         return None
 
-    except Exception as e:
-        logger.warning(f"Last.fm lookup failed for {title} - {artist}: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Last.fm lookup failed for %s - %s: %s", title, artist, exc)
         lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
         return None
 
