@@ -10,6 +10,7 @@ including:
 - User history view and deletion
 - Settings management
 """
+# pylint: disable=too-many-lines
 
 import asyncio
 import json
