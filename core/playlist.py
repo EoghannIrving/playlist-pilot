@@ -29,7 +29,12 @@ from core.analysis import (
 from core.models import Track, EnrichedTrack
 from services.getsongbpm import get_cached_bpm
 from services.gpt import analyze_mood_from_lyrics
-from services.jellyfin import jf_get, fetch_tracks_for_playlist_id
+from services.jellyfin import (
+    jf_get,
+    fetch_tracks_for_playlist_id,
+    fetch_jellyfin_track_metadata,
+)
+from services.metube import get_youtube_url_single
 from services.lastfm import enrich_with_lastfm
 from utils.cache_manager import library_cache, CACHE_TTLS
 
@@ -529,3 +534,93 @@ def extract_tag_value(tags: list[str], prefix: str) -> str | None:
         if tag.startswith(f"{prefix}:"):
             return tag.split(":", 1)[1]
     return None
+
+
+async def enrich_suggestion(suggestion: dict) -> dict | None:
+    """Return enriched data for a single GPT suggestion."""
+    try:
+        text, reason = parse_suggestion_line(suggestion["text"])
+        title = suggestion["title"]
+        artist = suggestion["artist"]
+        jellyfin_data = await fetch_jellyfin_track_metadata(title, artist)
+        in_jellyfin = bool(jellyfin_data)
+        play_count = 0
+        genres = []
+        duration_ticks = 0
+        youtube_url = None
+        if in_jellyfin:
+            play_count = jellyfin_data.get("UserData", {}).get("PlayCount", 0)
+            genres = jellyfin_data.get("Genres", [])
+            duration_ticks = jellyfin_data.get("RunTimeTicks", 0)
+        if not in_jellyfin:
+            search_query = f"{suggestion['title']} {suggestion['artist']}"
+            try:
+                _, youtube_url = await get_youtube_url_single(search_query)
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                logger.warning("YTDLP lookup failed for %s: %s", search_query, exc)
+        parsed = {
+            "title": suggestion["title"],
+            "artist": suggestion["artist"],
+            "jellyfin_play_count": play_count,
+            "Genres": genres,
+            "RunTimeTicks": duration_ticks,
+        }
+        enriched = await enrich_track(parsed)
+        return {
+            "text": text,
+            "reason": reason,
+            "title": suggestion["title"],
+            "artist": suggestion["artist"],
+            "youtube_url": youtube_url,
+            "in_jellyfin": in_jellyfin,
+            **enriched.dict(),
+        }
+
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Skipping suggestion: %s", exc)
+        return None
+
+
+async def enrich_and_score_suggestions(suggestions_raw: list[dict]) -> list[dict]:
+    """Enrich suggestions with metadata and compute popularity score."""
+    parsed_raw = await asyncio.gather(*[enrich_suggestion(s) for s in suggestions_raw])
+    suggestions = [s for s in parsed_raw if s is not None]
+
+    suggestions.sort(key=lambda s: not s["in_jellyfin"])
+
+    jellyfin_raw = [
+        t["jellyfin_play_count"]
+        for t in suggestions
+        if isinstance(t.get("jellyfin_play_count"), int)
+    ]
+    min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
+
+    for track in suggestions:
+        raw_lfm = track.get("popularity")
+        raw_jf = track.get("jellyfin_play_count")
+        norm_lfm = (
+            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+            if raw_lfm is not None
+            else None
+        )
+        norm_jf = (
+            normalize_popularity(raw_jf, min_jf, max_jf)
+            if raw_jf is not None
+            else None
+        )
+        track["combined_popularity"] = combined_popularity_score(
+            norm_lfm,
+            norm_jf,
+            w_lfm=0.3,
+            w_jf=0.7,
+        )
+        logger.info(
+            "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
+            track["title"],
+            track["artist"],
+            track["combined_popularity"],
+            raw_lfm,
+            raw_jf,
+        )
+
+    return suggestions

@@ -38,3 +38,10 @@ class EnrichedTrack(Track):
     class Config:  # pylint: disable=too-few-public-methods
         """Pydantic configuration for ``EnrichedTrack`` model."""
         extra = "allow"
+
+
+class ExportPlaylistRequest(BaseModel):
+    """Payload model for exporting playlists to Jellyfin."""
+
+    name: str
+    tracks: List[dict]  # Expecting list of {"title": str, "artist": str}
