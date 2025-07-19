@@ -19,22 +19,19 @@ Modules used:
 
 
 
-from config import settings
-from fastapi import FastAPI
-from api.routes import router as main_router
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
 import logging
-from core.constants import *
-import diskcache
-from diskcache import Cache
-from core.templates import templates
+from logging.handlers import RotatingFileHandler
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+from api.routes import router as main_router
+from config import settings
+from core.constants import BASE_DIR
 
 
 # ─────────────────────────────────────────────────────────────
 # Logging Configuration
-from logging.handlers import RotatingFileHandler
 logger = logging.getLogger("playlist-pilot")
 logger.setLevel(logging.DEBUG)
 
@@ -50,9 +47,8 @@ if not logger.handlers:
 try:
     settings.validate_settings()
 except ValueError as e:
-    import sys
     logger.error("[Startup Error] %s", e)
-    raise SystemExit(1)
+    raise SystemExit(1) from e
 
 # ─────────────────────────────────────────────────────────────
 # FastAPI App Setup
