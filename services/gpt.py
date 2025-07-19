@@ -7,9 +7,7 @@ Handles GPT prompt generation, caching, and result validation for playlist sugge
 import hashlib
 import logging
 import asyncio
-import os
 import json
-from typing import Tuple
 
 from openai import OpenAI, AsyncOpenAI
 from config import settings
@@ -24,14 +22,13 @@ def describe_popularity(score: float) -> str:
     """Return a human-friendly label for a popularity score."""
     if score >= 90:
         return "Global smash hit"
-    elif score >= 70:
+    if score >= 70:
         return "Mainstream favorite"
-    elif score >= 50:
+    if score >= 50:
         return "Moderately mainstream"
-    elif score >= 30:
+    if score >= 30:
         return "Niche appeal"
-    else:
-        return "Obscure or local"
+    return "Obscure or local"
 
 
 def _build_gpt_prompt(existing_tracks: list[str], count: int, summary: dict | None = None) -> str:
@@ -64,16 +61,20 @@ def _build_gpt_prompt(existing_tracks: list[str], count: int, summary: dict | No
         summary_block=""
 
     intro = (
-        f"The user has provided a playlist which has the following characteristics:\n{summary_block}\n\n"
+        "The user has provided a playlist which has the following "
+        f"characteristics:\n{summary_block}\n\n"
         f"Reference Playlist:\n{base}\n\n"
-        f"Suggest exactly {count} additional **real and relevant** songs that would strongly appeal to someone who enjoys this playlist."
-        + ( "\n\nStrict constraints:\n"
+        f"Suggest exactly {count} additional **real and relevant** songs "
+        "that would strongly appeal to someone who enjoys this playlist."
+        + (
+            "\n\nStrict constraints:\n"
             "- Songs must be real, commercially released tracks.\n"
             "- All songs must be available on both YouTube and Spotify.\n"
             "- Do NOT include any songs already listed in the provided playlist.\n"
             "- Do NOT invent or fabricate song titles, artists, or albums.\n"
             "- Only include songs that are publicly verifiable and recognizable.\n"
-            "- Avoid remixes, covers, live-only performances, or obscure/independent tracks unless they had commercial release.\n\n"
+            "- Avoid remixes, covers, live-only performances, or "
+            "obscure/independent tracks unless they had commercial release.\n\n"
             "Formatting rules:\n"
             "- Return each song on a single line.\n"
             "- Use the **exact** format:\n"
@@ -86,7 +87,7 @@ def _build_gpt_prompt(existing_tracks: list[str], count: int, summary: dict | No
         )
     )
 
-    logger.debug(f"GPT Prompt: {intro}")
+    logger.debug("GPT Prompt: %s", intro)
     return intro
 
 def prompt_fingerprint(prompt: str) -> str:
@@ -104,13 +105,15 @@ def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
     Returns:
         str: GPT's raw response content.
     """
-    key = prompt_fingerprint(f"{prompt}|temperature={temperature}")  # Ensure cache keys differentiate by temperature
+    key = prompt_fingerprint(
+        f"{prompt}|temperature={temperature}"
+    )  # Ensure cache keys differentiate by temperature
     content = prompt_cache.get(key)
     if content is not None:
-        logger.info(f"GPT cache hit: {key}")
+        logger.info("GPT cache hit: %s", key)
         return content
 
-    logger.info(f"GPT cache miss: {key}")
+    logger.info("GPT cache miss: %s", key)
     response = sync_openai_client.chat.completions.create(
         model=settings.model,
         messages=[{"role": "user", "content": prompt}],
@@ -118,7 +121,7 @@ def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
     )
     content = response.choices[0].message.content.strip()
     prompt_cache.set(key, content, expire=CACHE_TTLS["prompt"])
-    logger.debug(f"GPT API original text: {content}")
+    logger.debug("GPT API original text: %s", content)
     return content
 
 
@@ -127,10 +130,10 @@ async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
     key = prompt_fingerprint(f"{prompt}|temperature={temperature}")
     content = prompt_cache.get(key)
     if content is not None:
-        logger.info(f"GPT cache hit: {key}")
+        logger.info("GPT cache hit: %s", key)
         return content
 
-    logger.info(f"GPT cache miss: {key}")
+    logger.info("GPT cache miss: %s", key)
     response = await async_openai_client.chat.completions.create(
         model=settings.model,
         messages=[{"role": "user", "content": prompt}],
@@ -138,7 +141,7 @@ async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
     )
     content = response.choices[0].message.content.strip()
     prompt_cache.set(key, content, expire=CACHE_TTLS["prompt"])
-    logger.debug(f"GPT API original text: {content}")
+    logger.debug("GPT API original text: %s", content)
     return content
 
 
@@ -155,7 +158,12 @@ def parse_gpt_line(line: str) -> tuple[str, str]:
     parts = [p.strip() for p in line.split(" - ")]
     return (parts[0], parts[1]) if len(parts) >= 2 else ("", "")
 
-async def gpt_suggest_validated(existing_tracks: list[str], count: int, summary: dict | None = None, exclude_pairs: set[tuple[str, str]] = None) -> list[dict]:
+async def gpt_suggest_validated(
+    existing_tracks: list[str],
+    count: int,
+    summary: dict | None = None,
+    exclude_pairs: set[tuple[str, str]] = None,
+) -> list[dict]:
 
     """
     Main interface to request playlist suggestions from GPT.
@@ -168,12 +176,12 @@ async def gpt_suggest_validated(existing_tracks: list[str], count: int, summary:
         list[dict]: Validated GPT suggestions (title, artist, text, popularity)
     """
     prompt = _build_gpt_prompt(existing_tracks, count * 3, summary)
-    logger.debug(f"Sending GPT prompt:\n{prompt[:500]}...")
+    logger.debug("Sending GPT prompt:\n%s...", prompt[:500])
     result = await cached_chat_completion(prompt)
     response_content = result.strip()
 
     raw_lines = response_content.splitlines()
-    logger.info(f"📦 GPT returned {len(raw_lines)} lines before validation")
+    logger.info("📦 GPT returned %d lines before validation", len(raw_lines))
 
     suggestions_raw = []
     for line in raw_lines:
@@ -187,8 +195,8 @@ async def gpt_suggest_validated(existing_tracks: list[str], count: int, summary:
                 "artist": artist,
                 "text": line
             })
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to parse line: '{line}' → {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning("⚠️ Failed to parse line: '%s' → %s", line, exc)
 
     async def validate_and_score(track: dict) -> dict | None:
         title = track["title"]
@@ -202,8 +210,10 @@ async def gpt_suggest_validated(existing_tracks: list[str], count: int, summary:
             track["popularity"] = int(track_data.get("listeners", 0))
             return track
 
-        except Exception as e:
-            logger.warning(f"⚠️ Last.fm lookup failed for {title} - {artist}: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "⚠️ Last.fm lookup failed for %s - %s: %s", title, artist, exc
+            )
             track["popularity"] = 0
             return track
 
@@ -215,7 +225,10 @@ async def gpt_suggest_validated(existing_tracks: list[str], count: int, summary:
             if (track["title"], track["artist"]) not in exclude_pairs
         ]
 
-    logger.info(f"✅ {len(suggestions_raw)} valid suggestions after validation and filtering")
+    logger.info(
+        "✅ %d valid suggestions after validation and filtering",
+        len(suggestions_raw),
+    )
     return suggestions_raw[:count]
 
 
@@ -242,25 +255,38 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
 
     # Return from cache if available
     if cache_key in prompt_cache:
-        logger.info(f"Prompt Cache Hit in generate_playlist_analysis_summary")
-        return prompt_cache[cache_key]["gpt_summary"], prompt_cache[cache_key]["removal_suggestions"]
-    else:
-        logger.info("Prompt Cache Miss generate_playlist_analysis_summary")
+        logger.info("Prompt Cache Hit in generate_playlist_analysis_summary")
+        return (
+            prompt_cache[cache_key]["gpt_summary"],
+            prompt_cache[cache_key]["removal_suggestions"],
+        )
+
+    logger.info("Prompt Cache Miss generate_playlist_analysis_summary")
     # Build prompt
-    track_blob = "\n".join([
-        f"{t['title']} by {t['artist']} – genre: {t.get('genre')}, mood: {t.get('mood')}, "
-        f"tempo: {t.get('tempo')} BPM, decade: {t.get('decade')}, listeners: {t.get('popularity', 0):,}"
-        for t in tracks
-    ])
+    track_blob = "\n".join(
+        [
+            (
+                f"{t['title']} by {t['artist']} – genre: {t.get('genre')}, "
+                f"mood: {t.get('mood')}, tempo: {t.get('tempo')} BPM, "
+                f"decade: {t.get('decade')}, listeners: {t.get('popularity', 0):,}"
+            )
+            for t in tracks
+        ]
+    )
 
-    prompt = f"""
-You are an expert music curator analyzing a playlist to guide future additions. In 1–2 sentences, describe what kinds of tracks would complement and extend this playlist, focusing on the overall mood, vibe, and listening experience rather than strictly on genres or decades, but factoring in geography. Do not suggest specific tracks by name.
-
-Then, suggest up to 4 tracks that feel out of place and could be removed to improve consistency under the heading Suggested Removals. Justify each suggestion briefly. You can suggest less than 4.
-
-Tracks:
-{track_blob}
-"""
+    prompt = (
+        "You are an expert music curator analyzing a playlist to guide future "
+        "additions. In 1–2 sentences, describe what kinds of tracks would "
+        "complement and extend this playlist, focusing on the overall mood, "
+        "vibe, and listening experience rather than strictly on genres or "
+        "decades, but factoring in geography. Do not suggest specific tracks "
+        "by name.\n\n"
+        "Then, suggest up to 4 tracks that feel out of place and could be "
+        "removed to improve consistency under the heading Suggested Removals. "
+        "Justify each suggestion briefly. You can suggest less than 4.\n\n"
+        "Tracks:\n"
+        f"{track_blob}"
+    )
 
     response = await async_openai_client.chat.completions.create(
         model="gpt-4",
@@ -304,18 +330,20 @@ def analyze_mood_from_lyrics(lyrics: str) -> str:
 
     prompt = (
         "You are an expert music analyst.\n\n"
-        "Analyze the following song lyrics and classify the overall mood of the song in one word, "
-        "such as 'happy', 'sad', 'chill', 'intense', 'romantic', 'dark', 'uplifting', 'nostalgic', 'party'.\n\n"
+        "Analyze the following song lyrics and classify the overall mood of the song "
+        "in one word, such as 'happy', 'sad', 'chill', 'intense', 'romantic', "
+        "'dark', 'uplifting', 'nostalgic', 'party'.\n\n"
         "Lyrics:\n"
          "Respond with only the mood label and nothing else.\n\n"
         f"""\n{lyrics}\n"""
     )
     try:
-        result = cached_chat_completion_sync(prompt, temperature=0.4)  # Lower temperature for consistency
+        # Lower temperature for consistency
+        result = cached_chat_completion_sync(prompt, temperature=0.4)
         mood = result.strip().lower()
-        logger.debug(f"Lyrics mood classification: {mood}")
-        logger.info(f"GPT lyrics mood analysis result: {mood}")
+        logger.debug("Lyrics mood classification: %s", mood)
+        logger.info("GPT lyrics mood analysis result: %s", mood)
         return mood
-    except Exception as e:
-        logger.warning(f"Lyrics mood analysis failed: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Lyrics mood analysis failed: %s", exc)
         return None
