@@ -9,6 +9,7 @@ import re
 import tempfile
 import uuid
 import asyncio
+from datetime import datetime
 from pathlib import Path
 
 from config import settings
@@ -17,6 +18,15 @@ from core.history import save_user_history
 from core.playlist import enrich_track
 
 logger = logging.getLogger("playlist-pilot")
+
+
+def cleanup_temp_file(path: Path):
+    """Delete a temporary file if it exists."""
+    try:
+        path.unlink(missing_ok=True)
+        logger.debug("Deleted temporary file: %s", path)
+    except OSError as exc:
+        logger.warning("Failed to delete temp file %s: %s", path, exc)
 
 def generate_proposed_path(artist: str, album: str, title: str) -> str:
     """Return a sanitized path suggestion for a track."""
@@ -47,6 +57,15 @@ def write_m3u(tracks: list[str]) -> Path:
     p = Path(tempfile.gettempdir()) / f"suggest_{uuid.uuid4().hex}.m3u"
     p.write_text("#EXTM3U\n" + "\n".join(tracks), encoding="utf-8")
     return p
+
+
+def persist_history_and_m3u(suggestions: list[dict], playlist_name: str) -> Path:
+    """Save generated playlist suggestions to history and disk."""
+    playlist_clean = playlist_name.strip('"').strip("'")
+    label = f"{playlist_clean} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    user_id = settings.jellyfin_user_id
+    save_user_history(user_id, label, suggestions)
+    return write_m3u([s["text"] for s in suggestions])
 
 async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
     """Export a history entry's tracks into an M3U playlist."""
