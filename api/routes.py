@@ -37,7 +37,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Redirect
 from openai import OpenAI
 from pydantic import BaseModel
 
-from config import GLOBAL_MAX_LFM, GLOBAL_MIN_LFM, save_settings, settings
+from config import (
+    GLOBAL_MAX_LFM,
+    GLOBAL_MIN_LFM,
+    AppSettings,
+    save_settings,
+    settings,
+)
 from core.analysis import summarize_tracks
 from core.history import (
     extract_date_from_label,
@@ -79,16 +85,8 @@ logger = logging.getLogger("playlist-pilot")
 router = APIRouter()
 
 
-class SettingsForm(BaseModel):
+class SettingsForm(AppSettings):
     """Pydantic model for updating application settings via form."""
-
-    jellyfin_url: str = ""
-    jellyfin_api_key: str = ""
-    jellyfin_user_id: str = ""
-    openai_api_key: str = ""
-    lastfm_api_key: str = ""
-    model: str = "gpt-4o-mini"
-    getsongbpm_api_key: str = ""
 
     @classmethod
     def as_form(  # pylint: disable=too-many-arguments,too-many-positional-arguments
