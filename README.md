@@ -32,6 +32,8 @@ Build and run with Docker Compose:
 docker compose up --build
 ```
 
+See [Docs/docker_compose_installation.md](Docs/docker_compose_installation.md) for a step-by-step setup guide.
+
 Then open your browser to: [http://localhost:8010](http://localhost:8010)
 
 ## ⚙️ Configuration
