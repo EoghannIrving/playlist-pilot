@@ -6,6 +6,7 @@ from statistics import mean
 import math
 import logging
 import re
+from config import settings
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -341,9 +342,9 @@ MOOD_WEIGHTS = {
 }
 
 
-LYRICS_WEIGHT = 1.5  # Tunable weight for lyrics signal (can make configurable)
-BPM_WEIGHT = 1
-TAGS_WEIGHT = 0.7
+LYRICS_WEIGHT = settings.lyrics_weight
+BPM_WEIGHT = settings.bpm_weight
+TAGS_WEIGHT = settings.tags_weight
 DEFAULT_LYRICS_CONFIDENCE = 1  # Confidence assigned to GPT-derived mood
 
 MOOD_MAPPING = {
