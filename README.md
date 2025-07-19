@@ -35,6 +35,8 @@ docker compose up --build
 See [Docs/docker_compose_installation.md](Docs/docker_compose_installation.md) for a step-by-step setup guide.
 
 Then open your browser to: [http://localhost:8010](http://localhost:8010)
+If required settings are missing, you'll be automatically redirected to the
+settings page to enter them.
 
 ## ⚙️ Configuration
 

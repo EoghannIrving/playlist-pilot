@@ -47,8 +47,7 @@ if not logger.handlers:
 try:
     settings.validate_settings()
 except ValueError as e:
-    logger.error("[Startup Error] %s", e)
-    raise SystemExit(1) from e
+    logger.warning("[Startup] Missing configuration: %s", e)
 
 # ─────────────────────────────────────────────────────────────
 # FastAPI App Setup
