@@ -665,12 +665,18 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
 @router.post("/import_m3u")
 async def import_m3u_file(m3u_file: UploadFile = File(...)):
     """Import an uploaded M3U file into the user's history."""
-    temp_path = f"/tmp/{m3u_file.filename}"
-    with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(m3u_file.file, buffer)
+    if not m3u_file.filename.lower().endswith(".m3u"):
+        raise HTTPException(status_code=400, detail="Only .m3u files are supported")
 
-    await import_m3u_as_history_entry(temp_path)
-    cleanup_temp_file(Path(temp_path))
+    with tempfile.NamedTemporaryFile(prefix="import_", suffix=".m3u", delete=False) as tmp:
+        shutil.copyfileobj(m3u_file.file, tmp)
+        temp_path = tmp.name
+
+    try:
+        await import_m3u_as_history_entry(temp_path)
+    finally:
+        cleanup_temp_file(Path(temp_path))
+
     return RedirectResponse(url="/history", status_code=303)
 
 
