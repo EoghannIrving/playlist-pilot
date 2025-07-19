@@ -34,6 +34,7 @@ from fastapi import (
     Depends,
 )
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
+from starlette.background import BackgroundTask
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -83,6 +84,15 @@ from utils.helpers import get_cached_playlists, load_sorted_history
 logger = logging.getLogger("playlist-pilot")
 
 router = APIRouter()
+
+
+def _cleanup_temp_file(path: Path):
+    """Delete a temporary file if it exists."""
+    try:
+        path.unlink(missing_ok=True)
+        logger.debug("Deleted temporary file: %s", path)
+    except OSError as exc:
+        logger.warning("Failed to delete temp file %s: %s", path, exc)
 
 
 class SettingsForm(AppSettings):
@@ -848,7 +858,8 @@ async def export_history_m3u(label: str = Query(...)):
     return FileResponse(
         m3u_path,
         media_type="audio/x-mpegurl",
-        filename=f"{label}.m3u"
+        filename=f"{label}.m3u",
+        background=BackgroundTask(_cleanup_temp_file, m3u_path),
     )
 
 
@@ -899,6 +910,7 @@ async def import_m3u_file(m3u_file: UploadFile = File(...)):
         shutil.copyfileobj(m3u_file.file, buffer)
 
     await import_m3u_as_history_entry(temp_path)
+    _cleanup_temp_file(Path(temp_path))
     return RedirectResponse(url="/history", status_code=303)
 
 
@@ -933,7 +945,8 @@ async def export_m3u(request: Request):
     return FileResponse(
         m3u_path,
         media_type="audio/x-mpegurl",
-        filename=f"{name}.m3u"
+        filename=f"{name}.m3u",
+        background=BackgroundTask(_cleanup_temp_file, m3u_path),
     )
 
 @router.post("/export/track-metadata")
