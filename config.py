@@ -46,6 +46,39 @@ class AppSettings(BaseModel):
     lastfm_api_key: str = ""
     model: str = "gpt-4o-mini"
     getsongbpm_api_key: str = ""
+    global_min_lfm: int = 10_000
+    global_max_lfm: int = 15_000_000
+    cache_ttls: dict[str, int] = {
+        "prompt": 60 * 60 * 24,
+        "youtube": 60 * 60 * 6,
+        "lastfm": 60 * 60 * 24 * 7,
+        "lastfm_popularity": 60 * 60 * 24 * 7,
+        "playlists": 60 * 30,
+        "bpm": 60 * 60 * 24 * 30,
+        "jellyfin_tracks": 60 * 60 * 24,
+        "full_library": 60 * 60 * 24,
+    }
+    getsongbpm_base_url: str = "https://api.getsongbpm.com/search/"
+    getsongbpm_headers: dict[str, str] = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": "https://getsongbpm.com/",
+        "Accept-Language": "en-US,en;q=0.9",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    http_timeout_short: int = 5
+    http_timeout_long: int = 10
+    youtube_min_duration: int = 120
+    youtube_max_duration: int = 360
+    library_scan_limit: int = 1000
+    music_library_root: str = "Movies/Music"
+    lyrics_weight: float = 1.5
+    bpm_weight: float = 1.0
+    tags_weight: float = 0.7
 
     def validate_settings(self) -> None:
         """
@@ -100,5 +133,5 @@ def save_settings(s: AppSettings) -> None:
 settings: AppSettings = load_settings()
 logging.getLogger("playlist-pilot").debug("settings loaded: %s", settings.dict())
 
-GLOBAL_MIN_LFM = 10_000        # anything below this is "low popularity"
-GLOBAL_MAX_LFM = 15_000_000     # extremely popular tracks
+GLOBAL_MIN_LFM = settings.global_min_lfm
+GLOBAL_MAX_LFM = settings.global_max_lfm

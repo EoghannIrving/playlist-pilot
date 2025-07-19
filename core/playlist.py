@@ -111,7 +111,7 @@ async def get_full_audio_library(force_refresh: bool = False) -> list[str]:
 
     items: list[str] = []
     start_index = 0
-    limit = 1000
+    limit = settings.library_scan_limit
     while True:
         response = await jf_get(
             f"/Users/{settings.jellyfin_user_id}/Items",

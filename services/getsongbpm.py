@@ -7,6 +7,7 @@ from typing import Optional, Dict
 import cloudscraper
 
 from utils.cache_manager import bpm_cache, CACHE_TTLS
+from config import settings
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -15,27 +16,20 @@ def get_bpm_from_getsongbpm(
 ) -> Optional[Dict[str, Optional[int]]]:
     """Query GetSongBPM for tempo and related metadata."""
     lookup = quote_plus(f"song:{title} artist:{artist}")
-    base_url = "https://api.getsongbpm.com/search/"
     search_url = (
-        f"{base_url}?api_key={api_key}&type=both&lookup={lookup}"
+        f"{settings.getsongbpm_base_url}?api_key={api_key}&type=both&lookup={lookup}"
     )
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Referer": "https://getsongbpm.com/",
-        "Accept-Language": "en-US,en;q=0.9",
-        "X-Requested-With": "XMLHttpRequest",
-    }
+    headers = settings.getsongbpm_headers
 
     try:
         data = (
             cloudscraper.create_scraper(browser="chrome")
-            .get(search_url, headers=headers, timeout=5)
+            .get(
+                search_url,
+                headers=headers,
+                timeout=settings.http_timeout_short,
+            )
             .json()
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
