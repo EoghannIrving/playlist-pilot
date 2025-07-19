@@ -290,7 +290,7 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     )
 
     response = await async_openai_client.chat.completions.create(
-        model="gpt-4",
+        model=settings.model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
     )

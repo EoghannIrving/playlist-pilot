@@ -23,7 +23,11 @@ async def fetch_jellyfin_users():
         url = f"{settings.jellyfin_url.rstrip('/')}/Users"
         headers = {"X-Emby-Token": settings.jellyfin_api_key}
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers, timeout=10)
+            resp = await client.get(
+                url,
+                headers=headers,
+                timeout=settings.http_timeout_long,
+            )
         resp.raise_for_status()
         return {u["Name"]: u["Id"] for u in resp.json()}
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -50,7 +54,7 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
                     "api_key": settings.jellyfin_api_key,
                     "userId": settings.jellyfin_user_id,
                 },
-                timeout=10,
+                timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
         data = response.json()
@@ -111,7 +115,11 @@ async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params, timeout=10)
+            response = await client.get(
+                url,
+                params=params,
+                timeout=settings.http_timeout_long,
+            )
         response.raise_for_status()
         data = response.json()
         items = data.get("Items", [])
@@ -140,7 +148,11 @@ async def fetch_lyrics_for_item(item_id: str) -> str:
     params = {"api_key": settings.jellyfin_api_key}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params, timeout=5)
+            response = await client.get(
+                url,
+                params=params,
+                timeout=settings.http_timeout_short,
+            )
         if response.status_code == 200 and response.text.strip():
             logger.info("Fetched raw lyrics JSON from Jellyfin for item %s", item_id)
             return response.text.strip()
@@ -219,7 +231,7 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
                     "api_key": settings.jellyfin_api_key,
                     "userId": settings.jellyfin_user_id,
                 },
-                timeout=10,
+                timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
         data = response.json()
@@ -272,7 +284,12 @@ async def resolve_jellyfin_path(title: str, artist: str, jellyfin_url: str, jell
 
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.get(url, headers=headers, params=params, timeout=10)
+            resp = await client.get(
+                url,
+                headers=headers,
+                params=params,
+                timeout=settings.http_timeout_long,
+            )
             resp.raise_for_status()
 
             data = resp.json()
@@ -335,7 +352,12 @@ async def create_jellyfin_playlist(
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=payload, timeout=10)
+            response = await client.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=settings.http_timeout_long,
+            )
         response.raise_for_status()
         playlist_id = response.json().get("Id")
         logger.info("✅ Jellyfin playlist created with Id: %s", playlist_id)
@@ -351,7 +373,11 @@ async def get_full_item(item_id: str) -> dict | None:
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers, timeout=10)
+            resp = await client.get(
+                url,
+                headers=headers,
+                timeout=settings.http_timeout_long,
+            )
         resp.raise_for_status()
         return resp.json()
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -365,7 +391,12 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
     logger.info("Updating Item Metadata - Url:%s", url)
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.post(url, headers=headers, json=full_item, timeout=10)
+            resp = await client.post(
+                url,
+                headers=headers,
+                json=full_item,
+                timeout=settings.http_timeout_long,
+            )
         resp.raise_for_status()
         logger.info("✅ Successfully updated Jellyfin item %s", item_id)
         return True

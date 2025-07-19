@@ -12,6 +12,7 @@ from urllib.parse import quote_plus
 import yt_dlp
 from core.playlist import build_search_query, clean
 from utils.cache_manager import yt_search_cache, CACHE_TTLS
+from config import settings
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -55,8 +56,11 @@ async def get_youtube_url_single(search_line: str) -> tuple[str, str | None]:
 
         ref = clean(search_term)
         filtered_entries = [
-            e for e in entries
-            if 120 <= e.get("duration", 0) <= 360
+            e
+            for e in entries
+            if settings.youtube_min_duration
+            <= e.get("duration", 0)
+            <= settings.youtube_max_duration
         ]
 
         best_match = None

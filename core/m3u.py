@@ -23,7 +23,7 @@ def generate_proposed_path(artist: str, album: str, title: str) -> str:
     artist_dir = artist.strip()
     album_dir = album.strip() if album else "Unknown Album"
     title_file = title.strip()
-    return f"Movies/Music/{artist_dir}/{album_dir}/{title_file}.mp3"
+    return f"{settings.music_library_root}/{artist_dir}/{album_dir}/{title_file}.mp3"
 
 def parse_track_text(text: str) -> tuple[str, str]:
     """Split a track label into artist and title parts."""

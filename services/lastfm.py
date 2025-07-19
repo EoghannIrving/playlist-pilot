@@ -46,7 +46,7 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
                     "track": title,
                     "format": "json",
                 },
-                timeout=5,
+                timeout=settings.http_timeout_short,
             )
         response.raise_for_status()
         data = response.json()
@@ -83,7 +83,7 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
                     "track": title,
                     "format": "json",
                 },
-                timeout=10,
+                timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
         data = response.json()
