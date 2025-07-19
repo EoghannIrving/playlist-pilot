@@ -33,7 +33,6 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
-from openai import OpenAI
 
 from config import (
     save_settings,
