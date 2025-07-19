@@ -254,9 +254,9 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     cache_key = hashlib.sha256(digest_input).hexdigest()
 
     # Return from cache if available
-    if cache_key in prompt_cache:
+    cached = prompt_cache.get(cache_key)
+    if cached is not None:
         logger.info("Prompt Cache Hit in generate_playlist_analysis_summary")
-        cached: dict = prompt_cache[cache_key]
         return (
             cached.get("gpt_summary"),
             cached.get("removal_suggestions"),
