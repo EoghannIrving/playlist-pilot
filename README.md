@@ -1,7 +1,7 @@
 
 # Playlist Pilot 🎵
 
-A modular FastAPI app that helps you generate, analyze, and manage music playlists using GPT, Jellyfin, and MeTube.
+A modular FastAPI app that helps you generate, analyze, and manage music playlists using GPT, and Jellyfin.
 
 ## 🚀 Features
 
@@ -81,7 +81,7 @@ These are saved in `settings.json`.
 - FastAPI + Jinja2
 - Pydantic for config
 - DiskCache for storage
-- yt-dlp and MeTube for downloads
+- yt-dlp for Youtube links
 - Jellyfin API
 
 ---
