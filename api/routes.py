@@ -60,7 +60,11 @@ from core.playlist import (
 from core.templates import templates
 from core.models import ExportPlaylistRequest
 from services import jellyfin
-from services.gpt import generate_playlist_analysis_summary, fetch_gpt_suggestions
+from services.gpt import (
+    generate_playlist_analysis_summary,
+    fetch_gpt_suggestions,
+    fetch_openai_models,
+)
 from services.jellyfin import (
     create_jellyfin_playlist,
     fetch_jellyfin_track_metadata,
@@ -324,11 +328,7 @@ async def get_settings(request: Request):
     except ValueError as ve:
         validation_message = str(ve)
     users = await fetch_jellyfin_users()
-    client = OpenAI(api_key=settings.openai_api_key)
-    models = [
-        m.id for m in client.models.list().data
-        if m.id.startswith("gpt")
-    ]
+    models = await fetch_openai_models(settings.openai_api_key)
 
     return templates.TemplateResponse("settings.html", {
         "request": request,
@@ -353,11 +353,7 @@ async def update_settings(
     settings.openai_api_key = form_data.openai_api_key
     settings.lastfm_api_key = form_data.lastfm_api_key
     settings.model = form_data.model
-    client = OpenAI(api_key=settings.openai_api_key)
-    models = [
-        m.id for m in client.models.list().data
-        if m.id.startswith("gpt")
-    ]
+    models = await fetch_openai_models(settings.openai_api_key)
     settings.getsongbpm_api_key = form_data.getsongbpm_api_key
     settings.global_min_lfm = form_data.global_min_lfm
     settings.global_max_lfm = form_data.global_max_lfm
