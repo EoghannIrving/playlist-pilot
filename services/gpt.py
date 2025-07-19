@@ -9,6 +9,7 @@ import logging
 import asyncio
 import json
 
+import openai
 from openai import OpenAI, AsyncOpenAI
 from config import settings
 from utils.cache_manager import prompt_cache, CACHE_TTLS
@@ -17,6 +18,18 @@ from services.lastfm import get_lastfm_track_info
 logger = logging.getLogger("playlist-pilot")
 sync_openai_client = OpenAI(api_key=settings.openai_api_key)
 async_openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+async def fetch_openai_models(api_key: str) -> list[str]:
+    """Return available GPT models for the provided API key."""
+    try:
+        client = AsyncOpenAI(api_key=api_key)
+        resp = await client.models.list()
+        return [m.id for m in resp.data if m.id.startswith("gpt")]
+    except openai.AuthenticationError as exc:  # type: ignore[attr-defined]
+        logger.error("Invalid OpenAI API key: %s", exc)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to fetch OpenAI models: %s", exc)
+    return []
 
 def describe_popularity(score: float) -> str:
     """Return a human-friendly label for a popularity score."""
