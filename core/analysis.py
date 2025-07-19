@@ -6,7 +6,7 @@ from statistics import mean
 import math
 import logging
 import re
-from config import settings
+from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -218,6 +218,41 @@ def normalize_popularity_log(value, min_val, max_val):
         value,
     )
     return result
+
+
+def add_combined_popularity(
+    tracks: list[dict], w_lfm: float = 0.3, w_jf: float = 0.7
+) -> list[dict]:
+    """Calculate combined popularity for a list of track dictionaries."""
+
+    jellyfin_raw = [
+        t["jellyfin_play_count"]
+        for t in tracks
+        if isinstance(t.get("jellyfin_play_count"), int)
+    ]
+    min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
+
+    for track in tracks:
+        raw_lfm = track.get("popularity")
+        raw_jf = track.get("jellyfin_play_count")
+        norm_lfm = (
+            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+            if raw_lfm is not None
+            else None
+        )
+        norm_jf = (
+            normalize_popularity(raw_jf, min_jf, max_jf)
+            if raw_jf is not None
+            else None
+        )
+        track["combined_popularity"] = combined_popularity_score(
+            norm_lfm,
+            norm_jf,
+            w_lfm=w_lfm,
+            w_jf=w_jf,
+        )
+
+    return tracks
 
 
 MOOD_TAGS = {

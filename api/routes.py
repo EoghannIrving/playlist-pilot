@@ -41,7 +41,7 @@ from config import (
     save_settings,
     settings,
 )
-from core.analysis import summarize_tracks
+from core.analysis import summarize_tracks, add_combined_popularity
 from core.history import (
     extract_date_from_label,
     save_whole_user_history,
@@ -53,12 +53,9 @@ from core.m3u import (
     cleanup_temp_file,
 )
 from core.playlist import (
-    combined_popularity_score,
     enrich_jellyfin_playlist,
     enrich_track,
     fetch_audio_playlists,
-    normalize_popularity,
-    normalize_popularity_log,
     normalize_track,
     enrich_and_score_suggestions,
 )
@@ -512,34 +509,12 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     parsed_enriched = [s for s in enriched if s is not None]
     logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
     # 🔁 Calculate combined popularity
-    jellyfin_raw = [
-        t["jellyfin_play_count"]
-        for t in parsed_enriched
-        if isinstance(t.get("jellyfin_play_count"), int)
-    ]
-
-    min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
     start = perf_counter()
-    for track in parsed_enriched:
-        raw_lfm = track.get("popularity")
-        raw_jf = track.get("jellyfin_play_count")
-        norm_lfm = (
-            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
-            if raw_lfm is not None
-            else None
-        )
-        norm_jf = (
-            normalize_popularity(raw_jf, min_jf, max_jf)
-            if raw_jf is not None
-            else None
-        )
-        track["combined_popularity"] = combined_popularity_score(
-            norm_lfm,
-            norm_jf,
-            w_lfm=0.3,
-            w_jf=0.7,
-        )
-    logger.debug("\u23F1\ufe0f Calculate Combined Popularity: %.2fs", perf_counter() - start)
+    add_combined_popularity(parsed_enriched, w_lfm=0.3, w_jf=0.7)
+    logger.debug(
+        "\u23F1\ufe0f Calculate Combined Popularity: %.2fs",
+        perf_counter() - start,
+    )
 
     # Compute listener count stats
     listener_counts = [t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)]
