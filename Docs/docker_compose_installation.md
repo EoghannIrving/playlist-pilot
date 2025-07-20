@@ -20,6 +20,10 @@ Follow these steps to run **Playlist Pilot** using Docker Compose.
    This file controls where logs, cache and other data are stored and can hold
    your API keys. The provided `docker-compose.yml` uses these variables for
    volume mounts so you can keep data anywhere you like.
+   Ensure the path specified by `SETTINGS_PATH` already exists as a file.
+   If the file is missing Docker will create a directory with that name and
+   Playlist Pilot will be unable to load its configuration. Create the file
+   manually with `touch /path/to/settings.json` before starting the container.
 3. **Build and start the containers**
    ```bash
    docker compose up --build -d

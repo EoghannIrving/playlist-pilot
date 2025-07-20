@@ -28,6 +28,10 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 Copy `env.example` to `.env` and update the paths for your machine. Docker
 Compose will read this file and mount the specified directories and
 `settings.json` into the container.
+Make sure the path you set for `SETTINGS_PATH` points to an **existing file**.
+If the file does not exist Docker will create a directory with that name,
+which causes the application to fail. You can create a blank file beforehand
+with `touch /path/to/settings.json`.
 
 Use Docker Compose to build and start the app:
 
