@@ -1,10 +1,9 @@
 """Unit tests for M3U parsing utilities."""
 
-import os
+# pylint: disable=wrong-import-position
+
 import sys
 import types
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Stub optional dependencies to allow importing core.m3u without installing them
 sys.modules.setdefault('httpx', types.ModuleType('httpx'))

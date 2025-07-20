@@ -1,10 +1,5 @@
 """Tests for functions in ``core.analysis``."""
 
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 from core.analysis import (
     combined_popularity_score,
     add_combined_popularity,

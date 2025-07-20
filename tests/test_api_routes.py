@@ -1,12 +1,10 @@
 """Tests for minimal FastAPI route helpers."""
 
-import os
-import sys
+# pylint: disable=exec-used
+
 import ast
 from pathlib import Path
 import asyncio
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def _extract_health_check():
