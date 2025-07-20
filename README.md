@@ -1,105 +1,107 @@
-
 # Playlist Pilot 🎵
 
-A modular FastAPI app that helps you generate, analyze, and manage music playlists using GPT, and Jellyfin.
+Playlist Pilot is a FastAPI application that generates and manages music playlists using GPT, Jellyfin and a few helper services. It caches results on disk so repeated requests stay fast and ships with a small web UI built with Jinja2 and Tailwind.
 
-## 🚀 Features
+## Features
 
-- Generate playlists based on moods, genres or similar tracks
-- Pull audio data from Jellyfin
-- Suggest additional tracks using GPT with Last.fm enrichment
-- Download missing tracks via MeTube/yt-dlp
-- Analyze playlists for mood, tempo and popularity
-- Sample your Jellyfin library to seed new ideas
-- Export playlists as `.m3u` or directly back to Jellyfin
-- Import `.m3u` files into your history
-- Update track metadata in Jellyfin
-- View and manage suggestion history
-- Editable configuration from the web UI
-- Docker & Docker Compose ready
+- **Playlist suggestions** from moods, genres or existing songs using GPT with Last.fm metadata and Jellyfin library sampling.
+- **Playlist analysis** of Jellyfin or saved GPT playlists measuring mood, tempo, decade distribution and popularity.
+- **Playlist comparison** showing overlap between two Jellyfin or GPT playlists.
+- **BPM and audio data** from GetSongBPM to enrich mood scoring.
+- **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin.
+- **Import/export** `.m3u` files and create playlists directly in Jellyfin.
+- **Track metadata export** back to Jellyfin (genre, mood tags, album, etc.).
+- **History management** with the ability to view and delete past GPT suggestions.
+- **DiskCache based caching** for GPT prompts, Jellyfin queries, Last.fm lookups and more.
+- Runs as a Docker container or directly with Python.
 
-## 🧰 Requirements
+## Requirements
 
 - Python 3.11+
-- `pip install -r requirements.txt` OR use Docker
+- `pip install -r requirements.txt` or use Docker
 - Run tests with `pytest`
 
-## 🐳 Docker Usage
+## Docker Usage
 
-Build and run with Docker Compose:
+Use Docker Compose to build and start the app:
 
 ```bash
 docker compose up --build
 ```
 
-See [Docs/docker_compose_installation.md](Docs/docker_compose_installation.md) for a step-by-step setup guide.
+A step‑by‑step guide is available in [Docs/docker_compose_installation.md](Docs/docker_compose_installation.md). Once running, visit [http://localhost:8010](http://localhost:8010). If required settings are missing you'll be redirected to the settings page.
 
-Then open your browser to: [http://localhost:8010](http://localhost:8010)
-If required settings are missing, you'll be automatically redirected to the
-settings page to enter them.
+## Configuration
 
-## ⚙️ Configuration
+Navigate to [http://localhost:8010/settings](http://localhost:8010/settings) and supply:
 
-Visit [http://localhost:8010/settings](http://localhost:8010/settings) to set:
-
-- Jellyfin URL, API key, and User ID
+- Jellyfin server URL, API key and user ID
 - OpenAI API key
 - Last.fm API key
-- Model (e.g., `gpt-4o-mini`)
+- Optional GetSongBPM key
+- Preferred GPT model (for example `gpt-4o-mini`)
 
-These are saved in `settings.json`.
+All values are saved in `settings.json` in the project root or mounted volume.
 
-## 🧪 API Endpoints
+## API Endpoints
 
-| Method | Path                 | Description                      |
-|--------|----------------------|----------------------------------|
-| GET    | `/`                  | Home & manual suggestions        |
-| POST   | `/suggest`           | Suggest tracks from form input   |
-| GET    | `/analyze`           | Analyze a Jellyfin or history playlist |
-| POST   | `/analyze/result`    | Display analysis results         |
-| POST   | `/suggest-playlist`  | Suggest playlist from analysis   |
-| GET    | `/history`           | View suggestion history          |
-| GET    | `/history/export`    | Export saved playlist to `.m3u`  |
-| POST   | `/import_m3u`        | Import an `.m3u` into history    |
-| POST   | `/export/jellyfin`   | Create Jellyfin playlist         |
-| POST   | `/export/track-metadata` | Update Jellyfin track metadata |
-| GET    | `/settings`          | Show settings form               |
-| POST   | `/settings`          | Update settings                  |
-| GET    | `/compare`           | Playlist comparison (view)       |
-| POST   | `/compare`           | Playlist comparison (JSON post)  |
-| GET    | `/health`            | Health check for Docker          |
+| Method | Path | Description |
+|-------|------|-------------|
+| GET | `/` | Home page / manual suggestions |
+| POST | `/suggest` | Suggest tracks from form input |
+| GET | `/analyze` | Analyze a Jellyfin or history playlist |
+| POST | `/analyze/result` | Display analysis results |
+| POST | `/analyze/export-m3u` | Export analysis results as M3U |
+| POST | `/suggest-playlist` | Suggest playlist from analysis |
+| GET | `/compare` | Playlist comparison form |
+| POST | `/compare` | Compare two playlists |
+| GET | `/history` | View suggestion history |
+| POST | `/history/delete` | Delete a history entry |
+| GET | `/history/export` | Export a history entry as `.m3u` |
+| POST | `/import_m3u` | Import an `.m3u` into history |
+| POST | `/export/jellyfin` | Create a Jellyfin playlist |
+| POST | `/export/track-metadata` | Update Jellyfin track metadata |
+| GET | `/settings` | Show settings form |
+| POST | `/settings` | Update settings |
+| POST | `/api/test/lastfm` | Check Last.fm connectivity |
+| POST | `/api/test/jellyfin` | Check Jellyfin connectivity |
+| GET | `/health` | Health check |
 
-## 📂 Data Persistence
+## Data Persistence
 
-- `settings.json`: saved settings
-- `logs/`: log output
-- `cache/`: GPT and Jellyfin results
-- `user_data/`: exports and more
+- `settings.json` – saved configuration
+- `cache/` – cached GPT responses and API results
+- `logs/` – application logs
+- `user_data/` – exported playlists and user history
 
-## 🧠 Tech Stack
+## Tech Stack
 
-- FastAPI + Jinja2
-- Pydantic for config
-- DiskCache for storage
-- yt-dlp for Youtube links
-- Jellyfin API
+- FastAPI & Jinja2 templates
+- Pydantic settings
+- DiskCache for persistent caching
+- yt-dlp for YouTube lookups
+- Jellyfin, Last.fm and GetSongBPM integrations
 
-## 💪 Contributing
+## Contributing
 
-1. Fork this repo and create a new branch.
+1. Fork the repository and create a feature branch.
 2. Install dependencies with `pip install -r requirements.txt`.
-3. Run the test suite:
+3. Run the tests:
    ```bash
    pytest
    ```
-4. Lint the code with Pylint:
+4. Lint the code:
    ```bash
    pylint core api services utils
    ```
 5. Push your branch and open a pull request against `main`.
 
-See the [ROADMAP](ROADMAP.md) and [open issues](https://github.com/yourusername/playlist-pilot/issues) for areas where help is needed.
+For additional setup guidance see the files in the [Docs](Docs/) directory.
+See the [ROADMAP](ROADMAP.md) for future plans and open issues.
+
+## License
+
+Playlist Pilot is released under the terms of the [GNU GPLv3](LICENSE).
 
 ---
-
 © 2025 Playlist Pilot Team
