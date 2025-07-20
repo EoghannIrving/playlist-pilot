@@ -10,6 +10,10 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 - **Playlist analysis** of Jellyfin or saved GPT playlists measuring mood, tempo, decade distribution and popularity.
 - **Playlist comparison** showing overlap between two Jellyfin or GPT playlists.
 - **BPM and audio data** from GetSongBPM to enrich mood scoring.
+- **Lyrics-based mood analysis** when `.lrc` files or Jellyfin lyrics are
+  available.
+- **Customizable weights** for lyrics, BPM and tag matching to fine tune
+  playlist mood detection.
 - **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin.
 - **Import/export** `.m3u` files and create playlists directly in Jellyfin.
 - **Track metadata export** back to Jellyfin (genre, mood tags, album, etc.).
@@ -69,6 +73,7 @@ Read [Docs/secure_credentials.md](Docs/secure_credentials.md) for tips on keepin
 ## API Endpoints
 
 The API is exposed via several HTTP routes. A full table describing each route is available in [Docs/api_reference.md](Docs/api_reference.md).
+For container orchestration a simple liveness probe is provided at `/health`.
 
 ## Data Persistence
 
@@ -111,6 +116,7 @@ The overall architecture is described in [Docs/architecture.md](Docs/architectur
 
 For additional details see [Docs/contributing.md](Docs/contributing.md) and the other documents in the [Docs](Docs/) directory.
 See the [ROADMAP](ROADMAP.md) for future plans and open issues.
+Known problems uncovered during code audits are listed in [BUGS.md](BUGS.md).
 
 ## Security
 
