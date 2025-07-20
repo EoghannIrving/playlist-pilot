@@ -42,10 +42,11 @@ from utils.cache_manager import library_cache, CACHE_TTLS
 logger = logging.getLogger("playlist-pilot")
 
 
-async def fetch_audio_playlists() -> dict:
+async def fetch_audio_playlists(user_id: str | None = None) -> dict:
     """Fetch all playlists that contain at least one audio track."""
+    user_id = user_id or settings.jellyfin_user_id
     resp = await jf_get(
-        f"/Users/{settings.jellyfin_user_id}/Items",
+        f"/Users/{user_id}/Items",
         IncludeItemTypes="Playlist",
         Recursive="true",
     )
@@ -57,7 +58,7 @@ async def fetch_audio_playlists() -> dict:
     for pl in playlists:
         pl_id = pl["Id"]
         contents_resp = await jf_get(
-            f"/Users/{settings.jellyfin_user_id}/Items",
+            f"/Users/{user_id}/Items",
             ParentId=pl_id,
             IncludeItemTypes="Audio",
             Recursive="true",

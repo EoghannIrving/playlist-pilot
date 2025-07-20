@@ -37,7 +37,7 @@ Snippet:
 【F:services/jellyfin.py†L247-L253】
 
 ## 5. `get_cached_playlists` ignores supplied user id
-`utils/helpers.py` accepts an optional `user_id` but always calls `fetch_audio_playlists()` which fetches playlists for the default user. Passing a different user id only changes the cache key, not the data fetched.
+*Fixed.* `fetch_audio_playlists` now accepts a `user_id` argument and `get_cached_playlists` forwards the provided value so the correct user's playlists are fetched.
 
 Code:
 ```
@@ -46,7 +46,7 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
     cache_key = f"playlists:{user_id}"
     playlists_data = playlist_cache.get(cache_key)
     if playlists_data is None:
-        playlists_data = await fetch_audio_playlists()
+        playlists_data = await fetch_audio_playlists(user_id)
         playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
     return playlists_data
 ```
