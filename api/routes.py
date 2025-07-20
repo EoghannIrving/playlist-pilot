@@ -499,7 +499,17 @@ async def test_getsongbpm(request: Request):
                 headers=settings.getsongbpm_headers,
                 timeout=settings.http_timeout_short,
             )
-        json_data = r.json()
+        try:
+            json_data = r.json()
+        except ValueError as exc:  # json.JSONDecodeError inherits from ValueError
+            logger.error("JSON decode error during GetSongBPM API test: %s", str(exc))
+            return JSONResponse(
+                {
+                    "success": False,
+                    "status": r.status_code,
+                    "error": "Invalid JSON response from GetSongBPM.",
+                }
+            )
         valid = r.status_code == 200 and "search" in json_data
         return JSONResponse(
             {"success": valid, "status": r.status_code, "data": json_data}
