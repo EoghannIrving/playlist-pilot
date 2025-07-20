@@ -6,7 +6,9 @@ This file documents notable bugs discovered during a code audit.
 *Fixed.* `avg_popularity` now divides by the number of popularity values present and returns ``0`` when none exist.
 
 ## 2. History directory not created
-`save_user_history` writes to `USER_DATA_DIR`, but the directory is never ensured to exist. Attempting to save history on a clean install fails with `FileNotFoundError`.
+*Fixed.* The user history directory is now created automatically before writing files.
+
+`save_user_history` writes to `USER_DATA_DIR`, but the directory was never ensured to exist. Attempting to save history on a clean install failed with `FileNotFoundError`.
 
 Code reference:
 ```
@@ -15,7 +17,7 @@ Code reference:
     with open(history_file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 ```
-【F:core/history.py†L45-L67】
+【F:core/history.py†L45-L71】
 
 ## 3. Crash when summarizing an empty track list
 *Fixed.* The function now falls back to ``0`` for ``avg_listeners`` and ``avg_popularity`` when no tracks are supplied.
