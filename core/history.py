@@ -33,6 +33,7 @@ def user_history_path(user_id: str) -> Path:
     """Constructs the path to the user's history file."""
     return USER_DATA_DIR / f"{user_id}.json"
 
+
 def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None:
     """
     Append a new labeled suggestion set to a user's history file.
@@ -43,6 +44,8 @@ def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None
         suggestions (list[dict]): Validated suggestions from GPT
     """
     history_file = user_history_path(user_id)
+    # Ensure the user data directory exists before writing
+    history_file.parent.mkdir(parents=True, exist_ok=True)
 
     if os.path.exists(history_file):
         try:
@@ -56,10 +59,7 @@ def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None
     else:
         data = []
 
-    data.append({
-        "label": label,
-        "suggestions": suggestions
-    })
+    data.append({"label": label, "suggestions": suggestions})
 
     try:
         with open(history_file, "w", encoding="utf-8") as f:
@@ -67,6 +67,7 @@ def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None
         logger.debug("History saved to %s", history_file)
     except (OSError, TypeError) as exc:
         logger.error("Failed to write history for %s: %s", user_id, exc)
+
 
 def load_user_history(user_id: str) -> list[dict]:
     """
@@ -89,6 +90,7 @@ def load_user_history(user_id: str) -> list[dict]:
         logger.warning("⚠️ Could not load history: %s", exc)
         return []
 
+
 def save_whole_user_history(user_id: str, history: list[dict]) -> None:
     """
     Overwrite a user's entire history file.
@@ -98,6 +100,8 @@ def save_whole_user_history(user_id: str, history: list[dict]) -> None:
         history (list[dict]): The full history to save
     """
     history_file = user_history_path(user_id)
+    # Ensure the user data directory exists before writing
+    history_file.parent.mkdir(parents=True, exist_ok=True)
     with open(history_file, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2)
     logger.debug("History saved to %s", history_file)
