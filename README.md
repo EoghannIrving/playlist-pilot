@@ -22,11 +22,16 @@ A modular FastAPI app that helps you generate, analyze, and manage music playlis
 
 - Python 3.11+
 - `pip install -r requirements.txt` OR use Docker
-- Run tests with `pytest`
 
 ### Running Tests
 
-From the project root simply execute:
+Install `pytest` if it is not already available:
+
+```bash
+pip install pytest
+```
+
+Then run the tests from the project root:
 
 ```bash
 pytest
