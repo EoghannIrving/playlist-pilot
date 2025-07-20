@@ -63,11 +63,15 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/m3u.py†L74-L86】
 
 ## 7. `extract_year` can return the string "None"
-`extract_year` converts the `ProductionYear` value to a string before using `or` to fall back to `PremiereDate`. When `ProductionYear` is `None`, the string "None" is returned instead of the premiere year.
+*Fixed.* The function now checks the ``ProductionYear`` value before converting to a string and only falls back to ``PremiereDate`` when it's missing.
 ```
-    return str(track.get("ProductionYear")) or str(track.get("PremiereDate", "")[:4])
+    prod_year = track.get("ProductionYear")
+    if prod_year:
+        return str(prod_year)
+    premiere = track.get("PremiereDate", "")
+    return str(premiere)[:4] if premiere else ""
 ```
-【F:core/playlist.py†L310-L315】
+【F:core/playlist.py†L342-L350】
 
 ## 8. `_determine_year` returns mixed types
 This helper claims to return `int | None` for the year, but actually returns a string when only the Jellyfin year is available.

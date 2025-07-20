@@ -1,7 +1,8 @@
 """Data models for playlist-pilot."""
 
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # pylint: disable=no-name-in-module
+
 
 class Track(BaseModel):
     """Normalized track metadata."""
@@ -19,7 +20,9 @@ class Track(BaseModel):
 
     class Config:  # pylint: disable=too-few-public-methods
         """Pydantic configuration for ``Track`` model."""
+
         extra = "allow"
+
 
 class EnrichedTrack(Track):
     """Track metadata after enrichment."""
@@ -37,6 +40,7 @@ class EnrichedTrack(Track):
 
     class Config:  # pylint: disable=too-few-public-methods
         """Pydantic configuration for ``EnrichedTrack`` model."""
+
         extra = "allow"
 
 
