@@ -80,6 +80,7 @@ These are saved in `settings.json`.
 - `logs/`: log output
 - `cache/`: GPT and Jellyfin results
 - `user_data/`: exports and more
+- `Docs/sample_history.json`: anonymized example history
 
 ## 🧠 Tech Stack
 

@@ -1,0 +1,9 @@
+[
+  {
+    "label": "Sample Playlist - 2025-01-01 12:00",
+    "suggestions": [
+      {"title": "Example Song A", "artist": "Artist X"},
+      {"title": "Example Song B", "artist": "Artist Y"}
+    ]
+  }
+]
