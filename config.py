@@ -33,10 +33,11 @@ Path to the local JSON file where application settings are stored.
 # ─────────────────────────────────────────────────────────────
 # Settings Schema
 
+
 class AppSettings(BaseModel):
     """
     Defines required configuration settings for the application.
-    
+
     Attributes:
         jellyfin_url (str): Base URL of your Jellyfin server.
         jellyfin_api_key (str): API key used to authenticate with Jellyfin.
@@ -45,6 +46,7 @@ class AppSettings(BaseModel):
         lastfm_api_key (str): Optional key for Last.fm integration.
         model (str): GPT model to use (default is 'gpt-4o-mini').
     """
+
     jellyfin_url: str = ""
     jellyfin_api_key: str = ""
     jellyfin_user_id: str = ""
@@ -86,6 +88,35 @@ class AppSettings(BaseModel):
     bpm_weight: float = 1.0
     tags_weight: float = 0.7
 
+    def clear_cache(self, name: str | None = None) -> None:
+        """Clear one or all disk caches.
+
+        Args:
+            name: Optional name of the cache to clear. If ``None`` all caches
+                are purged.
+        """
+        from utils import cache_manager
+
+        caches = {
+            "prompt": cache_manager.prompt_cache,
+            "youtube": cache_manager.yt_search_cache,
+            "lastfm": cache_manager.lastfm_cache,
+            "playlists": cache_manager.playlist_cache,
+            "lastfm_popularity": cache_manager.LASTFM_POP_CACHE,
+            "jellyfin_tracks": cache_manager.jellyfin_track_cache,
+            "bpm": cache_manager.bpm_cache,
+            "full_library": cache_manager.library_cache,
+        }
+
+        if name:
+            if name not in caches:
+                raise KeyError(f"Unknown cache '{name}'")
+            caches[name].clear()
+            return
+
+        for cache in caches.values():
+            cache.clear()
+
     def validate_settings(self) -> None:
         """
         Validates that all required configuration fields are filled.
@@ -105,8 +136,10 @@ class AppSettings(BaseModel):
         if missing:
             raise ValueError(f"Missing required settings: {', '.join(missing)}")
 
+
 # ─────────────────────────────────────────────────────────────
 # Settings Management Functions
+
 
 def load_settings() -> AppSettings:
     """Load application settings and create the file when missing."""
@@ -137,6 +170,7 @@ def load_settings() -> AppSettings:
         json.dump({}, f)
     return AppSettings()
 
+
 def save_settings(s: AppSettings) -> None:
     """
     Saves the provided settings object to the `settings.json` file.
@@ -146,6 +180,7 @@ def save_settings(s: AppSettings) -> None:
     """
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(s.dict(), f, indent=2)
+
 
 # ─────────────────────────────────────────────────────────────
 # Global Config Instance

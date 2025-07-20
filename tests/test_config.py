@@ -1,6 +1,5 @@
 """Tests for the configuration helper functions."""
 
-
 import config
 
 
@@ -29,3 +28,55 @@ def test_load_settings_handles_invalid_json(tmp_path, monkeypatch):
     assert settings_file.read_text(encoding="utf-8") == "{}"
     assert isinstance(settings, config.AppSettings)
 
+
+class DummyCache:
+    """Minimal cache object tracking ``clear`` calls."""
+
+    def __init__(self):
+        self.cleared = False
+
+    def clear(self):
+        self.cleared = True
+
+
+def _setup_cache_stub(monkeypatch):
+    import types
+    import sys
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.yt_search_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.playlist_cache = DummyCache()
+    cache_stub.LASTFM_POP_CACHE = DummyCache()
+    cache_stub.jellyfin_track_cache = DummyCache()
+    cache_stub.bpm_cache = DummyCache()
+    cache_stub.library_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {}
+    monkeypatch.setitem(sys.modules, "utils.cache_manager", cache_stub)
+    return cache_stub
+
+
+def test_clear_single_cache(monkeypatch):
+    """Only the specified cache should be cleared."""
+    cache_stub = _setup_cache_stub(monkeypatch)
+    config.AppSettings().clear_cache("prompt")
+    assert cache_stub.prompt_cache.cleared
+    assert not cache_stub.yt_search_cache.cleared
+
+
+def test_clear_all_caches(monkeypatch):
+    """Calling without arguments clears every cache."""
+    cache_stub = _setup_cache_stub(monkeypatch)
+    config.AppSettings().clear_cache()
+    caches = [
+        cache_stub.prompt_cache,
+        cache_stub.yt_search_cache,
+        cache_stub.lastfm_cache,
+        cache_stub.playlist_cache,
+        cache_stub.LASTFM_POP_CACHE,
+        cache_stub.jellyfin_track_cache,
+        cache_stub.bpm_cache,
+        cache_stub.library_cache,
+    ]
+    assert all(c.cleared for c in caches)
