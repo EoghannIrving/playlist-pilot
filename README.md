@@ -24,6 +24,38 @@ A modular FastAPI app that helps you generate, analyze, and manage music playlis
 - `pip install -r requirements.txt` OR use Docker
 - Run tests with `pytest`
 
+## ▶️ Running with Uvicorn
+
+Start the server locally:
+
+```bash
+python -m uvicorn main:app
+```
+
+Add `--reload` for automatic restarts during development. Playlist Pilot reads
+configuration from `settings.json` (defaults to `/app/settings.json`). You can
+override this with the `SETTINGS_FILE` environment variable or the
+`--settings-file` command line option.
+
+```bash
+SETTINGS_FILE=/path/to/settings.json python -m uvicorn main:app --reload
+# or
+python -m uvicorn main:app --settings-file /path/to/settings.json
+```
+
+### Minimal `settings.json`
+
+Create a `settings.json` file with the required fields:
+
+```json
+{
+  "jellyfin_url": "http://localhost:8096",
+  "jellyfin_api_key": "YOUR_JELLYFIN_KEY",
+  "jellyfin_user_id": "YOUR_USER_ID",
+  "openai_api_key": "sk-..."
+}
+```
+
 ## 🐳 Docker Usage
 
 Build and run with Docker Compose. Provide the location of your settings file
