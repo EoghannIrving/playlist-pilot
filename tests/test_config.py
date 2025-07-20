@@ -1,6 +1,10 @@
 """Tests for the configuration helper functions."""
 
 import config
+import types
+import sys
+
+# pylint: disable=no-member
 
 
 def test_load_settings_creates_file(tmp_path, monkeypatch):
@@ -40,8 +44,7 @@ class DummyCache:
 
 
 def _setup_cache_stub(monkeypatch):
-    import types
-    import sys
+    """Create and register a fake ``utils.cache_manager`` module."""
 
     cache_stub = types.ModuleType("utils.cache_manager")
     cache_stub.prompt_cache = DummyCache()
