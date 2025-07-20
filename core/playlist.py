@@ -203,6 +203,7 @@ def normalize_track(raw: str | dict) -> Track:
     if isinstance(raw, dict):
         # Jellyfin track dict
         tempo = extract_tag_value(raw.get("Tags"), "tempo")
+        lyrics = raw.get("lyrics")
         return Track(
             raw=raw.get("Name", ""),
             title=raw.get("Name", "").strip(),
@@ -210,7 +211,7 @@ def normalize_track(raw: str | dict) -> Track:
             album=raw.get("Album", "").strip(),
             year=extract_year(raw),
             Genres=raw.get("Genres", []),
-            lyrics=raw.get("lyrics", []),
+            lyrics=lyrics,
             tempo=tempo,
             RunTimeTicks=raw.get("RunTimeTicks", 0),
         )
