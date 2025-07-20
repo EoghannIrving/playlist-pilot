@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "playlist-pilot"
+version = "0.1.0"
+description = "FastAPI application for playlist generation and management"
+authors = [{name = "Playlist Pilot Team"}]
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = [
+    "aiofiles",
+    "diskcache",
+    "fastapi",
+    "jinja2",
+    "openai",
+    "pydantic",
+    "requests",
+    "uvicorn",
+    "yt-dlp",
+    "python-multipart",
+    "cloudscraper",
+    "httpx",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api", "core", "services", "utils"]
+
+[tool.setuptools.package-data]
+"" = ["templates/*.html", "static/*"]
