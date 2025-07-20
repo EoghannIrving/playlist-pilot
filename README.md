@@ -84,6 +84,22 @@ These are saved in `settings.json`.
 - yt-dlp for Youtube links
 - Jellyfin API
 
+## 💪 Contributing
+
+1. Fork this repo and create a new branch.
+2. Install dependencies with `pip install -r requirements.txt`.
+3. Run the test suite:
+   ```bash
+   pytest
+   ```
+4. Lint the code with Pylint:
+   ```bash
+   pylint core api services utils
+   ```
+5. Push your branch and open a pull request against `main`.
+
+See the [ROADMAP](ROADMAP.md) and [open issues](https://github.com/yourusername/playlist-pilot/issues) for areas where help is needed.
+
 ---
 
 © 2025 Playlist Pilot Team
