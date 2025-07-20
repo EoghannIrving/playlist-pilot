@@ -13,11 +13,13 @@ import openai
 from openai import OpenAI, AsyncOpenAI
 from config import settings
 from utils.cache_manager import prompt_cache, CACHE_TTLS
+from utils.text_utils import strip_markdown
 from services.lastfm import get_lastfm_track_info
 
 logger = logging.getLogger("playlist-pilot")
 sync_openai_client = OpenAI(api_key=settings.openai_api_key)
 async_openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+
 
 async def fetch_openai_models(api_key: str) -> list[str]:
     """Return available GPT models for the provided API key."""
@@ -30,6 +32,7 @@ async def fetch_openai_models(api_key: str) -> list[str]:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("Failed to fetch OpenAI models: %s", exc)
     return []
+
 
 def describe_popularity(score: float) -> str:
     """Return a human-friendly label for a popularity score."""
@@ -44,7 +47,9 @@ def describe_popularity(score: float) -> str:
     return "Obscure or local"
 
 
-def _build_gpt_prompt(existing_tracks: list[str], count: int, summary: dict | None = None) -> str:
+def _build_gpt_prompt(
+    existing_tracks: list[str], count: int, summary: dict | None = None
+) -> str:
     """
     Constructs a tailored GPT prompt based a user selected playlist.
 
@@ -71,7 +76,7 @@ def _build_gpt_prompt(existing_tracks: list[str], count: int, summary: dict | No
             - Decades: {", ".join(summary['decades'].keys())}
             """
     else:
-        summary_block=""
+        summary_block = ""
 
     intro = (
         "The user has provided a playlist which has the following "
@@ -103,9 +108,11 @@ def _build_gpt_prompt(existing_tracks: list[str], count: int, summary: dict | No
     logger.debug("GPT Prompt: %s", intro)
     return intro
 
+
 def prompt_fingerprint(prompt: str) -> str:
     """Generate SHA256 fingerprint of the prompt."""
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
 
 def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
     """
@@ -133,6 +140,7 @@ def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
         temperature=temperature,
     )
     content = response.choices[0].message.content.strip()
+    content = strip_markdown(content)
     prompt_cache.set(key, content, expire=CACHE_TTLS["prompt"])
     logger.debug("GPT API original text: %s", content)
     return content
@@ -153,6 +161,7 @@ async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
         temperature=temperature,
     )
     content = response.choices[0].message.content.strip()
+    content = strip_markdown(content)
     prompt_cache.set(key, content, expire=CACHE_TTLS["prompt"])
     logger.debug("GPT API original text: %s", content)
     return content
@@ -171,13 +180,13 @@ def parse_gpt_line(line: str) -> tuple[str, str]:
     parts = [p.strip() for p in line.split(" - ")]
     return (parts[0], parts[1]) if len(parts) >= 2 else ("", "")
 
+
 async def gpt_suggest_validated(
     existing_tracks: list[str],
     count: int,
     summary: dict | None = None,
     exclude_pairs: set[tuple[str, str]] = None,
 ) -> list[dict]:
-
     """
     Main interface to request playlist suggestions from GPT.
 
@@ -203,11 +212,7 @@ async def gpt_suggest_validated(
             continue
         try:
             title, artist = parse_gpt_line(line)
-            suggestions_raw.append({
-                "title": title,
-                "artist": artist,
-                "text": line
-            })
+            suggestions_raw.append({"title": title, "artist": artist, "text": line})
         except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.warning("⚠️ Failed to parse line: '%s' → %s", line, exc)
 
@@ -234,7 +239,8 @@ async def gpt_suggest_validated(
     suggestions_raw = [track for track in validated if track]
     if exclude_pairs:
         suggestions_raw = [
-            track for track in suggestions_raw
+            track
+            for track in suggestions_raw
             if (track["title"], track["artist"]) not in exclude_pairs
         ]
 
@@ -245,7 +251,9 @@ async def gpt_suggest_validated(
     return suggestions_raw[:count]
 
 
-async def fetch_gpt_suggestions(tracks: list[dict], text_summary: str, count: int) -> list[dict]:
+async def fetch_gpt_suggestions(
+    tracks: list[dict], text_summary: str, count: int
+) -> list[dict]:
     """Wrapper to request suggestions from GPT based on seed tracks."""
     seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
     exclude_pairs = {(t["title"], t["artist"]) for t in tracks}
@@ -263,19 +271,23 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     """
 
     # Create a cache key from summary + track metadata
-    digest_input = json.dumps({
-        "summary": summary,
-        "tracks": [
-            {
-                "title": t["title"],
-                "artist": t["artist"],
-                "genre": t.get("genre"),
-                "mood": t.get("mood"),
-                "tempo": t.get("tempo"),
-                "decade": t.get("decade")
-            } for t in tracks
-        ]
-    }, sort_keys=True).encode("utf-8")
+    digest_input = json.dumps(
+        {
+            "summary": summary,
+            "tracks": [
+                {
+                    "title": t["title"],
+                    "artist": t["artist"],
+                    "genre": t.get("genre"),
+                    "mood": t.get("mood"),
+                    "tempo": t.get("tempo"),
+                    "decade": t.get("decade"),
+                }
+                for t in tracks
+            ],
+        },
+        sort_keys=True,
+    ).encode("utf-8")
     cache_key = hashlib.sha256(digest_input).hexdigest()
 
     # Return from cache if available
@@ -321,6 +333,7 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     )
 
     content = response.choices[0].message.content.strip()
+    content = strip_markdown(content)
 
     # Split output if needed
     if "Suggested Removals" in content:
@@ -329,7 +342,7 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
         removal_raw = parts[1].lstrip(": \n")  # Remove colon, spaces, newlines
         result = {
             "gpt_summary": gpt_summary,
-            "removal_suggestions": removal_raw.strip()
+            "removal_suggestions": removal_raw.strip(),
         }
 
     elif "1." in content:
@@ -338,17 +351,15 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
         removal_suggestions = content[split_idx:].strip()
         result = {
             "gpt_summary": gpt_summary,
-            "removal_suggestions": removal_suggestions
+            "removal_suggestions": removal_suggestions,
         }
 
     else:
-        result = {
-            "gpt_summary": content.strip(),
-            "removal_suggestions": ""
-        }
+        result = {"gpt_summary": content.strip(), "removal_suggestions": ""}
     # Store the analysis summary in the prompt cache with a TTL
     prompt_cache.set(cache_key, result, expire=CACHE_TTLS["prompt"])
     return result["gpt_summary"], result["removal_suggestions"]
+
 
 def analyze_mood_from_lyrics(lyrics: str) -> str:
     """Classify the overall mood of a song based on its lyrics via GPT."""
@@ -361,7 +372,7 @@ def analyze_mood_from_lyrics(lyrics: str) -> str:
         "in one word, such as 'happy', 'sad', 'chill', 'intense', 'romantic', "
         "'dark', 'uplifting', 'nostalgic', 'party'.\n\n"
         "Lyrics:\n"
-         "Respond with only the mood label and nothing else.\n\n"
+        "Respond with only the mood label and nothing else.\n\n"
         f"""\n{lyrics}\n"""
     )
     try:
