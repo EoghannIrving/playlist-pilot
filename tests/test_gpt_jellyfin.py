@@ -1,12 +1,9 @@
 """Tests for Jellyfin and GPT helper functions using lightweight stubs."""
 
-import os
 import sys
 import types
 import importlib
 import asyncio
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Stub httpx for jellyfin service
 class DummyResp:
@@ -17,11 +14,12 @@ class DummyResp:
         self.status_code = 200
 
     def json(self):
+        """Return the response JSON payload."""
         return {"Items": self._items}
 
     def raise_for_status(self):
         """Pretend to validate the response status."""
-        pass
+        return None
 
 class DummyClient:
     """Async client stub used by ``make_httpx_stub``."""
@@ -30,15 +28,19 @@ class DummyClient:
         self._items = items
 
     async def __aenter__(self):
+        """Enter the asynchronous context."""
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        pass
+        """Exit the asynchronous context without special handling."""
+        return None
 
     async def get(self, *_args, **_kwargs):
+        """Return a dummy response object."""
         return DummyResp(self._items)
 
 def make_httpx_stub(items):
+    """Create a minimal ``httpx`` stub returning ``items``."""
     module = types.ModuleType("httpx")
     module.AsyncClient = lambda *a, **kw: DummyClient(items)
     return module
@@ -48,9 +50,11 @@ class DummyCache(dict):
     """Minimal ``diskcache.Cache`` replacement used for tests."""
 
     def get(self, _key):
+        """Return ``None`` for any missing key."""
         return None
 
     def set(self, _key, value, expire=None):
+        """Store ``value`` ignoring the ``expire`` parameter."""
         _ = expire  # accept ``expire`` keyword for compatibility
         self[_key] = value
 
@@ -92,9 +96,12 @@ def test_parse_gpt_line():
     """Validate GPT line parsing and popularity descriptions."""
     # Stub openai so importing services.gpt succeeds
     openai_stub = types.ModuleType("openai")
-    class Dummy:
-        def __init__(self, **kwargs):
-            pass
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            """Ignore initialization parameters."""
+            return
     openai_stub.OpenAI = Dummy
     openai_stub.AsyncOpenAI = Dummy
     openai_stub.OpenAIError = Exception
