@@ -23,6 +23,10 @@ Playlist Pilot is a FastAPI application that generates and manages music playlis
 
 ## Docker Usage
 
+Copy `env.example` to `.env` and update the paths for your machine. Docker
+Compose will read this file and mount the specified directories and
+`settings.json` into the container.
+
 Use Docker Compose to build and start the app:
 
 ```bash
@@ -42,6 +46,8 @@ Navigate to [http://localhost:8010/settings](http://localhost:8010/settings) and
 - Preferred GPT model (for example `gpt-4o-mini`)
 
 All values are saved in `settings.json` in the project root or mounted volume.
+You can also place these keys in your `.env` file so they are available when the
+container first starts.
 
 ## API Endpoints
 
