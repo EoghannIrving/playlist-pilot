@@ -34,13 +34,13 @@
       <legend class="px-2 text-lg font-semibold text-gray-800 dark:text-gray-100">🎬 Jellyfin Integration</legend>
 
       <div class="space-y-2">
-        <label for="JELLYFIN_URL" class="block font-semibold">Jellyfin URL</label>
+        <label for="JELLYFIN_URL" class="block font-semibold required-label">Jellyfin URL</label>
         <input type="text" id="JELLYFIN_URL" name="jellyfin_url" value="{{ settings.jellyfin_url }}" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
         <small class="text-gray-300">e.g., http://localhost:8096 or your remote Jellyfin address</small>
       </div>
 
       <div class="space-y-2">
-        <label for="JELLYFIN_API_KEY" class="block font-semibold">Jellyfin API Key</label>
+        <label for="JELLYFIN_API_KEY" class="block font-semibold required-label">Jellyfin API Key</label>
         <div class="flex items-center gap-2">
           <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <button type="button" onclick="testJellyfinKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
@@ -50,7 +50,7 @@
       </div>
 
       <div class="space-y-2">
-        <label for="JELLYFIN_USER_ID" class="block font-semibold">Jellyfin User</label>
+        <label for="JELLYFIN_USER_ID" class="block font-semibold required-label">Jellyfin User</label>
         <select name="jellyfin_user_id" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           {% for name, id in jellyfin_users.items() %}
             <option value="{{ id }}" {% if id == settings.jellyfin_user_id %}selected{% endif %}>{{ name }}</option>
@@ -64,7 +64,7 @@
       <legend class="px-2 text-lg font-semibold text-gray-800 dark:text-gray-100">🔑 API Keys</legend>
 
       <div class="space-y-2">
-        <label for="OPENAI_API_KEY" class="block font-semibold">OpenAI API Key</label>
+        <label for="OPENAI_API_KEY" class="block font-semibold required-label">OpenAI API Key</label>
         <div class="flex items-center gap-2">
           <input type="text" id="OPENAI_API_KEY" name="openai_api_key" value="{{ settings.openai_api_key }}" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <button type="button" onclick="testOpenAIKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
@@ -74,7 +74,7 @@
       </div>
 
       <div class="space-y-2">
-        <label for="MODEL" class="block font-semibold">Model</label>
+        <label for="MODEL" class="block font-semibold required-label">Model</label>
         {% set model_labels = {
           "gpt-4o-mini": "🌟 Fast & cost-efficient GPT-4o (Mini)",
           "gpt-4o": "⚡ GPT-4o – multimodal, high performance",
