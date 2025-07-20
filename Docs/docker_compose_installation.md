@@ -5,7 +5,8 @@ Follow these steps to run **Playlist Pilot** using Docker Compose.
 ## Prerequisites
 
 - Docker and Docker Compose installed
-- Optional: edit `docker-compose.yml` to adjust volume paths for your environment
+- Export `HOST_SETTINGS_FILE` and `HOST_MUSIC_DIR` with the paths to your
+  `settings.json` and music library (or edit `docker-compose.yml` manually)
 
 ## Steps
 
@@ -16,6 +17,8 @@ Follow these steps to run **Playlist Pilot** using Docker Compose.
    ```
 2. **Build and start the containers**
    ```bash
+   HOST_SETTINGS_FILE=/path/to/your/settings.json \
+   HOST_MUSIC_DIR=/path/to/your/music \
    docker compose up --build -d
    ```
    The `-d` flag runs the app in the background. Omit it if you want to follow the logs.

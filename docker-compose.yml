@@ -15,9 +15,9 @@ services:
       - ./logs:/app/logs
       - ./cache:/app/cache
       - ./user_data:/app/user_data
-      - /mnt/Games/pilotsettings/settings.json:/app/settings.json:rw
+      - ${HOST_SETTINGS_FILE:-/path/to/settings.json}:/app/settings.json:rw
       - ./data:/data # Ensures /data/.cache-spotify is persisted
-      - /mnt/Movies-And-More/Music:/Movies/Music
+      - ${HOST_MUSIC_DIR:-/path/to/Music}:/Movies/Music
     restart: unless-stopped
     healthcheck:
       test:
