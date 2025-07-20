@@ -14,17 +14,23 @@ import httpx
 from config import settings
 from utils.cache_manager import lastfm_cache, CACHE_TTLS
 
+
 logger = logging.getLogger("playlist-pilot")
+
+# Precompile regex patterns for efficiency and to avoid backtracking
+_paren_re = re.compile(r"\s*\([^)]*\)")
+_punct_re = re.compile(r"[^a-z0-9 ]")
+
 
 def normalize(text: str) -> str:
     """Standardize text for caching and comparison."""
     text = text.lower()
-    text = re.sub(r"\s*\(.*?\)", "", text)  # Remove content in parentheses
-    text = re.sub(r"[^a-z0-9 ]", "", text)     # Remove punctuation
+    text = _paren_re.sub("", text)  # Remove content in parentheses
+    text = _punct_re.sub("", text)  # Remove punctuation
     return text.strip()
 
-async def get_lastfm_tags(title: str, artist: str) -> list[str]:
 
+async def get_lastfm_tags(title: str, artist: str) -> list[str]:
     """
     Retrieve top genre-like tags for a given track from Last.fm.
     Falls back to empty list on error.
@@ -57,6 +63,7 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
         return []
+
 
 async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
     """
@@ -99,6 +106,7 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
         lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
         return None
 
+
 async def enrich_with_lastfm(title: str, artist: str) -> dict:
     """
     Returns a dict with Last.fm metadata for a track.
@@ -111,7 +119,9 @@ async def enrich_with_lastfm(title: str, artist: str) -> dict:
     return {
         "exists": track_data is not None,
         "listeners": int(track_data.get("listeners", 0)) if track_data else 0,
-        "releasedate": track_data.get("album", {}).get("releasedate", "") if track_data else "",
+        "releasedate": (
+            track_data.get("album", {}).get("releasedate", "") if track_data else ""
+        ),
         "album": track_data.get("album", {}).get("title"),
         "tags": tags,
     }
