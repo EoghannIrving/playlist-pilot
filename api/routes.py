@@ -426,7 +426,12 @@ async def test_lastfm(request: Request):
         )
     except httpx.HTTPError as exc:
         logger.error("HTTP error during Last.fm API test: %s", str(exc))
-        return JSONResponse({"success": False, "error": "An internal error occurred while testing the Last.fm API."})
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "An internal error occurred while testing the Last.fm API.",
+            }
+        )
 
 
 @router.post("/api/test/jellyfin")
@@ -453,7 +458,12 @@ async def test_jellyfin(request: Request):
         )
     except httpx.HTTPError as exc:
         logger.error("HTTP error during Jellyfin API test: %s", str(exc))
-        return JSONResponse({"success": False, "error": "An internal error occurred while testing the Jellyfin API."})
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "An internal error occurred while testing the Jellyfin API.",
+            }
+        )
 
 
 @router.post("/api/test/openai")
@@ -468,7 +478,40 @@ async def test_openai(request: Request):
         return JSONResponse({"success": valid})
     except openai.OpenAIError as exc:
         logger.error("OpenAI test error: %s", str(exc))
-        return JSONResponse({"success": False, "error": "An internal error has occurred. Please try again later."})
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "An internal error has occurred. Please try again later.",
+            }
+        )
+
+
+@router.post("/api/test/getsongbpm")
+async def test_getsongbpm(request: Request):
+    """Check if the GetSongBPM API key is valid by performing a sample query."""
+    data = await request.json()
+    key = data.get("key", "")
+    lookup = "song:creep artist:radiohead"
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                f"{settings.getsongbpm_base_url}?api_key={key}&type=both&lookup={lookup}",
+                headers=settings.getsongbpm_headers,
+                timeout=settings.http_timeout_short,
+            )
+        json_data = r.json()
+        valid = r.status_code == 200 and "search" in json_data
+        return JSONResponse(
+            {"success": valid, "status": r.status_code, "data": json_data}
+        )
+    except httpx.HTTPError as exc:
+        logger.error("HTTP error during GetSongBPM API test: %s", str(exc))
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "An internal error occurred while testing the GetSongBPM API.",
+            }
+        )
 
 
 @router.get("/analyze", response_class=HTMLResponse)

@@ -1,8 +1,11 @@
 {% macro nav(request) %}
-<div class="sticky top-0 bg-white shadow z-50 flex gap-4 p-2">
-  <a href="/">🏠 Home</a>
-  <a href="/compare">🔍 Compare</a>
-  <a href="/history">🕓 History</a>
-  <a href="/settings">⚙️ Settings</a>
-</div>
+  {% set current = request.url.path %}
+  {% for href, label in [
+    ('/', '🏠 Home'),
+    ('/compare', '🔍 Compare'),
+    ('/history', '🕓 History'),
+    ('/settings', '⚙️ Settings')]
+  %}
+    <a href="{{ href }}" class="{% if current.startswith(href) %}text-blue-600 underline{% endif %}">{{ label }}</a>
+  {% endfor %}
 {% endmacro %}
