@@ -466,7 +466,8 @@ async def test_openai(request: Request):
         valid = any(m.id.startswith("gpt") for m in models.data)
         return JSONResponse({"success": valid})
     except openai.OpenAIError as exc:
-        return JSONResponse({"success": False, "error": str(exc)})
+        logger.error("OpenAI test error: %s", str(exc))
+        return JSONResponse({"success": False, "error": "An internal error has occurred. Please try again later."})
 
 
 @router.get("/analyze", response_class=HTMLResponse)
