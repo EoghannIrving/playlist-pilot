@@ -103,18 +103,24 @@ class AppSettings(BaseModel):
 # Settings Management Functions
 
 def load_settings() -> AppSettings:
-    """
-    Loads app settings from the `settings.json` file.
+    """Load application settings and create the file when missing."""
 
-    Returns:
-        AppSettings: The loaded settings object.
-    """
     if SETTINGS_FILE.exists():
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        # Normalize keys to lowercase for compatibility
-        normalized = {k.lower(): v for k, v in data.items()}
-        return AppSettings(**normalized)
+        if SETTINGS_FILE.is_file():
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Normalize keys to lowercase for compatibility
+            normalized = {k.lower(): v for k, v in data.items()}
+            return AppSettings(**normalized)
+
+        raise IsADirectoryError(
+            f"Settings path '{SETTINGS_FILE}' is a directory. "
+            "Ensure a file is mounted at this location."
+        )
+
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump({}, f)
     return AppSettings()
 
 def save_settings(s: AppSettings) -> None:
