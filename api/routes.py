@@ -20,8 +20,12 @@ import uuid
 from pathlib import Path
 from time import perf_counter
 
+import asyncio
+from urllib.parse import quote_plus
+
 import httpx
 import openai
+import cloudscraper
 from fastapi import (
     APIRouter,
     Request,
@@ -491,14 +495,19 @@ async def test_getsongbpm(request: Request):
     """Check if the GetSongBPM API key is valid by performing a sample query."""
     data = await request.json()
     key = data.get("key", "")
-    lookup = "song:creep artist:radiohead"
+    lookup = quote_plus("song:creep artist:radiohead")
+    url = f"{settings.getsongbpm_base_url}?api_key={key}&type=both&lookup={lookup}"
     try:
-        async with httpx.AsyncClient() as client:
-            r = await client.get(
-                f"{settings.getsongbpm_base_url}?api_key={key}&type=both&lookup={lookup}",
+
+        def _fetch():
+            return cloudscraper.create_scraper(browser="chrome").get(
+                url,
                 headers=settings.getsongbpm_headers,
                 timeout=settings.http_timeout_short,
             )
+
+        r = await asyncio.to_thread(_fetch)
+
         try:
             json_data = r.json()
         except ValueError as exc:  # json.JSONDecodeError inherits from ValueError
@@ -514,7 +523,7 @@ async def test_getsongbpm(request: Request):
         return JSONResponse(
             {"success": valid, "status": r.status_code, "data": json_data}
         )
-    except httpx.HTTPError as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("HTTP error during GetSongBPM API test: %s", str(exc))
         return JSONResponse(
             {
