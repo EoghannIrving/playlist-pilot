@@ -1,5 +1,7 @@
 """Utility functions for simple text normalization and query building."""
 
+# pylint: disable=cyclic-import
+
 import re
 
 

@@ -1,10 +1,11 @@
 """Tests for the configuration helper functions."""
 
-import config
-import types
 import sys
+import types
 
-# pylint: disable=no-member
+import config
+
+# pylint: disable=no-member,too-few-public-methods
 
 
 def test_load_settings_creates_file(tmp_path, monkeypatch):
@@ -40,6 +41,7 @@ class DummyCache:
         self.cleared = False
 
     def clear(self):
+        """Mark this cache as cleared."""
         self.cleared = True
 
 
