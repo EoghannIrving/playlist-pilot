@@ -95,7 +95,7 @@ class AppSettings(BaseModel):
             name: Optional name of the cache to clear. If ``None`` all caches
                 are purged.
         """
-        from utils import cache_manager
+        from utils import cache_manager  # pylint: disable=import-outside-toplevel
 
         caches = {
             "prompt": cache_manager.prompt_cache,
