@@ -73,6 +73,10 @@ The API is exposed via several HTTP routes. A full table describing each route i
 - `logs/` – application logs
 - `user_data/` – exported playlists and user history
 
+These directories are excluded from version control via `.gitignore`. When
+running the Docker container, mount them to host paths so logs and cached data
+persist across upgrades.
+
 ## Tech Stack
 
 - FastAPI & Jinja2 templates
