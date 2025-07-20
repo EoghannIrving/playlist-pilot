@@ -12,6 +12,7 @@ This file manages:
 import json
 import logging
 import os
+from json import JSONDecodeError
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -112,8 +113,16 @@ def load_settings() -> AppSettings:
 
     if SETTINGS_FILE.exists():
         if SETTINGS_FILE.is_file():
-            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            try:
+                with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except JSONDecodeError:
+                logging.getLogger("playlist-pilot").warning(
+                    "Invalid JSON in %s, resetting file", SETTINGS_FILE
+                )
+                data = {}
+                with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f)
             # Normalize keys to lowercase for compatibility
             normalized = {k.lower(): v for k, v in data.items()}
             return AppSettings(**normalized)
