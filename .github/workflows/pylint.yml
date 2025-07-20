@@ -1,6 +1,8 @@
 name: Pylint
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 permissions:
   contents: read
@@ -29,4 +31,4 @@ jobs:
       run: pylint $(git ls-files '*.py')
     - name: Run tests
       # Coverage is currently below 50%, so lower the fail-under threshold
-      run: pytest --cov=. --cov-report=term-missing:skip-covered --cov-fail-under=20
+      run: pytest --cov=. --cov-report=term-missing:skip-covered --cov-fail-under=25
