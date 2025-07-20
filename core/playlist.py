@@ -342,9 +342,11 @@ def infer_decade(year_str: str) -> str:
 def extract_year(track: dict) -> str:
     """Extract the production year from a Jellyfin track dict."""
     try:
-        return str(track.get("ProductionYear")) or str(
-            track.get("PremiereDate", "")[:4]
-        )
+        prod_year = track.get("ProductionYear")
+        if prod_year:
+            return str(prod_year)
+        premiere = track.get("PremiereDate", "")
+        return str(premiere)[:4] if premiere else ""
     except (AttributeError, TypeError):
         return ""
 
