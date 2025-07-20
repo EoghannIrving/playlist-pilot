@@ -11,6 +11,7 @@ This file manages:
 
 import json
 import logging
+import os
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -18,8 +19,12 @@ from pydantic import BaseModel
 # ─────────────────────────────────────────────────────────────
 # Constants
 
-#SETTINGS_FILE = Path(__file__).parent / "settings.json"
-SETTINGS_FILE = Path("/app/settings.json")
+SETTINGS_FILE = Path(
+    os.getenv(
+        "PLAYLIST_PILOT_SETTINGS_FILE",
+        Path(__file__).resolve().parent / "settings.json",
+    )
+)
 """
 Path to the local JSON file where application settings are stored.
 """
