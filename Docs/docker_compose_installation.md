@@ -5,7 +5,8 @@ Follow these steps to run **Playlist Pilot** using Docker Compose.
 ## Prerequisites
 
 - Docker and Docker Compose installed
-- Optional: edit `docker-compose.yml` to adjust volume paths for your environment
+- Copy `env.example` to `.env` and update the paths and API keys for your environment.
+  Docker Compose will substitute these values into `docker-compose.yml`.
 
 ## Steps
 
@@ -14,16 +15,21 @@ Follow these steps to run **Playlist Pilot** using Docker Compose.
    git clone <REPO_URL>
    cd playlist-pilot
    ```
-2. **Build and start the containers**
+2. **Configure paths and secrets**
+   Copy `env.example` to `.env` and update the variables to match your system.
+   This file controls where logs, cache and other data are stored and can hold
+   your API keys. The provided `docker-compose.yml` uses these variables for
+   volume mounts so you can keep data anywhere you like.
+3. **Build and start the containers**
    ```bash
    docker compose up --build -d
    ```
    The `-d` flag runs the app in the background. Omit it if you want to follow the logs.
-3. **Open the web interface**
+4. **Open the web interface**
    Go to [http://localhost:8010](http://localhost:8010) in your browser.
-4. **Configure Playlist Pilot**
+5. **Configure Playlist Pilot**
    Visit [http://localhost:8010/settings](http://localhost:8010/settings) to enter API keys and other settings. These persist in `settings.json`.
-5. **Stop the containers**
+6. **Stop the containers**
    ```bash
    docker compose down
    ```
