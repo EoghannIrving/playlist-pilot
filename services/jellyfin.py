@@ -114,15 +114,13 @@ async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
     Reads .lrc files directly from disk if present,
     otherwise attempts Jellyfin Lyrics API fetch if HasLyrics is true.
     """
-    url = f"{settings.jellyfin_url}/Users/{settings.jellyfin_user_id}/Items"
+    url = f"{settings.jellyfin_url}/Playlists/{playlist_id}/Items"
     params = {
-        "ParentId": playlist_id,
-        "IncludeItemTypes": "Audio",
+        "UserId": settings.jellyfin_user_id,
         "Fields": (
             "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate,"
             "Genres,RunTimeTicks,Genres,UserData,HasLyrics,Path,Tags"
         ),
-        "Recursive": True,
         "api_key": settings.jellyfin_api_key,
     }
 
