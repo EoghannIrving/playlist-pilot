@@ -15,7 +15,9 @@ def _load_extract_year():
     )
     module = ast.Module(body=[func], type_ignores=[])
     ns = {}
-    exec(compile(module, filename="<extract_year>", mode="exec"), ns)
+    exec(
+        compile(module, filename="<extract_year>", mode="exec"), ns
+    )  # pylint: disable=exec-used
     return ns["extract_year"]
 
 
@@ -23,10 +25,12 @@ extract_year = _load_extract_year()
 
 
 def test_extract_year_fallback_to_premiere():
+    """Fallback to ``PremiereDate`` when ``ProductionYear`` is missing."""
     track = {"ProductionYear": None, "PremiereDate": "2023-05-01T00:00:00Z"}
     assert extract_year(track) == "2023"
 
 
 def test_extract_year_production_year_used():
+    """Use ``ProductionYear`` when present."""
     track = {"ProductionYear": 1999, "PremiereDate": "2020-01-01"}
     assert extract_year(track) == "1999"

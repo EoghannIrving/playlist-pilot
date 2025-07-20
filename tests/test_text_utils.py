@@ -1,7 +1,10 @@
+"""Tests for helpers in ``utils.text_utils``."""
+
 import utils.text_utils as tu
 
 
 def test_strip_markdown_basic():
+    """Remove common markdown characters from text."""
     text = "# Title\n- item1\n1. item2\n**bold** _italic_ [link](http://x.com)"
     cleaned = tu.strip_markdown(text)
     assert "#" not in cleaned
