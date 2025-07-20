@@ -29,27 +29,29 @@
 
   <form method="post" class="space-y-6 bg-white dark:bg-gray-700 p-6 rounded shadow settings-form">
 
+    <div class="grid gap-6 md:grid-cols-2">
+
     <!-- 🎬 Jellyfin Section -->
     <fieldset class="mb-4 border border-gray-200 dark:border-gray-600 p-4 rounded">
       <legend class="px-2 text-lg font-semibold text-gray-800 dark:text-gray-100">🎬 Jellyfin Integration</legend>
 
-      <div class="space-y-2">
+      <div class="space-y-4">
         <label for="JELLYFIN_URL" class="block font-semibold required-label">Jellyfin URL</label>
-        <input type="text" id="JELLYFIN_URL" name="jellyfin_url" value="{{ settings.jellyfin_url }}" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+        <input type="text" id="JELLYFIN_URL" name="jellyfin_url" value="{{ settings.jellyfin_url }}" placeholder="http://localhost:8096" title="Your Jellyfin server URL" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
         <small class="text-gray-300">e.g., http://localhost:8096 or your remote Jellyfin address</small>
       </div>
 
-      <div class="space-y-2">
+      <div class="space-y-4">
         <label for="JELLYFIN_API_KEY" class="block font-semibold required-label">Jellyfin API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <button type="button" onclick="testJellyfinKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" placeholder="Jellyfin key" title="Jellyfin API Key" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testJellyfinKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="jellyfin-status" class="text-sm"></span>
         </div>
         <small class="text-gray-300">Find this in your Jellyfin user profile > API Keys</small>
       </div>
 
-      <div class="space-y-2">
+      <div class="space-y-4">
         <label for="JELLYFIN_USER_ID" class="block font-semibold required-label">Jellyfin User</label>
         <select name="jellyfin_user_id" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           {% for name, id in jellyfin_users.items() %}
@@ -63,17 +65,17 @@
     <fieldset class="mb-4 border border-gray-200 dark:border-gray-600 p-4 rounded">
       <legend class="px-2 text-lg font-semibold text-gray-800 dark:text-gray-100">🔑 API Keys</legend>
 
-      <div class="space-y-2">
+      <div class="space-y-4">
         <label for="OPENAI_API_KEY" class="block font-semibold required-label">OpenAI API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="OPENAI_API_KEY" name="openai_api_key" value="{{ settings.openai_api_key }}" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <button type="button" onclick="testOpenAIKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <input type="text" id="OPENAI_API_KEY" name="openai_api_key" value="{{ settings.openai_api_key }}" placeholder="sk-..." title="OpenAI API Key" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testOpenAIKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="openai-status" class="text-sm"></span>
         </div>
         <small class="text-gray-300">Create one at https://platform.openai.com/account/api-keys</small>
       </div>
 
-      <div class="space-y-2">
+      <div class="space-y-4">
         <label for="MODEL" class="block font-semibold required-label">Model</label>
         {% set model_labels = {
           "gpt-4o-mini": "🌟 Fast & cost-efficient GPT-4o (Mini)",
@@ -101,95 +103,96 @@
         </select>
       </div>
 
-      <div class="space-y-2">
+      <div class="space-y-4">
         <label for="LASTFM_API_KEY" class="block font-semibold">Last.fm API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="LASTFM_API_KEY" name="lastfm_api_key" value="{{ settings.lastfm_api_key }}" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <button type="button" onclick="testLastfmKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <input type="text" id="LASTFM_API_KEY" name="lastfm_api_key" value="{{ settings.lastfm_api_key }}" placeholder="Last.fm key" title="Last.fm API Key" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testLastfmKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="lastfm-status" class="text-sm"></span>
         </div>
       </div>
 
-      <div class="space-y-2">
+      <div class="space-y-4">
         <label for="GETSONGBPM_API_KEY" class="block font-semibold">GetSongBPM.com API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="GETSONGBPM_API_KEY" name="getsongbpm_api_key" value="{{ settings.getsongbpm_api_key }}" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <button type="button" onclick="testGetSongBPMKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Test</button>
+          <input type="text" id="GETSONGBPM_API_KEY" name="getsongbpm_api_key" value="{{ settings.getsongbpm_api_key }}" placeholder="GetSongBPM key" title="GetSongBPM API Key" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testGetSongBPMKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="getsongbpm-status" class="text-sm"></span>
         </div>
       </div>
     </fieldset>
+    </div>
 
     <!-- ⚙️ Advanced Settings Section -->
     <details class="mt-4">
       <summary class="text-xl font-semibold text-gray-800 dark:text-gray-100 cursor-pointer">⚙️ Advanced Settings</summary>
       <div class="mt-4 space-y-4">
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="GLOBAL_MIN_LFM" class="block font-semibold">Global Min Last.fm Listeners</label>
           <input type="number" id="GLOBAL_MIN_LFM" name="global_min_lfm" value="{{ settings.global_min_lfm }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Minimum listeners a track must have on Last.fm.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="GLOBAL_MAX_LFM" class="block font-semibold">Global Max Last.fm Listeners</label>
           <input type="number" id="GLOBAL_MAX_LFM" name="global_max_lfm" value="{{ settings.global_max_lfm }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Maximum listeners threshold for filtering results.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="CACHE_TTLS" class="block font-semibold">Cache TTLs (JSON)</label>
           <textarea id="CACHE_TTLS" name="cache_ttls" rows="4" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">{{ settings.cache_ttls | tojson }}</textarea>
           <small class="text-gray-300">Customize durations for cached API responses.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="GETSONGBPM_BASE_URL" class="block font-semibold">GetSongBPM Base URL</label>
           <input type="text" id="GETSONGBPM_BASE_URL" name="getsongbpm_base_url" value="{{ settings.getsongbpm_base_url }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Override if using a custom instance.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="GETSONGBPM_HEADERS" class="block font-semibold">GetSongBPM Headers (JSON)</label>
           <textarea id="GETSONGBPM_HEADERS" name="getsongbpm_headers" rows="4" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">{{ settings.getsongbpm_headers | tojson }}</textarea>
           <small class="text-gray-300">JSON headers sent with GetSongBPM requests.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="HTTP_TIMEOUT_SHORT" class="block font-semibold">HTTP Timeout Short (s)</label>
           <input type="number" id="HTTP_TIMEOUT_SHORT" name="http_timeout_short" value="{{ settings.http_timeout_short }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Timeout for quick HTTP requests.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="HTTP_TIMEOUT_LONG" class="block font-semibold">HTTP Timeout Long (s)</label>
           <input type="number" id="HTTP_TIMEOUT_LONG" name="http_timeout_long" value="{{ settings.http_timeout_long }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Timeout for long-running HTTP requests.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="YOUTUBE_MIN_DURATION" class="block font-semibold">YouTube Min Duration (s)</label>
           <input type="number" id="YOUTUBE_MIN_DURATION" name="youtube_min_duration" value="{{ settings.youtube_min_duration }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Ignore videos shorter than this.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="YOUTUBE_MAX_DURATION" class="block font-semibold">YouTube Max Duration (s)</label>
           <input type="number" id="YOUTUBE_MAX_DURATION" name="youtube_max_duration" value="{{ settings.youtube_max_duration }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Ignore videos longer than this.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="LIBRARY_SCAN_LIMIT" class="block font-semibold">Library Scan Limit</label>
           <input type="number" id="LIBRARY_SCAN_LIMIT" name="library_scan_limit" value="{{ settings.library_scan_limit }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Number of tracks processed per scan.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="MUSIC_LIBRARY_ROOT" class="block font-semibold">Music Library Root</label>
           <input type="text" id="MUSIC_LIBRARY_ROOT" name="music_library_root" value="{{ settings.music_library_root }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Path to your Jellyfin music library.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="LYRICS_WEIGHT" class="block font-semibold">Lyrics Weight</label>
           <input type="number" step="0.1" id="LYRICS_WEIGHT" name="lyrics_weight" value="{{ settings.lyrics_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Relative weight given to lyric matches.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="BPM_WEIGHT" class="block font-semibold">BPM Weight</label>
           <input type="number" step="0.1" id="BPM_WEIGHT" name="bpm_weight" value="{{ settings.bpm_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Relative weight given to BPM similarity.</small>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-4">
           <label for="TAGS_WEIGHT" class="block font-semibold">Tags Weight</label>
           <input type="number" step="0.1" id="TAGS_WEIGHT" name="tags_weight" value="{{ settings.tags_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Relative weight given to tag matches.</small>
@@ -229,8 +232,8 @@
         body: JSON.stringify({ key })
       })
       .then(res => res.json())
-      .then(data => window.updateStatus("openai-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key"))
-      .catch(() => window.updateStatus("openai-status", false, "❌ Request failed"));
+      .then(data => window.updateStatus("openai-status", data.success, data.success ? "Key works" : "Invalid key"))
+      .catch(() => window.updateStatus("openai-status", false, "Request failed"));
     };
 
     window.testJellyfinKey = function() {
@@ -243,8 +246,8 @@
         body: JSON.stringify({ url, key })
       })
       .then(res => res.json())
-      .then(data => window.updateStatus("jellyfin-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key or URL"))
-      .catch(() => window.updateStatus("jellyfin-status", false, "❌ Request failed"));
+      .then(data => window.updateStatus("jellyfin-status", data.success, data.success ? "Key works" : "Invalid key or URL"))
+      .catch(() => window.updateStatus("jellyfin-status", false, "Request failed"));
     };
 
     window.testLastfmKey = function() {
@@ -256,8 +259,8 @@
         body: JSON.stringify({ key })
       })
       .then(res => res.json())
-      .then(data => window.updateStatus("lastfm-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key"))
-      .catch(() => window.updateStatus("lastfm-status", false, "❌ Request failed"));
+      .then(data => window.updateStatus("lastfm-status", data.success, data.success ? "Key works" : "Invalid key"))
+      .catch(() => window.updateStatus("lastfm-status", false, "Request failed"));
     };
 
     window.testGetSongBPMKey = function() {
@@ -269,8 +272,8 @@
         body: JSON.stringify({ key })
       })
       .then(res => res.json())
-      .then(data => window.updateStatus("getsongbpm-status", data.success, data.success ? "✅ Key works" : "❌ Invalid key"))
-      .catch(() => window.updateStatus("getsongbpm-status", false, "❌ Request failed"));
+      .then(data => window.updateStatus("getsongbpm-status", data.success, data.success ? "Key works" : "Invalid key"))
+      .catch(() => window.updateStatus("getsongbpm-status", false, "Request failed"));
     };
 
     function resetSettings() {
