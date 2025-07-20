@@ -492,10 +492,12 @@ def extract_year_from_string(releasedate: str) -> str:
     return match.group(0) if match else ""
 
 
-async def enrich_jellyfin_playlist(playlist_id: str, limit: int = 10) -> list[dict]:
+async def enrich_jellyfin_playlist(
+    playlist_id: str, limit: int | None = None
+) -> list[dict]:
     """Fetch tracks for a playlist and enrich them concurrently."""
-    raw_tracks = await fetch_tracks_for_playlist_id(playlist_id)
-    if limit:
+    raw_tracks = await fetch_tracks_for_playlist_id(playlist_id, limit)
+    if isinstance(limit, int) and limit > 0:
         raw_tracks = raw_tracks[:limit]
 
     async def process(track: dict) -> dict | None:
