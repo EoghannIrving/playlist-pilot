@@ -107,7 +107,9 @@ async def jf_get(path, **params):
         return {"error": str(exc)}
 
 
-async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
+async def fetch_tracks_for_playlist_id(
+    playlist_id: str, limit: int | None = None
+) -> list[dict]:
     """
     Fetch detailed track list for a given Jellyfin playlist ID.
     Includes expanded fields useful for enrichment and analysis.
@@ -123,6 +125,8 @@ async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
         ),
         "api_key": settings.jellyfin_api_key,
     }
+    if isinstance(limit, int) and limit > 0:
+        params["Limit"] = limit
 
     try:
         async with httpx.AsyncClient() as client:
