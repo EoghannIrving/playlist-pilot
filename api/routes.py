@@ -425,7 +425,8 @@ async def test_lastfm(request: Request):
             }
         )
     except httpx.HTTPError as exc:
-        return JSONResponse({"success": False, "error": str(exc)})
+        logger.error("HTTP error during Last.fm API test: %s", str(exc))
+        return JSONResponse({"success": False, "error": "An internal error occurred while testing the Last.fm API."})
 
 
 @router.post("/api/test/jellyfin")
@@ -451,8 +452,8 @@ async def test_jellyfin(request: Request):
             {"success": valid, "status": r.status_code, "data": json_data}
         )
     except httpx.HTTPError as exc:
-        logger.error("Jellyfin test error: %s", str(exc))
-        return JSONResponse({"success": False, "error": str(exc)})
+        logger.error("HTTP error during Jellyfin API test: %s", str(exc))
+        return JSONResponse({"success": False, "error": "An internal error occurred while testing the Jellyfin API."})
 
 
 @router.post("/api/test/openai")
