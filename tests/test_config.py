@@ -1,6 +1,5 @@
 """Tests for the configuration helper functions."""
 
-from pathlib import Path
 
 import config
 
