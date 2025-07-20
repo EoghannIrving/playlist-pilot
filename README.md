@@ -47,7 +47,9 @@ Visit [http://localhost:8010/settings](http://localhost:8010/settings) to set:
 - Last.fm API key
 - Model (e.g., `gpt-4o-mini`)
 
-These are saved in `settings.json`.
+These are saved in `settings.json` (defaults to `/app/settings.json`).
+Set the `SETTINGS_FILE` environment variable or pass `--settings-file` when
+starting the app to use a different path.
 
 ## 🧪 API Endpoints
 
@@ -71,7 +73,7 @@ These are saved in `settings.json`.
 
 ## 📂 Data Persistence
 
-- `settings.json`: saved settings
+ - `settings.json`: saved settings (defaults to `/app/settings.json`)
 - `logs/`: log output
 - `cache/`: GPT and Jellyfin results
 - `user_data/`: exports and more

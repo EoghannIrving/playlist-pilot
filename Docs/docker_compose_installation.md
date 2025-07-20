@@ -22,7 +22,9 @@ Follow these steps to run **Playlist Pilot** using Docker Compose.
 3. **Open the web interface**
    Go to [http://localhost:8010](http://localhost:8010) in your browser.
 4. **Configure Playlist Pilot**
-   Visit [http://localhost:8010/settings](http://localhost:8010/settings) to enter API keys and other settings. These persist in `settings.json`.
+   Visit [http://localhost:8010/settings](http://localhost:8010/settings) to enter API keys and other settings.
+   Configuration is saved in `settings.json` (defaults to `/app/settings.json`).
+   Use the `SETTINGS_FILE` environment variable or `--settings-file` option to change the location.
 5. **Stop the containers**
    ```bash
    docker compose down
