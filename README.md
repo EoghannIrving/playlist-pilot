@@ -26,11 +26,16 @@ A modular FastAPI app that helps you generate, analyze, and manage music playlis
 
 ## 🐳 Docker Usage
 
-Build and run with Docker Compose:
+Build and run with Docker Compose. Provide the location of your settings file
+and music library using environment variables:
 
 ```bash
+HOST_SETTINGS_FILE=/path/to/your/settings.json \
+HOST_MUSIC_DIR=/path/to/your/music \
 docker compose up --build
 ```
+
+If these variables are not set, the compose file falls back to example paths.
 
 See [Docs/docker_compose_installation.md](Docs/docker_compose_installation.md) for a step-by-step setup guide.
 
