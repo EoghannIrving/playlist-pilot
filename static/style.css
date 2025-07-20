@@ -55,86 +55,14 @@ body {
   border-top: 1px solid #ccc;
 }
 
-.youtube-icon {
-  width: 20px;
-  height: 20px;
-  vertical-align: middle;
-  margin-left: 0.3em;
-}
-
 .settings-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.form-group label {
-  margin-bottom: 0.25rem;
-  font-weight: bold;
-}
-
-.form-group input,
-.form-group select {
-  padding: 0.5rem;
-  font-size: 1rem;
-  width: 100%;
-}
-
-.form-actions {
-  text-align: right;
-}
-
-.hidden {
-  display: none;
-}
-
-.form-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: auto 1fr;
-  max-width: 400px;
-  margin-bottom: 2rem;
-}
-
-.results h2 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
 ul {
   padding-left: 1.25rem;
-}
-
-.spinner {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
-  font-size: 1rem;
-}
-
-.spinner .loader {
-  width: 1.5rem;
-  height: 1.5rem;
-  border: 3px solid #ccc;
-  border-top-color: #333;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.hidden {
-  display: none !important;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* Visually indicate required form fields */
