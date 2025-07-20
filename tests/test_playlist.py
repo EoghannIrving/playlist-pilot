@@ -15,9 +15,9 @@ def _load_extract_year():
     )
     module = ast.Module(body=[func], type_ignores=[])
     ns = {}
-    exec(
+    exec(  # pylint: disable=exec-used
         compile(module, filename="<extract_year>", mode="exec"), ns
-    )  # pylint: disable=exec-used
+    )
     return ns["extract_year"]
 
 
