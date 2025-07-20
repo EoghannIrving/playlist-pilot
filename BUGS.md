@@ -152,3 +152,53 @@ The delete route filters history entries by label string. If multiple entries sh
     updated_history = [item for item in history if item.get("label") != label]
 ```
 【F:api/routes.py†L281-L291】
+
+## 16. Extra hyphen breaks date extraction
+`extract_date_from_label` uses a greedy regex and fails when the playlist label contains another " - " before the timestamp.
+```
+    match = re.search(r"- (.+)$", label)
+```
+【F:core/history.py†L21-L30】
+
+## 17. Jellyfin playlist comparison uses nonexistent artist field
+`compare_playlists_form` looks for `Artist` on each Jellyfin track, but the API provides an `Artists` list. Artist names end up blank during comparison.
+```
+    formatted = [
+        f'{t["Name"]} - {t.get("AlbumArtist") or t.get("Artist", "")}'
+        for t in tracks
+    ]
+```
+【F:api/routes.py†L174-L183】
+
+## 18. YouTube lookup crashes with missing duration
+`get_youtube_url_single` filters search results by duration using `e.get("duration", 0)`. If a result has `None` for duration the comparison raises `TypeError`.
+```
+    filtered_entries = [
+        e
+        for e in entries
+        if settings.youtube_min_duration <= e.get("duration", 0) <= settings.youtube_max_duration
+    ]
+```
+【F:services/metube.py†L58-L64】
+
+## 19. Invalid JSON in settings form causes crash
+`SettingsForm.as_form` passes user input directly to `json.loads`. Malformed JSON in `cache_ttls` or `getsongbpm_headers` raises `JSONDecodeError` and results in a 500 error.
+```
+    cache_ttls=(json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls),
+    getsongbpm_headers=(
+        json.loads(getsongbpm_headers)
+        if getsongbpm_headers
+        else AppSettings().getsongbpm_headers
+    ),
+```
+【F:api/forms.py†L46-L51】
+
+## 20. Unvalidated path components when generating proposed paths
+`generate_proposed_path` simply strips whitespace from inputs before joining them into a file path, allowing traversal sequences like `../`.
+```
+    artist_dir = artist.strip()
+    album_dir = album.strip() if album else "Unknown Album"
+    title_file = title.strip()
+    return f"{settings.music_library_root}/{artist_dir}/{album_dir}/{title_file}.mp3"
+```
+【F:core/m3u.py†L31-L36】
