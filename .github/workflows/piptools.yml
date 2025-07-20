@@ -1,0 +1,27 @@
+name: Update requirements.lock
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - requirements.txt
+      - .github/workflows/piptools.yml
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pip-tools
+        run: pip install pip-tools
+      - name: Compile requirements
+        run: pip-compile requirements.txt -o requirements.lock
+      - name: Commit lockfile
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Update requirements.lock
+          file_pattern: requirements.lock
