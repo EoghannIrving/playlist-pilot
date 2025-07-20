@@ -197,13 +197,31 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
     comparison = []
 
     if only_in_1:
-        comparison.append({"side": "only_in_1", "label": f"🎵 Only in {label1}", "tracks": only_in_1})
+        comparison.append(
+            {
+                "side": "only_in_1",
+                "label": f"🎵 Only in {label1}",
+                "tracks": only_in_1,
+            }
+        )
     if only_in_2:
-        comparison.append({"side": "only_in_2", "label": f"🎶 Only in {label2}", "tracks": only_in_2})
+        comparison.append(
+            {
+                "side": "only_in_2",
+                "label": f"🎶 Only in {label2}",
+                "tracks": only_in_2,
+            }
+        )
     if common_tracks:
         comparison.append({"side": "shared", "label": "✅ Shared Tracks", "tracks": common_tracks})
     if not comparison:
-        comparison.append({"label": "✅ The playlists contain the same tracks.", "tracks": [], "side": "shared"})
+        comparison.append(
+            {
+                "label": "✅ The playlists contain the same tracks.",
+                "tracks": [],
+                "side": "shared",
+            }
+        )
 
     return templates.TemplateResponse(
         "compare.html",
