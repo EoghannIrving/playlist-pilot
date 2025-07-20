@@ -154,11 +154,11 @@ The delete route filters history entries by label string. If multiple entries sh
 【F:api/routes.py†L281-L291】
 
 ## 16. Extra hyphen breaks date extraction
-`extract_date_from_label` uses a greedy regex and fails when the playlist label contains another " - " before the timestamp.
+*Fixed.* `extract_date_from_label` now matches only the final timestamp segment.
 ```
-    match = re.search(r"- (.+)$", label)
+    match = re.search(r"- (\d{4}-\d{2}-\d{2} \d{2}:\d{2})$", label)
 ```
-【F:core/history.py†L21-L30】
+【F:core/history.py†L21-L32】
 
 ## 17. Jellyfin playlist comparison uses nonexistent artist field
 `compare_playlists_form` looks for `Artist` on each Jellyfin track, but the API provides an `Artists` list. Artist names end up blank during comparison.

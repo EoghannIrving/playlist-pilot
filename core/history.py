@@ -20,7 +20,7 @@ logger = logging.getLogger("playlist-pilot")
 
 def extract_date_from_label(label: str) -> datetime:
     """Extract a datetime object from a history label string."""
-    match = re.search(r"- (.+)$", label)
+    match = re.search(r"- (\d{4}-\d{2}-\d{2} \d{2}:\d{2})$", label)
     if match:
         try:
             return datetime.strptime(match.group(1), "%Y-%m-%d %H:%M")
