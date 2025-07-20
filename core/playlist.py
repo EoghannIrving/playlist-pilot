@@ -312,7 +312,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     decade = infer_decade(final_year)
     mood, confidence = await _classify_mood(parsed, lastfm["tags"], bpm_data)
 
-    base_data = parsed.dict(exclude={"tempo", "jellyfin_play_count"})
+    base_data = parsed.dict(exclude={"tempo", "jellyfin_play_count", "album"})
 
     return EnrichedTrack(
         **base_data,
