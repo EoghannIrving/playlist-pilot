@@ -1,4 +1,5 @@
 """Helper functions for cached playlist retrieval and history sorting."""
+
 # pylint: disable=duplicate-code
 
 import json
@@ -12,13 +13,18 @@ from utils.cache_manager import playlist_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
+
 async def get_cached_playlists(user_id: str | None = None) -> dict:
     """Return audio playlists for a user using caching."""
     user_id = user_id or settings.jellyfin_user_id
     cache_key = f"playlists:{user_id}"
     playlists_data = playlist_cache.get(cache_key)
     if playlists_data is None:
-        playlists_data = await fetch_audio_playlists()
+        try:
+            playlists_data = await fetch_audio_playlists()
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to fetch playlists: %s", exc)
+            playlists_data = {"playlists": [], "error": str(exc)}
         playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
     return playlists_data
 

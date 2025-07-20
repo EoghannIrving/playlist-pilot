@@ -16,6 +16,16 @@
       ⚠️ <strong>Configuration Warning:</strong> {{ validation_message }}
     </div>
   {% endif %}
+  {% if jellyfin_users|length == 0 %}
+    <div class="bg-red-100 p-2 rounded mb-4 text-red-800">
+      ❌ Unable to fetch Jellyfin users. Check your Jellyfin settings.
+    </div>
+  {% endif %}
+  {% if models|length == 0 %}
+    <div class="bg-red-100 p-2 rounded mb-4 text-red-800">
+      ❌ Unable to fetch OpenAI models. Verify your API key.
+    </div>
+  {% endif %}
 
   <form method="post" class="space-y-6 bg-white dark:bg-gray-700 p-6 rounded shadow settings-form">
 
