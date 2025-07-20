@@ -2,6 +2,8 @@
 
 Playlist Pilot is a FastAPI application that generates and manages music playlists using GPT, Jellyfin and a few helper services. It caches results on disk so repeated requests stay fast and ships with a small web UI built with Jinja2 and Tailwind.
 
+See [Docs/architecture.md](Docs/architecture.md) for a high level overview of the code structure.
+
 ## Features
 
 - **Playlist suggestions** from moods, genres or existing songs using GPT with Last.fm metadata and Jellyfin library sampling.
@@ -35,6 +37,17 @@ docker compose up --build
 
 A step‑by‑step guide is available in [Docs/docker_compose_installation.md](Docs/docker_compose_installation.md). Once running, visit [http://localhost:8010](http://localhost:8010). If required settings are missing you'll be redirected to the settings page.
 
+## Running Locally
+
+To start the application without Docker install the dependencies and run Uvicorn:
+
+```bash
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8010
+```
+
+See [Docs/local_installation.md](Docs/local_installation.md) for a detailed walkthrough.
+
 ## Configuration
 
 Navigate to [http://localhost:8010/settings](http://localhost:8010/settings) and supply:
@@ -47,31 +60,11 @@ Navigate to [http://localhost:8010/settings](http://localhost:8010/settings) and
 
 All values are saved in `settings.json` in the project root or mounted volume.
 You can also place these keys in your `.env` file so they are available when the container first starts.
-Read [Docs/secure_credentials.md](Docs/secure_credentials.md) for tips on keeping API keys and other secrets out of your repository.
+Read [Docs/secure_credentials.md](Docs/secure_credentials.md) for tips on keeping API keys and other secrets out of your repository. An example set of environment variables is provided in [env.example](env.example).
 
 ## API Endpoints
 
-| Method | Path | Description |
-|-------|------|-------------|
-| GET | `/` | Home page / manual suggestions |
-| POST | `/suggest` | Suggest tracks from form input |
-| GET | `/analyze` | Analyze a Jellyfin or history playlist |
-| POST | `/analyze/result` | Display analysis results |
-| POST | `/analyze/export-m3u` | Export analysis results as M3U |
-| POST | `/suggest-playlist` | Suggest playlist from analysis |
-| GET | `/compare` | Playlist comparison form |
-| POST | `/compare` | Compare two playlists |
-| GET | `/history` | View suggestion history |
-| POST | `/history/delete` | Delete a history entry |
-| GET | `/history/export` | Export a history entry as `.m3u` |
-| POST | `/import_m3u` | Import an `.m3u` into history |
-| POST | `/export/jellyfin` | Create a Jellyfin playlist |
-| POST | `/export/track-metadata` | Update Jellyfin track metadata |
-| GET | `/settings` | Show settings form |
-| POST | `/settings` | Update settings |
-| POST | `/api/test/lastfm` | Check Last.fm connectivity |
-| POST | `/api/test/jellyfin` | Check Jellyfin connectivity |
-| GET | `/health` | Health check |
+The API is exposed via several HTTP routes. A full table describing each route is available in [Docs/api_reference.md](Docs/api_reference.md).
 
 ## Data Persistence
 
@@ -87,6 +80,8 @@ Read [Docs/secure_credentials.md](Docs/secure_credentials.md) for tips on keepin
 - DiskCache for persistent caching
 - yt-dlp for YouTube lookups
 - Jellyfin, Last.fm and GetSongBPM integrations
+
+The overall architecture is described in [Docs/architecture.md](Docs/architecture.md).
 
 ## Contributing
 
@@ -106,7 +101,7 @@ Read [Docs/secure_credentials.md](Docs/secure_credentials.md) for tips on keepin
    ```
 6. Push your branch and open a pull request against `main`.
 
-For additional setup guidance see the files in the [Docs](Docs/) directory.
+For additional details see [Docs/contributing.md](Docs/contributing.md) and the other documents in the [Docs](Docs/) directory.
 See the [ROADMAP](ROADMAP.md) for future plans and open issues.
 
 ## License
