@@ -10,6 +10,7 @@ including:
 - User history view and deletion
 - Settings management
 """
+
 # pylint: disable=too-many-lines
 
 import logging
@@ -72,7 +73,11 @@ from services.jellyfin import (
     resolve_jellyfin_path,
 )
 from services.lastfm import get_lastfm_tags
-from utils.helpers import get_cached_playlists, load_sorted_history, parse_suggest_request
+from utils.helpers import (
+    get_cached_playlists,
+    load_sorted_history,
+    parse_suggest_request,
+)
 from api.forms import SettingsForm
 
 
@@ -82,9 +87,9 @@ logger = logging.getLogger("playlist-pilot")
 router = APIRouter()
 
 
-
 # ─────────────────────────────────────────────────────────────
 # ROUTES
+
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -99,19 +104,27 @@ async def index(request: Request):
 
     user_id = settings.jellyfin_user_id
     playlists_data = await get_cached_playlists(user_id)
+    error_message = playlists_data.get("error")
     history = load_sorted_history(user_id)
 
-    return templates.TemplateResponse("analyze.html", {
-        "request": request,
-        "jellyfin_playlists": playlists_data["playlists"],
-        "history": history
-    })
+    return templates.TemplateResponse(
+        "analyze.html",
+        {
+            "request": request,
+            "jellyfin_playlists": playlists_data["playlists"],
+            "history": history,
+            "error_message": error_message,
+        },
+    )
+
 
 @router.post("/compare", response_class=HTMLResponse)
 async def compare_playlists_form(request: Request):  # pylint: disable=too-many-locals
     """Compare the overlap between two playlists (GPT or Jellyfin)."""
     history = load_sorted_history(settings.jellyfin_user_id)
-    all_playlists = (await fetch_audio_playlists())["playlists"]
+    pf_data = await fetch_audio_playlists()
+    all_playlists = pf_data["playlists"]
+    error_message = pf_data.get("error")
 
     form = await request.form()
     s1_type = form.get("source1_type")
@@ -126,6 +139,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 "request": request,
                 "history": history,
                 "playlists": all_playlists,
+                "error_message": error_message,
                 "comparison": ["⚠️ Missing playlist selection."],
                 "selected": {
                     "source1_type": s1_type,
@@ -148,7 +162,9 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 ]
                 return label, tracks
             except (ValueError, IndexError, KeyError) as exc:
-                logger.warning("\u274c Failed to resolve GPT history index %s: %s", source_id, exc)
+                logger.warning(
+                    "\u274c Failed to resolve GPT history index %s: %s", source_id, exc
+                )
                 return None, []
         if source_type == "jellyfin":
             tracks = await fetch_tracks_for_playlist_id(source_id)
@@ -173,6 +189,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 "request": request,
                 "history": history,
                 "playlists": all_playlists,
+                "error_message": error_message,
                 "comparison": ["⚠️ One or both playlists could not be resolved."],
                 "selected": {
                     "source1_type": s1_type,
@@ -213,7 +230,9 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
             }
         )
     if common_tracks:
-        comparison.append({"side": "shared", "label": "✅ Shared Tracks", "tracks": common_tracks})
+        comparison.append(
+            {"side": "shared", "label": "✅ Shared Tracks", "tracks": common_tracks}
+        )
     if not comparison:
         comparison.append(
             {
@@ -229,6 +248,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
             "request": request,
             "history": history,
             "playlists": all_playlists,
+            "error_message": error_message,
             "comparison": comparison,
             "selected": {
                 "source1_type": s1_type,
@@ -238,26 +258,29 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
             },
         },
     )
+
+
 @router.get("/compare", response_class=HTMLResponse)
 async def compare_ui(request: Request):
     """Render the playlist comparison form."""
     history = load_sorted_history(settings.jellyfin_user_id)
-    all_playlists = (await fetch_audio_playlists())["playlists"]
+    pf_data = await fetch_audio_playlists()
+    all_playlists = pf_data["playlists"]
+    error_message = pf_data.get("error")
     return templates.TemplateResponse(
         "compare.html",
         {
             "request": request,
             "history": history,
             "playlists": all_playlists,
+            "error_message": error_message,
         },
     )
 
 
 @router.get("/history", response_class=HTMLResponse)
 async def history_page(
-    request: Request,
-    sort: str = Query("recent"),
-    deleted: int = Query(0)
+    request: Request, sort: str = Query("recent"), deleted: int = Query(0)
 ):
     """Display the user's GPT history with optional sorting."""
     history = load_sorted_history(settings.jellyfin_user_id)
@@ -271,12 +294,11 @@ async def history_page(
     elif sort == "za":
         history.sort(key=lambda e: e["label"].lower(), reverse=True)
 
-    return templates.TemplateResponse("history.html", {
-        "request": request,
-        "history": history,
-        "sort": sort,
-        "deleted": deleted
-    })
+    return templates.TemplateResponse(
+        "history.html",
+        {"request": request, "history": history, "sort": sort, "deleted": deleted},
+    )
+
 
 @router.post("/history/delete", response_class=HTMLResponse)
 async def delete_history(request: Request):
@@ -312,13 +334,16 @@ async def get_settings(request: Request):
     users = await fetch_jellyfin_users()
     models = await fetch_openai_models(settings.openai_api_key)
 
-    return templates.TemplateResponse("settings.html", {
-        "request": request,
-        "settings": settings.dict(),
-        "models": models,
-        "validation_message": validation_message,
-        "jellyfin_users": users
-    })
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "settings": settings.dict(),
+            "models": models,
+            "validation_message": validation_message,
+            "jellyfin_users": users,
+        },
+    )
 
 
 @router.post("/settings", response_class=HTMLResponse)
@@ -361,13 +386,17 @@ async def update_settings(
         validation_message = str(ve)
 
     users = await fetch_jellyfin_users()
-    return templates.TemplateResponse("settings.html", {
-        "request": request,
-        "settings": settings.dict(),
-        "validation_message": validation_message,
-        "models": models,
-        "jellyfin_users": users
-    })
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "settings": settings.dict(),
+            "validation_message": validation_message,
+            "models": models,
+            "jellyfin_users": users,
+        },
+    )
+
 
 @router.post("/api/test/lastfm")
 async def test_lastfm(request: Request):
@@ -418,7 +447,9 @@ async def test_jellyfin(request: Request):
 
         json_data = r.json()
         valid = r.status_code == 200 and any(k.lower() == "version" for k in json_data)
-        return JSONResponse({"success": valid, "status": r.status_code, "data": json_data})
+        return JSONResponse(
+            {"success": valid, "status": r.status_code, "data": json_data}
+        )
     except httpx.HTTPError as exc:
         logger.error("Jellyfin test error: %s", str(exc))
         return JSONResponse({"success": False, "error": str(exc)})
@@ -438,26 +469,28 @@ async def test_openai(request: Request):
         return JSONResponse({"success": False, "error": str(exc)})
 
 
-
 @router.get("/analyze", response_class=HTMLResponse)
 async def show_analysis_page(request: Request):
     """Display the playlist analysis form."""
     user_id = settings.jellyfin_user_id
     playlists_data = await get_cached_playlists(user_id)
+    error_message = playlists_data.get("error")
     history = load_sorted_history(user_id)
 
-    return templates.TemplateResponse("analyze.html", {
-        "request": request,
-        "jellyfin_playlists": playlists_data["playlists"],
-        "history": history
-    })
+    return templates.TemplateResponse(
+        "analyze.html",
+        {
+            "request": request,
+            "jellyfin_playlists": playlists_data["playlists"],
+            "history": history,
+            "error_message": error_message,
+        },
+    )
 
 
 @router.post("/analyze/result", response_class=HTMLResponse)
 async def analyze_selected_playlist(  # pylint: disable=too-many-locals
-    request: Request,
-    source_type: str = Form(...),
-    playlist_id: str = Form(...)
+    request: Request, source_type: str = Form(...), playlist_id: str = Form(...)
 ):
     """Analyze a selected playlist from Jellyfin or GPT history."""
     if source_type == "jellyfin":
@@ -477,7 +510,9 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
         suggestions = entry.get("suggestions", [])
         tracks = [s.get("text", "") for s in suggestions if isinstance(s, dict)]
         label_parts = entry.get("label").rsplit(" - ", 1)
-        clean_label = label_parts[0].strip() if len(label_parts) > 1 else entry.get("label")
+        clean_label = (
+            label_parts[0].strip() if len(label_parts) > 1 else entry.get("label")
+        )
         playlist_name = f"{clean_label} Suggestions"
         start = perf_counter()
         enriched = []
@@ -487,17 +522,21 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
         logger.debug("Enriched Tracks: %.2fs", perf_counter() - start)
     start = perf_counter()
     parsed_enriched = [s for s in enriched if s is not None]
-    logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
+    logger.debug(
+        "\u23f1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start
+    )
     # 🔁 Calculate combined popularity
     start = perf_counter()
     add_combined_popularity(parsed_enriched, w_lfm=0.3, w_jf=0.7)
     logger.debug(
-        "\u23F1\ufe0f Calculate Combined Popularity: %.2fs",
+        "\u23f1\ufe0f Calculate Combined Popularity: %.2fs",
         perf_counter() - start,
     )
 
     # Compute listener count stats
-    listener_counts = [t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)]
+    listener_counts = [
+        t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)
+    ]
 
     if listener_counts:
         sorted_counts = sorted(listener_counts)
@@ -512,27 +551,27 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
             "max_listeners": max(sorted_counts),
         }
     else:
-        summary = {
-            "avg_listeners": 0,
-            "median_listeners": 0,
-            "max_listeners": 0
-        }
+        summary = {"avg_listeners": 0, "median_listeners": 0, "max_listeners": 0}
 
     # Add your other metrics (e.g. genre diversity, mood profile, etc.)
     base_summary = summarize_tracks(enriched)
     summary.update(base_summary)
 
-    gpt_summary, removal_suggestions = await generate_playlist_analysis_summary(summary, enriched)
+    gpt_summary, removal_suggestions = await generate_playlist_analysis_summary(
+        summary, enriched
+    )
 
-    return templates.TemplateResponse("analysis_result.html", {
-        "request": request,
-        "summary": summary,
-        "tracks": parsed_enriched,
-        "gpt_summary": gpt_summary,
-        "removal_suggestions": removal_suggestions,
-        "playlist_name": playlist_name,
-    })
-
+    return templates.TemplateResponse(
+        "analysis_result.html",
+        {
+            "request": request,
+            "summary": summary,
+            "tracks": parsed_enriched,
+            "gpt_summary": gpt_summary,
+            "removal_suggestions": removal_suggestions,
+            "playlist_name": playlist_name,
+        },
+    )
 
 
 @router.get("/test-lastfm-tags")
@@ -550,36 +589,46 @@ async def suggest_from_analyzed(request: Request):
 
     start = perf_counter()
     summary = summarize_tracks(tracks)
-    logger.debug("\u23F1\ufe0f Track summary: %.2fs", perf_counter() - start)
+    logger.debug("\u23f1\ufe0f Track summary: %.2fs", perf_counter() - start)
 
     suggestion_count = 10
     start = perf_counter()
     logger.debug("Requesting GPT Response using text summary")
-    suggestions_raw = await fetch_gpt_suggestions(tracks, text_summary, suggestion_count)
-    logger.debug("\u23F1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
-    logger.info("\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw))
+    suggestions_raw = await fetch_gpt_suggestions(
+        tracks, text_summary, suggestion_count
+    )
+    logger.debug("\u23f1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
+    logger.info(
+        "\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw)
+    )
 
     start = perf_counter()
     logger.debug("Enriching suggestions received from GPT")
     parsed_suggestions = await enrich_and_score_suggestions(suggestions_raw)
-    logger.debug("\u23F1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start)
+    logger.debug(
+        "\u23f1\ufe0f Suggestion enrichment loop: %.2fs", perf_counter() - start
+    )
 
     start = perf_counter()
     m3u_path = persist_history_and_m3u(parsed_suggestions, playlist_name)
-    logger.debug("\u23F1\ufe0f History save: %.2fs", perf_counter() - start)
+    logger.debug("\u23f1\ufe0f History save: %.2fs", perf_counter() - start)
 
-    return templates.TemplateResponse("results.html", {
-        "request": request,
-        "suggestions": parsed_suggestions,
-        "download_link": f"/download/{m3u_path.name}",
-        "count": suggestion_count,
-        "playlist_name": playlist_name,
-        "Dominant_Genre": summary['dominant_genre'],
-        "Moods": summary['mood_profile'].keys(),
-        "Average_BPM": int(summary['tempo_avg']),
-        "Popularity": int(summary['avg_popularity']),
-        "Decades": summary['decades'].keys(),
-    })
+    return templates.TemplateResponse(
+        "results.html",
+        {
+            "request": request,
+            "suggestions": parsed_suggestions,
+            "download_link": f"/download/{m3u_path.name}",
+            "count": suggestion_count,
+            "playlist_name": playlist_name,
+            "Dominant_Genre": summary["dominant_genre"],
+            "Moods": summary["mood_profile"].keys(),
+            "Average_BPM": int(summary["tempo_avg"]),
+            "Popularity": int(summary["avg_popularity"]),
+            "Decades": summary["decades"].keys(),
+        },
+    )
+
 
 @router.get("/history/export")
 async def export_history_m3u(label: str = Query(...)):
@@ -594,9 +643,7 @@ async def export_history_m3u(label: str = Query(...)):
 
     # Call the new helper function
     m3u_path = await export_history_entry_as_m3u(
-        entry,
-        settings.jellyfin_url,
-        settings.jellyfin_api_key
+        entry, settings.jellyfin_url, settings.jellyfin_api_key
     )
 
     if not m3u_path or not m3u_path.exists():
@@ -609,8 +656,6 @@ async def export_history_m3u(label: str = Query(...)):
         filename=f"{label}.m3u",
         background=BackgroundTask(cleanup_temp_file, m3u_path),
     )
-
-
 
 
 @router.post("/export/jellyfin")
@@ -636,14 +681,19 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
             )
 
     if not item_ids:
-        raise HTTPException(status_code=400, detail="No valid Jellyfin tracks found for export.")
+        raise HTTPException(
+            status_code=400, detail="No valid Jellyfin tracks found for export."
+        )
 
     playlist_id = await create_jellyfin_playlist(payload.name, item_ids)
 
     if not playlist_id:
-        raise HTTPException(status_code=500, detail="Failed to create Jellyfin playlist.")
+        raise HTTPException(
+            status_code=500, detail="Failed to create Jellyfin playlist."
+        )
 
     return {"status": "success", "playlist_id": playlist_id}
+
 
 @router.post("/import_m3u")
 async def import_m3u_file(m3u_file: UploadFile = File(...)):
@@ -651,7 +701,9 @@ async def import_m3u_file(m3u_file: UploadFile = File(...)):
     if not m3u_file.filename.lower().endswith(".m3u"):
         raise HTTPException(status_code=400, detail="Only .m3u files are supported")
 
-    with tempfile.NamedTemporaryFile(prefix="import_", suffix=".m3u", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(
+        prefix="import_", suffix=".m3u", delete=False
+    ) as tmp:
         shutil.copyfileobj(m3u_file.file, tmp)
         temp_path = tmp.name
 
@@ -698,6 +750,7 @@ async def export_m3u(request: Request):
         background=BackgroundTask(cleanup_temp_file, m3u_path),
     )
 
+
 @router.post("/export/track-metadata")
 async def export_track_metadata(request: Request):  # pylint: disable=too-many-locals
     """Write enriched metadata for a track back to Jellyfin."""
@@ -721,7 +774,9 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
     item_id = existing_item["Id"]
     full_item = await jellyfin.get_full_item(item_id)
     if not full_item:
-        return JSONResponse({"error": "Could not retrieve full item metadata."}, status_code=500)
+        return JSONResponse(
+            {"error": "Could not retrieve full item metadata."}, status_code=500
+        )
 
     existing_genres = full_item.get("Genres", [])
     existing_tags = full_item.get("Tags", [])
@@ -735,7 +790,7 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
 
     new_tags = {
         f"mood:{track.get('mood', '').lower()}" if track.get("mood") else None,
-        f"tempo:{track.get('tempo', '')}" if track.get("tempo") else None
+        f"tempo:{track.get('tempo', '')}" if track.get("tempo") else None,
     }
     merged_tags = list(set(existing_tags).union(filter(None, new_tags)))
 
@@ -744,11 +799,14 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
         if force_album_overwrite:
             album_to_use = incoming_album
         else:
-            return JSONResponse({
-                "action": "confirm_overwrite_album",
-                "current_album": existing_album,
-                "suggested_album": incoming_album
-            }, status_code=409)
+            return JSONResponse(
+                {
+                    "action": "confirm_overwrite_album",
+                    "current_album": existing_album,
+                    "suggested_album": incoming_album,
+                },
+                status_code=409,
+            )
 
     # Apply updates to full item
     full_item["Genres"] = merged_genres
@@ -758,6 +816,10 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
     success = await jellyfin.update_item_metadata(item_id, full_item)
 
     if not success:
-        return JSONResponse({"error": "Failed to update Jellyfin metadata."}, status_code=500)
+        return JSONResponse(
+            {"error": "Failed to update Jellyfin metadata."}, status_code=500
+        )
 
-    return JSONResponse({"message": f"Metadata for track '{title}' exported to Jellyfin."})
+    return JSONResponse(
+        {"message": f"Metadata for track '{title}' exported to Jellyfin."}
+    )

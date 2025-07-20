@@ -13,9 +13,11 @@ from utils.cache_manager import jellyfin_track_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
+
 def normalize_search_term(term):
     """Normalize search term by replacing smart quotes and variants."""
     return term.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
+
 
 async def fetch_jellyfin_users():
     """Return a mapping of Jellyfin user names to IDs."""
@@ -33,6 +35,7 @@ async def fetch_jellyfin_users():
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("Failed to fetch Jellyfin users: %s", exc)
         return {}
+
 
 async def search_jellyfin_for_track(title: str, artist: str) -> bool:
     """Return True if the track exists in Jellyfin."""
@@ -67,9 +70,13 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
             artists = item.get("Artists", [])
             logger.debug("→ Track: %s, Artists: %s", name, artists)
 
-            if title.lower() in name.lower() and any(artist.lower() in a.lower() for a in artists):
+            if title.lower() in name.lower() and any(
+                artist.lower() in a.lower() for a in artists
+            ):
                 logger.debug("✅ Match found!")
-                jellyfin_track_cache.set(key, True, expire=CACHE_TTLS["jellyfin_tracks"])
+                jellyfin_track_cache.set(
+                    key, True, expire=CACHE_TTLS["jellyfin_tracks"]
+                )
                 return True
 
         logger.debug("❌ No matching track found")
@@ -81,17 +88,23 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
         jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
         return False
 
+
 async def jf_get(path, **params):
     """Helper to perform a GET request against the Jellyfin API."""
-    url = f"{settings.jellyfin_url.rstrip('/')}{path}?api_key={settings.jellyfin_api_key}"
+    url = (
+        f"{settings.jellyfin_url.rstrip('/')}{path}?api_key={settings.jellyfin_api_key}"
+    )
     if params:
         query = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
         url += f"&{query}"
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url)
-    resp.raise_for_status()
-    return resp.json()
-
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=settings.http_timeout_long)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Jellyfin GET %s failed: %s", path, exc)
+        return {"error": str(exc)}
 
 
 async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
@@ -106,11 +119,11 @@ async def fetch_tracks_for_playlist_id(playlist_id: str) -> list[dict]:
         "ParentId": playlist_id,
         "IncludeItemTypes": "Audio",
         "Fields": (
-            "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate," \
+            "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate,"
             "Genres,RunTimeTicks,Genres,UserData,HasLyrics,Path,Tags"
         ),
         "Recursive": True,
-        "api_key": settings.jellyfin_api_key
+        "api_key": settings.jellyfin_api_key,
     }
 
     try:
@@ -212,8 +225,6 @@ async def _attach_lyrics(item: dict) -> None:
                 )
 
 
-
-
 async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
     """
     Search Jellyfin for a track by title and artist and return the full metadata dict if found.
@@ -247,38 +258,44 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
             name = normalize_search_term(item.get("Name", ""))
             artists_list = item.get("Artists", [])
             artists = [normalize_search_term(a) for a in artists_list]
-            if (
-                title_cleaned.lower() in name.lower()
-                and any(artist.lower() in a.lower() for a in artists)
+            if title_cleaned.lower() in name.lower() and any(
+                artist.lower() in a.lower() for a in artists
             ):
                 logger.debug("✅ Match found: %s by %s", name, artists)
                 return item
 
-        logger.debug("❌ No matching track metadata found for %s - %s", title_cleaned, artist)
+        logger.debug(
+            "❌ No matching track metadata found for %s - %s", title_cleaned, artist
+        )
         return None
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.warning("Jellyfin metadata fetch failed for %s - %s: %s", title, artist, exc)
+        logger.warning(
+            "Jellyfin metadata fetch failed for %s - %s: %s", title, artist, exc
+        )
         return None
 
 
-async def resolve_jellyfin_path(title: str, artist: str, jellyfin_url: str, jellyfin_api_key: str):
+async def resolve_jellyfin_path(
+    title: str, artist: str, jellyfin_url: str, jellyfin_api_key: str
+):
     """Return the filesystem path for a track if Jellyfin knows it."""
     url = f"{jellyfin_url}/Items"
-    headers = {
-        "X-Emby-Token": jellyfin_api_key,
-        "Accept": "application/json"
-    }
+    headers = {"X-Emby-Token": jellyfin_api_key, "Accept": "application/json"}
     params = {
         "Recursive": "true",
         "IncludeItemTypes": "Audio",
         "Filters": "IsNotFolder",
         "Artists": artist,
         "Name": title,
-        "Fields": "Path"
+        "Fields": "Path",
     }
 
-    logger.debug("[resolve_jellyfin_path] Querying Jellyfin: Artist='%s' Title='%s'", artist, title)
+    logger.debug(
+        "[resolve_jellyfin_path] Querying Jellyfin: Artist='%s' Title='%s'",
+        artist,
+        title,
+    )
     logger.debug("[resolve_jellyfin_path] API URL: %s", url)
     logger.debug("[resolve_jellyfin_path] Params: %s", params)
 
@@ -316,6 +333,7 @@ async def resolve_jellyfin_path(title: str, artist: str, jellyfin_url: str, jell
 
     return None
 
+
 async def create_jellyfin_playlist(
     name: str,
     track_item_ids: list[str],
@@ -337,11 +355,7 @@ async def create_jellyfin_playlist(
     url = f"{settings.jellyfin_url}/Playlists"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
 
-    payload = {
-        "Name": name,
-        "UserId": user_id,
-        "Ids": track_item_ids
-    }
+    payload = {"Name": name, "UserId": user_id, "Ids": track_item_ids}
 
     logger.info(
         "🎵 Creating Jellyfin playlist '%s' for user %s with %d tracks",
@@ -367,6 +381,7 @@ async def create_jellyfin_playlist(
         logger.error("❌ Failed to create Jellyfin playlist '%s': %s", name, exc)
         return None
 
+
 async def get_full_item(item_id: str) -> dict | None:
     """Fetch the full Jellyfin item JSON for the given ID."""
     url = f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items/{item_id}"
@@ -383,6 +398,7 @@ async def get_full_item(item_id: str) -> dict | None:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("❌ Failed to fetch full Jellyfin item %s: %s", item_id, exc)
         return None
+
 
 async def update_item_metadata(item_id: str, full_item: dict) -> bool:
     """Update a Jellyfin item with the provided metadata."""
@@ -404,6 +420,7 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
         logger.error("❌ Failed to update Jellyfin item %s: %s", item_id, exc)
         return False
 
+
 def read_lrc_for_track(track_path: str) -> str:
     """
     Attempt to read an adjacent .lrc file for the given track path.
@@ -418,7 +435,7 @@ def read_lrc_for_track(track_path: str) -> str:
     lrc_path = base + ".lrc"
     if os.path.isfile(lrc_path):
         try:
-            with open(lrc_path, 'r', encoding='utf-8') as f:
+            with open(lrc_path, "r", encoding="utf-8") as f:
                 contents = f.read()
                 logger.info(
                     "Loaded .lrc file: %s (%d lines)",
@@ -443,4 +460,4 @@ def strip_lrc_timecodes(lrc_text: str) -> str:
     Returns:
         str: Plain lyrics text without timecodes.
     """
-    return re.sub(r'\[.*?\]', '', lrc_text).strip()
+    return re.sub(r"\[.*?\]", "", lrc_text).strip()
