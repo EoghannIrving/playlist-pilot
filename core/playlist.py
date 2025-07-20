@@ -261,15 +261,14 @@ async def _fetch_bpm_data(artist: str, title: str) -> dict:
     return {}
 
 
-def _determine_year(jellyfin_year: str, bpm_year: int | None) -> tuple[int | None, str]:
+def _determine_year(jellyfin_year: str, bpm_year: int | None) -> tuple[str | None, str]:
     """Determine the final year and flag mismatches between sources."""
     year_flag = ""
+    final_year: str | None = None
     if bpm_year:
-        final_year = bpm_year
+        final_year = str(bpm_year)
     elif jellyfin_year:
-        final_year = jellyfin_year
-    else:
-        final_year = None
+        final_year = str(jellyfin_year)
     try:
         if jellyfin_year and bpm_year and abs(int(jellyfin_year) - int(bpm_year)) > 1:
             year_flag = f"GetSongBPM Date: {bpm_year} or Jellyfin Date: {jellyfin_year}"
@@ -283,7 +282,8 @@ def _determine_year(jellyfin_year: str, bpm_year: int | None) -> tuple[int | Non
 def _duration_from_ticks(ticks: int, bpm_data: dict) -> int:
     """Convert Jellyfin run-time ticks to seconds, falling back to BPM data."""
     duration = int(ticks / 10_000_000) if ticks else 0
-    return bpm_data.get("duration", duration)
+    bpm_duration = bpm_data.get("duration")
+    return int(bpm_duration) if bpm_duration is not None else duration
 
 
 async def _classify_mood(
