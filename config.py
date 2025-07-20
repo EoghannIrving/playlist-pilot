@@ -11,15 +11,45 @@ This file manages:
 
 import json
 import logging
+import os
+import sys
 from pathlib import Path
 from pydantic import BaseModel
 
 
 # ─────────────────────────────────────────────────────────────
-# Constants
+# Settings file location
 
-#SETTINGS_FILE = Path(__file__).parent / "settings.json"
-SETTINGS_FILE = Path("/app/settings.json")
+SETTINGS_FILE_ENV = "SETTINGS_FILE"
+
+
+def determine_settings_file(argv: list[str] | None = None) -> Path:
+    """Determine the settings file location.
+
+    Order of precedence:
+    1. ``SETTINGS_FILE`` environment variable
+    2. ``--settings-file`` command line option
+    3. Default to ``/app/settings.json``
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+
+    # Environment variable override
+    env_path = os.getenv(SETTINGS_FILE_ENV)
+    if env_path:
+        return Path(env_path)
+
+    # Command line option (--settings-file or --settings-file=PATH)
+    for i, arg in enumerate(argv):
+        if arg.startswith("--settings-file="):
+            return Path(arg.split("=", 1)[1])
+        if arg == "--settings-file" and i + 1 < len(argv):
+            return Path(argv[i + 1])
+
+    return Path("/app/settings.json")
+
+
+SETTINGS_FILE = determine_settings_file()
 """
 Path to the local JSON file where application settings are stored.
 """
