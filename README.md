@@ -112,6 +112,10 @@ The overall architecture is described in [Docs/architecture.md](Docs/architectur
 For additional details see [Docs/contributing.md](Docs/contributing.md) and the other documents in the [Docs](Docs/) directory.
 See the [ROADMAP](ROADMAP.md) for future plans and open issues.
 
+## Security
+
+Please report security issues by following the process in [SECURITY.md](.github/SECURITY.md).
+
 ## License
 
 Playlist Pilot is released under the terms of the [GNU GPLv3](LICENSE).
