@@ -24,6 +24,14 @@ A modular FastAPI app that helps you generate, analyze, and manage music playlis
 - `pip install -r requirements.txt` OR use Docker
 - Run tests with `pytest`
 
+### Running Tests
+
+From the project root simply execute:
+
+```bash
+pytest
+```
+
 ## 🐳 Docker Usage
 
 Build and run with Docker Compose. Provide the location of your settings file
