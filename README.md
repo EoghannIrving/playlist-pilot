@@ -46,8 +46,8 @@ Navigate to [http://localhost:8010/settings](http://localhost:8010/settings) and
 - Preferred GPT model (for example `gpt-4o-mini`)
 
 All values are saved in `settings.json` in the project root or mounted volume.
-You can also place these keys in your `.env` file so they are available when the
-container first starts.
+You can also place these keys in your `.env` file so they are available when the container first starts.
+Read [Docs/secure_credentials.md](Docs/secure_credentials.md) for tips on keeping API keys and other secrets out of your repository.
 
 ## API Endpoints
 
