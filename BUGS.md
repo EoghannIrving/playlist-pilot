@@ -3,17 +3,7 @@
 This file documents notable bugs discovered during a code audit.
 
 ## 1. Incorrect average popularity calculation
-`core/analysis.py` computes `avg_popularity` by dividing the sum of known popularity scores by `len(tracks)`. If some tracks lack a `combined_popularity` value the denominator still includes them which underestimates the average.
-
-Relevant code:
-```
-    base_summary = {
-        ...
-        "avg_listeners": mean([t.get("popularity", 0) for t in tracks]),
-        "avg_popularity": sum(popularity_values) / len(tracks),
-    }
-```
-【F:core/analysis.py†L69-L81】
+*Fixed.* `avg_popularity` now divides by the number of popularity values present and returns ``0`` when none exist.
 
 ## 2. History directory not created
 `save_user_history` writes to `USER_DATA_DIR`, but the directory is never ensured to exist. Attempting to save history on a clean install fails with `FileNotFoundError`.
@@ -28,13 +18,7 @@ Code reference:
 【F:core/history.py†L45-L67】
 
 ## 3. Crash when summarizing an empty track list
-`summarize_tracks` calls `mean` on an empty sequence when no tracks are provided which raises `StatisticsError`.
-
-Relevant line:
-```
-    "avg_listeners": mean([t.get("popularity", 0) for t in tracks]),
-```
-【F:core/analysis.py†L69-L80】
+*Fixed.* The function now falls back to ``0`` for ``avg_listeners`` and ``avg_popularity`` when no tracks are supplied.
 
 ## 4. Artist names not normalized in Jellyfin metadata search
 `fetch_jellyfin_track_metadata` cleans the item artist names but compares them to the raw `artist` parameter. Special quotes or punctuation can prevent matches.

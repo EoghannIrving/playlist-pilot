@@ -66,6 +66,11 @@ def summarize_tracks(tracks: List[dict]) -> dict:
         if t.get("combined_popularity") is not None
     ]
 
+    listener_values = [
+        t.get("popularity", 0) or 0
+        for t in tracks
+        if isinstance(t.get("popularity"), (int, float))
+    ]
     base_summary = {
         "dominant_genre": most_common(genres),
         "mood_profile": percent_distribution(moods),
@@ -76,8 +81,12 @@ def summarize_tracks(tracks: List[dict]) -> dict:
         "genre_distribution": percent_distribution(genres),
         "mood_distribution": percent_distribution(moods),
         "tempo_ranges": classify_tempo_ranges(tracks),
-        "avg_listeners": mean([t.get("popularity", 0) for t in tracks]),
-        "avg_popularity": sum(popularity_values) / len(tracks),
+        "avg_listeners": mean(listener_values) if listener_values else 0,
+        "avg_popularity": (
+            sum(popularity_values) / len(popularity_values)
+            if popularity_values
+            else 0
+        ),
     }
 
     base_summary["outliers"] = detect_outliers(tracks, base_summary)

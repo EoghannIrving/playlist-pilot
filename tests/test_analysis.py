@@ -51,3 +51,10 @@ def test_summarize_tracks_basic():
     assert summary["dominant_genre"] == "rock"
     assert summary["tempo_avg"] == 123
     assert summary["avg_popularity"] == 65
+
+
+def test_summarize_tracks_empty_list():
+    """Summarizing an empty list should return zeros without error."""
+    summary = summarize_tracks([])
+    assert summary["avg_listeners"] == 0
+    assert summary["avg_popularity"] == 0
