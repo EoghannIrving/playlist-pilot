@@ -90,11 +90,15 @@ All values are saved in `settings.json` in the project root or mounted volume.
    ```bash
    pytest
    ```
-4. Lint the code:
+4. Format the code:
+   ```bash
+   black .
+   ```
+5. Lint the code:
    ```bash
    pylint core api services utils
    ```
-5. Push your branch and open a pull request against `main`.
+6. Push your branch and open a pull request against `main`.
 
 For additional setup guidance see the files in the [Docs](Docs/) directory.
 See the [ROADMAP](ROADMAP.md) for future plans and open issues.
