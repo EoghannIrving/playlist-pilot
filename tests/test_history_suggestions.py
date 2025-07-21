@@ -1,13 +1,19 @@
+"""Tests for playlist history helper functions."""
+
 import sys
 import types
 import importlib
 import asyncio
 
-import core.constants as constants
+from core import constants
 from config import settings
+
+# Disable import-outside-toplevel for tests where patching requires late imports
+# pylint: disable=import-outside-toplevel
 
 
 def _make_cache_stub():
+    """Create a dummy cache module for monkeypatching."""
     module = types.ModuleType("utils.cache_manager")
     module.prompt_cache = DummyCache()
     module.yt_search_cache = DummyCache()
@@ -31,15 +37,20 @@ def _make_cache_stub():
 
 
 class DummyCache(dict):
+    """Simple dictionary-based cache used for tests."""
+
     def get(self, key):
+        """Return cached value for ``key``."""
         return super().get(key)
 
     def set(self, key, value, expire=None):
+        """Store ``value`` for ``key``; ``expire`` is ignored."""
+        _ = expire
         self[key] = value
-        return None
 
 
 def test_persist_history_and_load(monkeypatch, tmp_path):
+    """Ensure suggestions are persisted and can be reloaded from history."""
     monkeypatch.setattr(constants, "USER_DATA_DIR", tmp_path)
     monkeypatch.setattr(settings, "jellyfin_user_id", "user", raising=False)
     monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
@@ -65,6 +76,7 @@ def test_persist_history_and_load(monkeypatch, tmp_path):
 
 
 def test_enrich_suggestion_incomplete():
+    """enrich_suggestion returns None for incomplete input."""
     sys.modules["utils.cache_manager"] = _make_cache_stub()
     sys.modules.pop("core.playlist", None)
     from core import playlist
@@ -76,6 +88,8 @@ def test_enrich_suggestion_incomplete():
 
 
 def test_enrich_suggestion_service_failures(monkeypatch):
+    """enrich_suggestion gracefully handles service failures."""
+
     async def fail(*_a, **_k):
         raise RuntimeError("fail")
 
@@ -100,9 +114,12 @@ def test_enrich_suggestion_service_failures(monkeypatch):
 
 
 def test_lastfm_info_failure(monkeypatch):
+    """get_lastfm_track_info returns None on HTTP errors."""
     httpx_stub = types.ModuleType("httpx")
 
     class Client:
+        """Minimal async client that always fails requests."""
+
         async def __aenter__(self):
             return self
 
@@ -110,6 +127,7 @@ def test_lastfm_info_failure(monkeypatch):
             return False
 
         async def get(self, *_a, **_k):
+            """Simulate a request failure."""
             raise RuntimeError("fail")
 
     httpx_stub.AsyncClient = lambda *a, **kw: Client()

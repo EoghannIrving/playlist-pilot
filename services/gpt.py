@@ -293,8 +293,7 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     cache_key = hashlib.sha256(digest_input).hexdigest()
 
     # Return from cache if available
-    cached = prompt_cache.get(cache_key)
-    if cached is not None:
+    if (cached := prompt_cache.get(cache_key)) is not None:
         logger.info("Prompt Cache Hit in generate_playlist_analysis_summary")
         return (
             cached.get("gpt_summary"),
@@ -334,27 +333,23 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
         temperature=0.7,
     )
 
-    raw_content = response.choices[0].message.content or ""
-    content = raw_content.strip()
-    content = strip_markdown(content)
+    content = strip_markdown((response.choices[0].message.content or "").strip())
 
     # Split output if needed
     if "Suggested Removals" in content:
-        parts = content.split("Suggested Removals", 1)
-        gpt_summary = parts[0].strip()
-        removal_raw = parts[1].lstrip(": \n")  # Remove colon, spaces, newlines
+        summary, removal_raw = (
+            p.strip() for p in content.split("Suggested Removals", 1)
+        )
         result = {
-            "gpt_summary": gpt_summary,
-            "removal_suggestions": removal_raw.strip(),
+            "gpt_summary": summary,
+            "removal_suggestions": removal_raw.lstrip(": \n").strip(),
         }
 
     elif "1." in content:
         split_idx = content.find("1.")
-        gpt_summary = content[:split_idx].strip()
-        removal_suggestions = content[split_idx:].strip()
         result = {
-            "gpt_summary": gpt_summary,
-            "removal_suggestions": removal_suggestions,
+            "gpt_summary": content[:split_idx].strip(),
+            "removal_suggestions": content[split_idx:].strip(),
         }
 
     else:
