@@ -140,12 +140,21 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/playlist.py†L181-L194】
 
 ## 14. Percentage distribution may not sum to 100
-*Open.* `percent_distribution` uses floor division when calculating percentages, so the totals can be less than 100%.
+*Fixed.* Percentages now distribute leftover points so the total is exactly 100.
 ```
     counts = Counter(values)
-    return {k: f"{v * 100 // total}%" for k, v in counts.items()}
+    raw = {k: v * 100 / total for k, v in counts.items()}
+    floored = {k: int(math.floor(p)) for k, p in raw.items()}
+    remainder = 100 - sum(floored.values())
+    if remainder:
+        fractions = sorted(
+            raw.items(), key=lambda item: item[1] - math.floor(item[1]), reverse=True
+        )
+        for i in range(remainder):
+            floored[fractions[i % len(fractions)][0]] += 1
+    return {k: f"{v}%" for k, v in floored.items()}
 ```
-【F:core/analysis.py†L20-L26】
+【F:core/analysis.py†L21-L40】
 
 ## 15. Deleting history by label removes duplicates
 *Open.* The delete route filters history entries by label string. If multiple entries share the same label, they will all be deleted.
