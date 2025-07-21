@@ -14,7 +14,10 @@ from pathlib import Path
 import ntpath
 
 from config import settings
-from services.jellyfin import resolve_jellyfin_path, search_jellyfin_for_track
+from services.jellyfin import (
+    resolve_jellyfin_path,
+    fetch_jellyfin_track_metadata,
+)
 from core.history import save_user_history
 from core.playlist import enrich_track
 
@@ -160,14 +163,16 @@ async def import_m3u_as_history_entry(filepath: str):
 
     metas = [(path, infer_track_metadata_from_path(path)) for path in lines]
     tasks = [
-        asyncio.create_task(search_jellyfin_for_track(meta["title"], meta["artist"]))
+        asyncio.create_task(
+            fetch_jellyfin_track_metadata(meta["title"], meta["artist"])
+        )
         for _, meta in metas
     ]
 
-    for (path, meta), result in zip(metas, await asyncio.gather(*tasks)):
+    for (path, meta), metadata in zip(metas, await asyncio.gather(*tasks)):
         title = meta["title"]
         artist = meta["artist"]
-        if result:
+        if metadata:
             enriched_obj = await enrich_track({"title": title, "artist": artist})
             enriched = (
                 enriched_obj.dict()
@@ -195,8 +200,8 @@ async def import_m3u_as_history_entry(filepath: str):
             enriched.setdefault("year_flag", "")
             enriched.setdefault("combined_popularity", 0)
             enriched["path"] = path
-            if isinstance(result, dict) and "Id" in result:
-                enriched["jellyfin_id"] = result["Id"]
+            if isinstance(metadata, dict) and "Id" in metadata:
+                enriched["jellyfin_id"] = metadata["Id"]
                 # Ensure 'text' field is present for History UI compatibility
             enriched["text"] = f"{title} - {artist}"
             imported_tracks.append(enriched)

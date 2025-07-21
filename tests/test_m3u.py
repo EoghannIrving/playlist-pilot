@@ -17,11 +17,11 @@ initial_services_stub = types.ModuleType("services.jellyfin")
 initial_services_stub.resolve_jellyfin_path = lambda *_a, **_kw: None  # type: ignore[attr-defined]
 
 
-async def _dummy_search(*_a, **_kw):
+async def _dummy_fetch(*_a, **_kw):
     return None
 
 
-initial_services_stub.search_jellyfin_for_track = _dummy_search  # type: ignore[attr-defined]
+initial_services_stub.fetch_jellyfin_track_metadata = _dummy_fetch  # type: ignore[attr-defined]
 sys.modules.setdefault("services.jellyfin", initial_services_stub)
 initial_playlist_stub = types.ModuleType("core.playlist")
 
@@ -95,11 +95,11 @@ def _setup_roundtrip(monkeypatch, tmp_path, path_template):
     async def dummy_resolve(title, artist, *_a, **_kw):
         return Path(path_template.format(artist=artist, title=title)).as_posix()
 
-    async def dummy_search(*_a, **_kw):
+    async def dummy_fetch(*_a, **_kw):
         return {"Id": "1"}
 
     services_stub_local.resolve_jellyfin_path = dummy_resolve
-    services_stub_local.search_jellyfin_for_track = dummy_search
+    services_stub_local.fetch_jellyfin_track_metadata = dummy_fetch
     playlist_stub_local = types.ModuleType("core.playlist")
 
     async def dummy_enrich(track):

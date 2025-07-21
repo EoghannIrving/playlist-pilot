@@ -102,17 +102,19 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/m3u.py†L209-L213】
 
 ## 11. `import_m3u_as_history_entry` treats bool as track metadata
-*Open.* `search_jellyfin_for_track` returns a boolean, but the importer assumes it may return a dict with an `Id` field. As a result `jellyfin_id` is never set and the boolean value is misused.
+*Fixed.* The importer now uses `fetch_jellyfin_track_metadata` to retrieve a track's metadata and `Id`.
 ```
     tasks = [
-        asyncio.create_task(search_jellyfin_for_track(meta["title"], meta["artist"]))
+        asyncio.create_task(
+            fetch_jellyfin_track_metadata(meta["title"], meta["artist"])
+        )
         for _, meta in metas
     ]
     ...
-    if isinstance(result, dict) and 'Id' in result:
-        enriched['jellyfin_id'] = result['Id']
+    if isinstance(metadata, dict) and "Id" in metadata:
+        enriched["jellyfin_id"] = metadata["Id"]
 ```
-【F:core/m3u.py†L157-L192】
+【F:core/m3u.py†L164-L202】
 
 ## 12. `summarize_tracks` crashes on `None` popularity values
 *Fixed.* `avg_listeners` now filters out ``None`` values and falls back to ``0`` when no valid data is present.
