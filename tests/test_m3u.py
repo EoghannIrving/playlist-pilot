@@ -35,6 +35,7 @@ sys.modules.setdefault("core.playlist", initial_playlist_stub)
 from core.m3u import (
     parse_track_text,
     infer_track_metadata_from_path,
+    generate_proposed_path,
 )  # pylint: disable=wrong-import-position
 
 
@@ -83,6 +84,13 @@ def test_infer_metadata_windows_path():
         r"C:\\Music\\Metallica\\Justice\\Metallica - One.mp3"
     )
     assert meta == {"title": "One", "artist": "Metallica"}
+
+
+def test_generate_proposed_path_sanitizes(monkeypatch, tmp_path):
+    """Path components are sanitized to prevent traversal and invalid characters."""
+    monkeypatch.setattr(settings, "music_library_root", str(tmp_path), raising=False)
+    path = generate_proposed_path("../Artist<>", "My/Album*", "Song|Name?")
+    assert path == f"{tmp_path}/Artist__/Album_/Song_Name_.mp3"
 
 
 def _setup_roundtrip(monkeypatch, tmp_path, path_template):
