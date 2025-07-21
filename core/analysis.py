@@ -125,7 +125,11 @@ def detect_outliers(tracks: List[dict], summary: dict) -> List[dict]:
 
         # Genre mismatch (excluding 'Unknown')
         genre = t.get("genre")
-        if isinstance(genre, str) and genre.lower() != dominant_genre.lower():
+        if (
+            isinstance(genre, str)
+            and isinstance(dominant_genre, str)
+            and genre.lower() != dominant_genre.lower()
+        ):
             reasons.append("genre")
 
         # Mood unknown or missing confidence
