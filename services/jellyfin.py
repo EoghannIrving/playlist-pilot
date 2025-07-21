@@ -251,6 +251,7 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
     Returns None if no match is found.
     """
     title_cleaned = normalize_search_term(title)
+    artist_cleaned = normalize_search_term(artist)
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -280,7 +281,7 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
             artists_list = item.get("Artists", [])
             artists = [normalize_search_term(a) for a in artists_list]
             if title_cleaned.lower() in name.lower() and any(
-                artist.lower() in a.lower() for a in artists
+                artist_cleaned.lower() in a.lower() for a in artists
             ):
                 logger.debug("✅ Match found: %s by %s", name, artists)
                 return item
