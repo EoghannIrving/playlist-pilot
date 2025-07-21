@@ -337,11 +337,11 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
 
     # Split output if needed
     if "Suggested Removals" in content:
-        summary, removal_raw = (
+        summary_text, removal_raw = [
             p.strip() for p in content.split("Suggested Removals", 1)
-        )
+        ]
         result = {
-            "gpt_summary": summary,
+            "gpt_summary": summary_text,
             "removal_suggestions": removal_raw.lstrip(": \n").strip(),
         }
 
