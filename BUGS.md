@@ -84,7 +84,7 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/playlist.py†L241-L255】
 
 ## 9. Uniform Jellyfin play counts lead to zero popularity
-*Open.* When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are equal. `normalize_popularity` then returns `0` for every track, wiping out the Jellyfin contribution.
+*Fixed.* `normalize_popularity` now returns `100` when all counts are equal and non-zero, preserving the Jellyfin contribution.
 ```
     jellyfin_raw = [t["jellyfin_play_count"] for t in tracks if isinstance(t.get("jellyfin_play_count"), int)]
     min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)

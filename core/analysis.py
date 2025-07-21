@@ -159,8 +159,15 @@ def normalize_popularity(value, min_val, max_val):
         max_val,
     )
     if min_val == max_val:
-        logger.warning("normalize_popularity returning 0 due to min_val == max_val")
-        return 0
+        if min_val == 0:
+            logger.warning(
+                "normalize_popularity returning 0 due to min_val == max_val == 0"
+            )
+            return 0
+        logger.warning(
+            "normalize_popularity returning 100 due to uniform non-zero values"
+        )
+        return 100
     result = round(100 * (value - min_val) / (max_val - min_val), 2)
     logger.debug("normalize_popularity for jellyfin returning %s", result)
     return result
