@@ -2,31 +2,36 @@
 
 # pylint: disable=wrong-import-position
 
+import asyncio
+import importlib
+from pathlib import Path
 import sys
 import types
 
+from config import settings
+from core import constants
+
 # Stub optional dependencies to allow importing core.m3u without installing them
 sys.modules.setdefault("httpx", types.ModuleType("httpx"))
-services_stub = types.ModuleType("services.jellyfin")
-services_stub.resolve_jellyfin_path = lambda *_a, **_kw: None  # type: ignore[attr-defined]
+initial_services_stub = types.ModuleType("services.jellyfin")
+initial_services_stub.resolve_jellyfin_path = lambda *_a, **_kw: None  # type: ignore[attr-defined]
 
 
 async def _dummy_search(*_a, **_kw):
     return None
 
 
-services_stub.search_jellyfin_for_track = _dummy_search  # type: ignore[attr-defined]
-sys.modules.setdefault("services.jellyfin", services_stub)
-playlist_stub = types.ModuleType("core.playlist")
+initial_services_stub.search_jellyfin_for_track = _dummy_search  # type: ignore[attr-defined]
+sys.modules.setdefault("services.jellyfin", initial_services_stub)
+initial_playlist_stub = types.ModuleType("core.playlist")
 
 
 async def _dummy_enrich(*_a, **_kw):
     return {}
 
 
-playlist_stub.enrich_track = _dummy_enrich  # type: ignore[attr-defined]
-sys.modules.setdefault("core.playlist", playlist_stub)
-
+initial_playlist_stub.enrich_track = _dummy_enrich  # type: ignore[attr-defined]
+sys.modules.setdefault("core.playlist", initial_playlist_stub)
 from core.m3u import (
     parse_track_text,
     infer_track_metadata_from_path,
@@ -80,19 +85,12 @@ def test_infer_metadata_windows_path():
     assert meta == {"title": "One", "artist": "Metallica"}
 
 
-import asyncio
-import importlib
-from pathlib import Path
-from core import constants
-from config import settings
-
-
 def _setup_roundtrip(monkeypatch, tmp_path, path_template):
     monkeypatch.setattr(constants, "USER_DATA_DIR", tmp_path)
     monkeypatch.setattr(settings, "jellyfin_user_id", "user", raising=False)
     monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
 
-    services_stub = types.ModuleType("services.jellyfin")
+    services_stub_local = types.ModuleType("services.jellyfin")
 
     async def dummy_resolve(title, artist, *_a, **_kw):
         return Path(path_template.format(artist=title, title=artist)).as_posix()
@@ -100,16 +98,16 @@ def _setup_roundtrip(monkeypatch, tmp_path, path_template):
     async def dummy_search(*_a, **_kw):
         return {"Id": "1"}
 
-    services_stub.resolve_jellyfin_path = dummy_resolve
-    services_stub.search_jellyfin_for_track = dummy_search
-    playlist_stub = types.ModuleType("core.playlist")
+    services_stub_local.resolve_jellyfin_path = dummy_resolve
+    services_stub_local.search_jellyfin_for_track = dummy_search
+    playlist_stub_local = types.ModuleType("core.playlist")
 
     async def dummy_enrich(track):
         return types.SimpleNamespace(**track, dict=lambda: track)
 
-    playlist_stub.enrich_track = dummy_enrich
-    monkeypatch.setitem(sys.modules, "services.jellyfin", services_stub)
-    monkeypatch.setitem(sys.modules, "core.playlist", playlist_stub)
+    playlist_stub_local.enrich_track = dummy_enrich
+    monkeypatch.setitem(sys.modules, "services.jellyfin", services_stub_local)
+    monkeypatch.setitem(sys.modules, "core.playlist", playlist_stub_local)
     sys.modules.pop("core.m3u", None)
     sys.modules.pop("core.history", None)
     m3u = importlib.import_module("core.m3u")
