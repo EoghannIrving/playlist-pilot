@@ -13,6 +13,7 @@ import httpx
 
 from config import settings
 from utils.cache_manager import lastfm_cache, CACHE_TTLS
+from utils.integration_watchdog import record_failure, record_success
 
 
 logger = logging.getLogger("playlist-pilot")
@@ -55,12 +56,14 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
                 timeout=settings.http_timeout_short,
             )
         response.raise_for_status()
+        record_success("lastfm")
         data = response.json()
         tags = [tag["name"] for tag in data.get("toptags", {}).get("tag", [])]
         logger.info("[Last.fm] Extracted tags for %s - %s: %s", title, artist, tags)
         lastfm_cache.set(cache_key, tags, expire=CACHE_TTLS["lastfm"])
         return tags
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("lastfm")
         logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
         return []
 
@@ -93,6 +96,7 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
                 timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
+        record_success("lastfm")
         data = response.json()
         track = data.get("track")
         if track and track.get("name") and track.get("artist"):
@@ -102,6 +106,7 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
         return None
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("lastfm")
         logger.warning("Last.fm lookup failed for %s - %s: %s", title, artist, exc)
         lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
         return None
