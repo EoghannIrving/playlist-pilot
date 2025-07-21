@@ -12,6 +12,7 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 - **BPM and audio data** from GetSongBPM to enrich mood scoring.
 - **Lyrics-based mood analysis** when `.lrc` files or Jellyfin lyrics are
   available.
+- **Toggle for lyrics processing** if you want to disable GPT lyric analysis.
 - **Customizable weights** for lyrics, BPM and tag matching to fine tune
   playlist mood detection.
 - **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin.

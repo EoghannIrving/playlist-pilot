@@ -45,6 +45,7 @@ class AppSettings(BaseModel):
         openai_api_key (str): API key for OpenAI.
         lastfm_api_key (str): Optional key for Last.fm integration.
         model (str): GPT model to use (default is 'gpt-4o-mini').
+        lyrics_enabled (bool): Toggle for lyrics-based mood analysis.
     """
 
     jellyfin_url: str = ""
@@ -84,6 +85,7 @@ class AppSettings(BaseModel):
     youtube_max_duration: int = 360
     library_scan_limit: int = 1000
     music_library_root: str = "Movies/Music"
+    lyrics_enabled: bool = True
     lyrics_weight: float = 1.5
     bpm_weight: float = 1.0
     tags_weight: float = 0.7
