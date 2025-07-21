@@ -53,14 +53,14 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:utils/helpers.py†L15-L23】
 
 ## 6. Title and artist swapped when exporting history playlists
-*Open.* `export_history_entry_as_m3u` assigns `title, artist = parse_track_text(...)` but `parse_track_text` returns `(artist, title)`. This reversal causes Jellyfin path lookups to use the wrong parameters.
+*Fixed.* The function now assigns the variables in the correct order before calling `resolve_jellyfin_path`.
 ```
     for track in entry.get("suggestions", []):
-        title, artist = parse_track_text(track["text"])
+        artist, title = parse_track_text(track["text"])
         ...
         path = await resolve_jellyfin_path(title, artist, jellyfin_url, jellyfin_api_key)
 ```
-【F:core/m3u.py†L74-L86】
+【F:core/m3u.py†L74-L88】
 
 ## 7. `extract_year` can return the string "None"
 *Fixed.* The function now checks the ``ProductionYear`` value before converting to a string and only falls back to ``PremiereDate`` when it's missing.

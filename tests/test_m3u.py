@@ -93,7 +93,7 @@ def _setup_roundtrip(monkeypatch, tmp_path, path_template):
     services_stub_local = types.ModuleType("services.jellyfin")
 
     async def dummy_resolve(title, artist, *_a, **_kw):
-        return Path(path_template.format(artist=title, title=artist)).as_posix()
+        return Path(path_template.format(artist=artist, title=title)).as_posix()
 
     async def dummy_search(*_a, **_kw):
         return {"Id": "1"}

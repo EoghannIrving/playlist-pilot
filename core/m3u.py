@@ -76,7 +76,7 @@ async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
     lines = ["#EXTM3U"]
 
     for track in entry.get("suggestions", []):
-        title, artist = parse_track_text(track["text"])
+        artist, title = parse_track_text(track["text"])
         album = track.get("album", "Unknown_Album")  # If `album` present in `track`
         if track.get("in_jellyfin"):
             path = await resolve_jellyfin_path(
