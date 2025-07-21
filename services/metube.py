@@ -16,15 +16,19 @@ from config import settings
 
 logger = logging.getLogger("playlist-pilot")
 
+
 def _yt_search_sync(search_term: str) -> dict:
     """Perform a synchronous YouTube search using yt-dlp."""
-    with yt_dlp.YoutubeDL({
-        'quiet': True,
-        'noplaylist': True,
-        'extract_flat': False,
-        'no_warnings': True,
-    }) as ydl:
+    with yt_dlp.YoutubeDL(
+        {
+            "quiet": True,
+            "noplaylist": True,
+            "extract_flat": False,
+            "no_warnings": True,
+        }
+    ) as ydl:
         return ydl.extract_info(f"ytsearch2:{search_term}", download=False)
+
 
 async def get_youtube_url_single(search_line: str) -> tuple[str, str | None]:
     """
@@ -68,7 +72,7 @@ async def get_youtube_url_single(search_line: str) -> tuple[str, str | None]:
             title = clean(entry.get("title", ""))
             uploader = clean(entry.get("uploader", ""))
             if ref in title or all(word in title for word in ref.split()):
-                if 'vevo' in uploader or any(w in uploader for w in ref.split()):
+                if "vevo" in uploader or any(w in uploader for w in ref.split()):
                     yt_search_cache.set(
                         search_term,
                         entry["webpage_url"],

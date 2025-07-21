@@ -11,11 +11,17 @@ def _extract_health_check():
     """Load the ``health_check`` coroutine from ``api.routes`` without importing."""
     src = Path("api/routes.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
-    func = next(n for n in tree.body if isinstance(n, ast.AsyncFunctionDef) and n.name == "health_check")
+    func = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.AsyncFunctionDef) and n.name == "health_check"
+    )
     func.decorator_list = []
     module = ast.Module(body=[func], type_ignores=[])
     ns = {}
-    exec(compile(module, filename="<health>", mode="exec"), ns)  # pylint: disable=exec-used
+    exec(
+        compile(module, filename="<health>", mode="exec"), ns
+    )  # pylint: disable=exec-used
     return ns["health_check"]
 
 

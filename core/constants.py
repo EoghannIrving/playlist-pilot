@@ -1,6 +1,7 @@
 """
 Centralized constants for Playlist Pilot
 """
+
 import os
 from pathlib import Path
 
@@ -23,5 +24,5 @@ DEFAULT_SETTINGS = {
     "settings.jellyfin_user_id": "",
     "settings.openai_api_key": "",
     "settings.lastfm_api_key": "",
-    "settings.model": "gpt-4o-mini"
+    "settings.model": "gpt-4o-mini",
 }
