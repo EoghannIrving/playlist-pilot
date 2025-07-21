@@ -48,7 +48,7 @@ def describe_popularity(score: float) -> str:
 
 
 def _build_gpt_prompt(
-    existing_tracks: list[str], count: int, summary: dict | None = None
+    existing_tracks: list[str], count: int, summary: dict | str | None = None
 ) -> str:
     """
     Constructs a tailored GPT prompt based a user selected playlist.
@@ -334,7 +334,8 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
         temperature=0.7,
     )
 
-    content = response.choices[0].message.content.strip()
+    raw_content = response.choices[0].message.content or ""
+    content = raw_content.strip()
     content = strip_markdown(content)
 
     # Split output if needed

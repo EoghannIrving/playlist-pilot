@@ -297,7 +297,9 @@ async def _classify_mood(
     tag_scores = mood_scores_from_lastfm_tags(tags)
     bpm_scores = mood_scores_from_bpm_data(bpm_data or {})
     lyrics = get_lyrics_for_enrich(parsed.dict())
-    lyrics_mood = await asyncio.to_thread(analyze_mood_from_lyrics, lyrics)
+    lyrics_mood = (
+        await asyncio.to_thread(analyze_mood_from_lyrics, lyrics) if lyrics else None
+    )
     lyrics_scores = build_lyrics_scores(lyrics_mood) if lyrics_mood else None
     return combine_mood_scores(tag_scores, bpm_scores, lyrics_scores)
 
