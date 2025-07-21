@@ -5,6 +5,7 @@ import types
 import importlib
 import asyncio
 
+
 # Stub httpx for jellyfin service
 class DummyResp:
     """Simple stand-in for ``httpx.Response``."""
@@ -20,6 +21,7 @@ class DummyResp:
     def raise_for_status(self):
         """Pretend to validate the response status."""
         return None
+
 
 class DummyClient:
     """Async client stub used by ``make_httpx_stub``."""
@@ -39,11 +41,13 @@ class DummyClient:
         """Return a dummy response object."""
         return DummyResp(self._items)
 
+
 def make_httpx_stub(items):
     """Create a minimal ``httpx`` stub returning ``items``."""
     module = types.ModuleType("httpx")
     module.AsyncClient = lambda *a, **kw: DummyClient(items)
     return module
+
 
 # Stub diskcache Cache used by jellyfin module
 class DummyCache(dict):
@@ -58,19 +62,22 @@ class DummyCache(dict):
         _ = expire  # accept ``expire`` keyword for compatibility
         self[_key] = value
 
+
 sys.modules["diskcache"] = types.ModuleType("diskcache")
-sys.modules["diskcache"].Cache = DummyCache
+sys.modules["diskcache"].Cache = DummyCache  # type: ignore[attr-defined]
 
 # Stub utils.cache_manager used inside jellyfin
 cache_stub = types.ModuleType("utils.cache_manager")
-cache_stub.jellyfin_track_cache = DummyCache()
-cache_stub.CACHE_TTLS = {"jellyfin_tracks": 1}
+cache_stub.jellyfin_track_cache = DummyCache()  # type: ignore[attr-defined]
+cache_stub.CACHE_TTLS = {"jellyfin_tracks": 1}  # type: ignore[attr-defined]
 sys.modules["utils.cache_manager"] = cache_stub
 
 
 def test_search_jellyfin_track_found(monkeypatch):
     """Return ``True`` when the Jellyfin API finds a matching item."""
-    sys.modules["httpx"] = make_httpx_stub([{"Name": "My Song", "Artists": ["My Artist"]}])
+    sys.modules["httpx"] = make_httpx_stub(
+        [{"Name": "My Song", "Artists": ["My Artist"]}]
+    )
     sys.modules.pop("services.jellyfin", None)
     jellyfin = importlib.import_module("services.jellyfin")  # import after stubbing
     monkeypatch.setattr(jellyfin, "jellyfin_track_cache", DummyCache())
@@ -96,12 +103,14 @@ def test_parse_gpt_line():
     """Validate GPT line parsing and popularity descriptions."""
     # Stub openai so importing services.gpt succeeds
     openai_stub = types.ModuleType("openai")
+
     class Dummy:  # pylint: disable=too-few-public-methods
         """Simple OpenAI client stub used for import."""
 
         def __init__(self, **_kwargs):
             """Ignore initialization parameters."""
             return
+
     openai_stub.OpenAI = Dummy
     openai_stub.AsyncOpenAI = Dummy
     openai_stub.OpenAIError = Exception

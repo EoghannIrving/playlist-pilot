@@ -139,7 +139,8 @@ def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
     )
-    content = response.choices[0].message.content.strip()
+    raw_content = response.choices[0].message.content or ""
+    content = raw_content.strip()
     content = strip_markdown(content)
     prompt_cache.set(key, content, expire=CACHE_TTLS["prompt"])
     logger.debug("GPT API original text: %s", content)
@@ -160,7 +161,8 @@ async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
     )
-    content = response.choices[0].message.content.strip()
+    raw_content = response.choices[0].message.content or ""
+    content = raw_content.strip()
     content = strip_markdown(content)
     prompt_cache.set(key, content, expire=CACHE_TTLS["prompt"])
     logger.debug("GPT API original text: %s", content)
@@ -184,8 +186,8 @@ def parse_gpt_line(line: str) -> tuple[str, str]:
 async def gpt_suggest_validated(
     existing_tracks: list[str],
     count: int,
-    summary: dict | None = None,
-    exclude_pairs: set[tuple[str, str]] = None,
+    summary: dict | str | None = None,
+    exclude_pairs: set[tuple[str, str]] | None = None,
 ) -> list[dict]:
     """
     Main interface to request playlist suggestions from GPT.
@@ -361,7 +363,7 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     return result["gpt_summary"], result["removal_suggestions"]
 
 
-def analyze_mood_from_lyrics(lyrics: str) -> str:
+def analyze_mood_from_lyrics(lyrics: str) -> str | None:
     """Classify the overall mood of a song based on its lyrics via GPT."""
     if not lyrics:
         return None

@@ -41,12 +41,13 @@ async def parse_suggest_request(request: Request) -> tuple[list[dict], str, str]
     """Extract tracks and related fields from a suggestion form request."""
     data = await request.form()
     tracks_raw = data.get("tracks", "[]")
-    logger.info("tracks_raw: %s", tracks_raw[:100])
-    playlist_name = data.get("playlist_name", "")
-    text_summary = data.get("text_summary", "")
+    tracks_raw_str = str(tracks_raw)
+    logger.info("tracks_raw: %s", tracks_raw_str[:100])
+    playlist_name = str(data.get("playlist_name", ""))
+    text_summary = str(data.get("text_summary", ""))
 
     try:
-        tracks = json.loads(tracks_raw)
+        tracks = json.loads(tracks_raw_str)
     except json.JSONDecodeError:
         logger.warning("Failed to decode tracks JSON from form.")
         tracks = []
