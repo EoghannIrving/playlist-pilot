@@ -19,6 +19,7 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 - **Track metadata export** back to Jellyfin (genre, mood tags, album, etc.).
 - **History management** with the ability to view and delete past GPT suggestions.
 - **DiskCache based caching** for GPT prompts, Jellyfin queries, Last.fm lookups and more.
+- **Integration monitoring** with a simple watchdog that logs repeated Jellyfin and Last.fm failures.
 - Runs as a Docker container or directly with Python.
 
 ## Requirements

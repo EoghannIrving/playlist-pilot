@@ -11,6 +11,7 @@ import httpx
 
 from config import settings
 from utils.cache_manager import jellyfin_track_cache, CACHE_TTLS
+from utils.integration_watchdog import record_failure, record_success
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -32,8 +33,10 @@ async def fetch_jellyfin_users():
                 timeout=settings.http_timeout_long,
             )
         resp.raise_for_status()
+        record_success("jellyfin")
         return {u["Name"]: u["Id"] for u in resp.json()}
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.error("Failed to fetch Jellyfin users: %s", exc)
         return {}
 
@@ -61,6 +64,7 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
                 timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
+        record_success("jellyfin")
         data = response.json()
 
         items = data.get("Items", [])
@@ -85,6 +89,7 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
         return False
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.warning("Jellyfin search failed for %s - %s: %s", title, artist, exc)
         jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
         return False
@@ -102,8 +107,10 @@ async def jf_get(path, **params):
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, timeout=settings.http_timeout_long)
         resp.raise_for_status()
+        record_success("jellyfin")
         return resp.json()
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.error("Jellyfin GET %s failed: %s", path, exc)
         return {"error": str(exc)}
 
@@ -137,6 +144,7 @@ async def fetch_tracks_for_playlist_id(
                 timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
+        record_success("jellyfin")
         data = response.json()
         items = data.get("Items", [])
         logger.debug("Fetched %d tracks for playlist %s", len(items), playlist_id)
@@ -146,6 +154,7 @@ async def fetch_tracks_for_playlist_id(
 
         return items
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.error("Failed to fetch tracks for playlist %s: %s", playlist_id, exc)
         return []
 
@@ -170,10 +179,13 @@ async def fetch_lyrics_for_item(item_id: str) -> str | None:
                 timeout=settings.http_timeout_short,
             )
         if response.status_code == 200 and response.text.strip():
+            record_success("jellyfin")
             logger.info("Fetched raw lyrics JSON from Jellyfin for item %s", item_id)
             return response.text.strip()
+        record_success("jellyfin")
         logger.info("No lyrics available for item %s", item_id)
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.warning("Failed to fetch lyrics for item %s: %s", item_id, exc)
     return None
 
@@ -251,6 +263,7 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
                 timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
+        record_success("jellyfin")
         data = response.json()
 
         items = data.get("Items", [])
@@ -276,6 +289,7 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
         return None
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.warning(
             "Jellyfin metadata fetch failed for %s - %s: %s", title, artist, exc
         )
@@ -314,6 +328,7 @@ async def resolve_jellyfin_path(
                 timeout=settings.http_timeout_long,
             )
             resp.raise_for_status()
+            record_success("jellyfin")
 
             data = resp.json()
             logger.debug("[resolve_jellyfin_path] Response JSON: %s", data)
@@ -330,6 +345,7 @@ async def resolve_jellyfin_path(
             )
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
+            record_failure("jellyfin")
             logger.warning(
                 "[resolve_jellyfin_path] Error during API call for '%s - %s': %s",
                 artist,
@@ -379,11 +395,13 @@ async def create_jellyfin_playlist(
                 timeout=settings.http_timeout_long,
             )
         response.raise_for_status()
+        record_success("jellyfin")
         playlist_id = response.json().get("Id")
         logger.info("✅ Jellyfin playlist created with Id: %s", playlist_id)
         return playlist_id
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.error("❌ Failed to create Jellyfin playlist '%s': %s", name, exc)
         return None
 
@@ -400,8 +418,10 @@ async def get_full_item(item_id: str) -> dict | None:
                 timeout=settings.http_timeout_long,
             )
         resp.raise_for_status()
+        record_success("jellyfin")
         return resp.json()
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.error("❌ Failed to fetch full Jellyfin item %s: %s", item_id, exc)
         return None
 
@@ -420,9 +440,11 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
                 timeout=settings.http_timeout_long,
             )
         resp.raise_for_status()
+        record_success("jellyfin")
         logger.info("✅ Successfully updated Jellyfin item %s", item_id)
         return True
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
         logger.error("❌ Failed to update Jellyfin item %s: %s", item_id, exc)
         return False
 
