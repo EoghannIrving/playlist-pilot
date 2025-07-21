@@ -23,18 +23,18 @@ Code reference:
 *Fixed.* The function now falls back to ``0`` for ``avg_listeners`` and ``avg_popularity`` when no tracks are supplied.
 
 ## 4. Artist names not normalized in Jellyfin metadata search
-*Open.* `fetch_jellyfin_track_metadata` cleans the item artist names but compares them to the raw `artist` parameter. Special quotes or punctuation can prevent matches.
+*Fixed.* The search now normalizes the input `artist` value before comparison.
 
 Snippet:
 ```
     artists = [normalize_search_term(a) for a in artists_list]
     if (
         title_cleaned.lower() in name.lower()
-        and any(artist.lower() in a.lower() for a in artists)
+        and any(artist_cleaned.lower() in a.lower() for a in artists)
     ):
         ...
 ```
-【F:services/jellyfin.py†L247-L253】
+【F:services/jellyfin.py†L279-L285】
 
 ## 5. `get_cached_playlists` ignores supplied user id
 *Fixed.* `fetch_audio_playlists` now accepts a `user_id` argument and `get_cached_playlists` forwards the provided value so the correct user's playlists are fetched.
