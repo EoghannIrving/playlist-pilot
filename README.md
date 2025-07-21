@@ -27,7 +27,17 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 
 - Python 3.10+
 - `pip install -r requirements.txt` or use Docker
-- Run tests with `pytest`
+- Run the [test suite](Docs/tests.md) with `pytest`
+
+## Testing
+
+After installing the requirements you can execute all unit tests with:
+
+```bash
+pytest
+```
+
+The [tests directory](tests/) contains standalone tests for key helpers and services. See [Docs/tests.md](Docs/tests.md) for a description of each file.
 
 ## Docker Usage
 
