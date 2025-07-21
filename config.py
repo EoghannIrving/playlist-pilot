@@ -14,7 +14,7 @@ import logging
 import os
 from json import JSONDecodeError
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
 
 # ─────────────────────────────────────────────────────────────
