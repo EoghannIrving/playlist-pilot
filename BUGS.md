@@ -23,7 +23,7 @@ Code reference:
 *Fixed.* The function now falls back to ``0`` for ``avg_listeners`` and ``avg_popularity`` when no tracks are supplied.
 
 ## 4. Artist names not normalized in Jellyfin metadata search
-`fetch_jellyfin_track_metadata` cleans the item artist names but compares them to the raw `artist` parameter. Special quotes or punctuation can prevent matches.
+*Open.* `fetch_jellyfin_track_metadata` cleans the item artist names but compares them to the raw `artist` parameter. Special quotes or punctuation can prevent matches.
 
 Snippet:
 ```
@@ -53,7 +53,7 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:utils/helpers.py†L15-L23】
 
 ## 6. Title and artist swapped when exporting history playlists
-`export_history_entry_as_m3u` assigns `title, artist = parse_track_text(...)` but `parse_track_text` returns `(artist, title)`. This reversal causes Jellyfin path lookups to use the wrong parameters.
+*Open.* `export_history_entry_as_m3u` assigns `title, artist = parse_track_text(...)` but `parse_track_text` returns `(artist, title)`. This reversal causes Jellyfin path lookups to use the wrong parameters.
 ```
     for track in entry.get("suggestions", []):
         title, artist = parse_track_text(track["text"])
@@ -74,7 +74,7 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/playlist.py†L342-L350】
 
 ## 8. `_determine_year` returns mixed types
-This helper claims to return `int | None` for the year, but actually returns a string when only the Jellyfin year is available.
+*Fixed.* This helper now consistently returns a string or ``None`` instead of mixing integer and string types.
 ```
     if bpm_year:
         final_year = bpm_year
@@ -84,7 +84,7 @@ This helper claims to return `int | None` for the year, but actually returns a s
 【F:core/playlist.py†L241-L255】
 
 ## 9. Uniform Jellyfin play counts lead to zero popularity
-When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are equal. `normalize_popularity` then returns `0` for every track, wiping out the Jellyfin contribution.
+*Open.* When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are equal. `normalize_popularity` then returns `0` for every track, wiping out the Jellyfin contribution.
 ```
     jellyfin_raw = [t["jellyfin_play_count"] for t in tracks if isinstance(t.get("jellyfin_play_count"), int)]
     min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
@@ -93,7 +93,7 @@ When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are eq
 【F:core/analysis.py†L223-L255】
 
 ## 10. Windows paths not handled when naming imported playlists
-`import_m3u_as_history_entry` derives the playlist label using `filepath.split('/')[-1]`. This fails for Windows-style paths with backslashes.
+*Open.* `import_m3u_as_history_entry` derives the playlist label using `filepath.split('/')[-1]`. This fails for Windows-style paths with backslashes.
 ```
     if imported_tracks:
         playlist_name = f"Imported - {filepath.split('/')[-1]}"
@@ -101,7 +101,7 @@ When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are eq
 【F:core/m3u.py†L196-L204】
 
 ## 11. `import_m3u_as_history_entry` treats bool as track metadata
-`search_jellyfin_for_track` returns a boolean, but the importer assumes it may return a dict with an `Id` field. As a result `jellyfin_id` is never set and the boolean value is misused.
+*Open.* `search_jellyfin_for_track` returns a boolean, but the importer assumes it may return a dict with an `Id` field. As a result `jellyfin_id` is never set and the boolean value is misused.
 ```
     tasks = [
         asyncio.create_task(search_jellyfin_for_track(meta["title"], meta["artist"]))
@@ -114,7 +114,7 @@ When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are eq
 【F:core/m3u.py†L157-L192】
 
 ## 12. `summarize_tracks` crashes on `None` popularity values
-`avg_listeners` passes possible `None` values directly to `mean`, which raises `TypeError` when any track lacks a numeric `popularity`.
+*Fixed.* `avg_listeners` now filters out ``None`` values and falls back to ``0`` when no valid data is present.
 ```
     base_summary = {
         ...
@@ -125,7 +125,7 @@ When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are eq
 【F:core/analysis.py†L69-L81】
 
 ## 13. Non-numeric tempo tags cause validation errors
-`normalize_track` forwards the raw `tempo` tag string to the `Track` model, which expects an integer. A tag like `"tempo:fast"` will trigger a `ValidationError`.
+*Fixed.* `normalize_track` now converts tempo tags to integers only when the value is numeric, avoiding ``ValidationError`` for strings like ``"tempo:fast"``.
 ```
     tempo = extract_tag_value(raw.get("Tags"), "tempo")
     return Track(
@@ -137,7 +137,7 @@ When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are eq
 【F:core/playlist.py†L181-L194】
 
 ## 14. Percentage distribution may not sum to 100
-`percent_distribution` uses floor division when calculating percentages, so the totals can be less than 100%.
+*Open.* `percent_distribution` uses floor division when calculating percentages, so the totals can be less than 100%.
 ```
     counts = Counter(values)
     return {k: f"{v * 100 // total}%" for k, v in counts.items()}
@@ -145,7 +145,7 @@ When all tracks share the same Jellyfin play count, `min_jf` and `max_jf` are eq
 【F:core/analysis.py†L20-L26】
 
 ## 15. Deleting history by label removes duplicates
-The delete route filters history entries by label string. If multiple entries share the same label, they will all be deleted.
+*Open.* The delete route filters history entries by label string. If multiple entries share the same label, they will all be deleted.
 ```
     label = form.get("playlist_name")
     history = load_sorted_history(settings.jellyfin_user_id)
@@ -161,7 +161,7 @@ The delete route filters history entries by label string. If multiple entries sh
 【F:core/history.py†L21-L32】
 
 ## 17. Jellyfin playlist comparison uses nonexistent artist field
-`compare_playlists_form` looks for `Artist` on each Jellyfin track, but the API provides an `Artists` list. Artist names end up blank during comparison.
+*Open.* `compare_playlists_form` looks for `Artist` on each Jellyfin track, but the API provides an `Artists` list. Artist names end up blank during comparison.
 ```
     formatted = [
         f'{t["Name"]} - {t.get("AlbumArtist") or t.get("Artist", "")}'
@@ -171,7 +171,7 @@ The delete route filters history entries by label string. If multiple entries sh
 【F:api/routes.py†L174-L183】
 
 ## 18. YouTube lookup crashes with missing duration
-`get_youtube_url_single` filters search results by duration using `e.get("duration", 0)`. If a result has `None` for duration the comparison raises `TypeError`.
+*Open.* `get_youtube_url_single` filters search results by duration using `e.get("duration", 0)`. If a result has `None` for duration the comparison raises `TypeError`.
 ```
     filtered_entries = [
         e
@@ -182,7 +182,7 @@ The delete route filters history entries by label string. If multiple entries sh
 【F:services/metube.py†L58-L64】
 
 ## 19. Invalid JSON in settings form causes crash
-`SettingsForm.as_form` passes user input directly to `json.loads`. Malformed JSON in `cache_ttls` or `getsongbpm_headers` raises `JSONDecodeError` and results in a 500 error.
+*Open.* `SettingsForm.as_form` passes user input directly to `json.loads`. Malformed JSON in `cache_ttls` or `getsongbpm_headers` raises `JSONDecodeError` and results in a 500 error.
 ```
     cache_ttls=(json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls),
     getsongbpm_headers=(
@@ -194,7 +194,7 @@ The delete route filters history entries by label string. If multiple entries sh
 【F:api/forms.py†L46-L51】
 
 ## 20. Unvalidated path components when generating proposed paths
-`generate_proposed_path` simply strips whitespace from inputs before joining them into a file path, allowing traversal sequences like `../`.
+*Open.* `generate_proposed_path` simply strips whitespace from inputs before joining them into a file path, allowing traversal sequences like `../`.
 ```
     artist_dir = artist.strip()
     album_dir = album.strip() if album else "Unknown Album"
