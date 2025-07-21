@@ -5,6 +5,7 @@ Generates .m3u playlist files in a temporary directory using unique filenames.
 """
 
 import logging
+import os
 import re
 import tempfile
 import uuid
@@ -33,12 +34,26 @@ def cleanup_temp_file(path: Path):
         logger.warning("Failed to delete temp file %s: %s", path, exc)
 
 
+INVALID_CHARS_RE = re.compile(r"[\\/:*?\"<>|]")
+
+
+def _sanitize_component(value: str, fallback: str) -> str:
+    """Return a filename-safe path component."""
+    if not value:
+        return fallback
+    base = os.path.basename(value.strip())
+    sanitized = INVALID_CHARS_RE.sub("_", base)
+    return sanitized or fallback
+
+
 def generate_proposed_path(artist: str, album: str, title: str) -> str:
     """Return a sanitized path suggestion for a track."""
-    artist_dir = artist.strip()
-    album_dir = album.strip() if album else "Unknown Album"
-    title_file = title.strip()
-    return f"{settings.music_library_root}/{artist_dir}/{album_dir}/{title_file}.mp3"
+    artist_dir = _sanitize_component(artist, "Unknown Artist")
+    album_dir = _sanitize_component(album, "Unknown Album")
+    title_file = _sanitize_component(title, "Unknown Title")
+    return (
+        Path(settings.music_library_root) / artist_dir / album_dir / f"{title_file}.mp3"
+    ).as_posix()
 
 
 def parse_track_text(text: str) -> tuple[str, str]:
