@@ -28,12 +28,14 @@ def cleanup_temp_file(path: Path):
     except OSError as exc:
         logger.warning("Failed to delete temp file %s: %s", path, exc)
 
+
 def generate_proposed_path(artist: str, album: str, title: str) -> str:
     """Return a sanitized path suggestion for a track."""
     artist_dir = artist.strip()
     album_dir = album.strip() if album else "Unknown Album"
     title_file = title.strip()
     return f"{settings.music_library_root}/{artist_dir}/{album_dir}/{title_file}.mp3"
+
 
 def parse_track_text(text: str) -> tuple[str, str]:
     """Split a track label into artist and title parts."""
@@ -43,6 +45,7 @@ def parse_track_text(text: str) -> tuple[str, str]:
     else:
         artist, title = "Unknown", text.strip()
     return artist, title
+
 
 def write_m3u(tracks: list[str]) -> Path:
     """
@@ -67,6 +70,7 @@ def persist_history_and_m3u(suggestions: list[dict], playlist_name: str) -> Path
     save_user_history(user_id, label, suggestions)
     return write_m3u([s["text"] for s in suggestions])
 
+
 async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
     """Export a history entry's tracks into an M3U playlist."""
     lines = ["#EXTM3U"]
@@ -75,7 +79,9 @@ async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
         title, artist = parse_track_text(track["text"])
         album = track.get("album", "Unknown_Album")  # If `album` present in `track`
         if track.get("in_jellyfin"):
-            path = await resolve_jellyfin_path(title, artist, jellyfin_url, jellyfin_api_key)
+            path = await resolve_jellyfin_path(
+                title, artist, jellyfin_url, jellyfin_api_key
+            )
             if path:
                 lines.append(path)
             else:
@@ -94,6 +100,7 @@ async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
         m3u_path,
     )
     return m3u_path
+
 
 def read_m3u(file_path: Path) -> list[dict]:
     """
@@ -115,13 +122,11 @@ def read_m3u(file_path: Path) -> list[dict]:
             continue
 
         artist, title = parse_track_text(line)
-        tracks.append({
-            "artist": artist,
-            "title": title
-        })
+        tracks.append({"artist": artist, "title": title})
 
     logger.info("Parsed %d tracks from %s", len(tracks), file_path)
     return tracks
+
 
 def infer_track_metadata_from_path(path: str) -> dict:
     """Infer basic metadata from a file path."""
@@ -148,50 +153,51 @@ async def import_m3u_as_history_entry(filepath: str):
     user_id = settings.jellyfin_user_id
     imported_tracks = []
     with open(filepath, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+        lines = [
+            line.strip() for line in f if line.strip() and not line.startswith("#")
+        ]
 
-    metas = [
-        (path, infer_track_metadata_from_path(path))
-        for path in lines
-    ]
+    metas = [(path, infer_track_metadata_from_path(path)) for path in lines]
     tasks = [
         asyncio.create_task(search_jellyfin_for_track(meta["title"], meta["artist"]))
         for _, meta in metas
     ]
 
     for (path, meta), result in zip(metas, await asyncio.gather(*tasks)):
-        title = meta['title']
-        artist = meta['artist']
+        title = meta["title"]
+        artist = meta["artist"]
         if result:
             enriched_obj = await enrich_track({"title": title, "artist": artist})
             enriched = (
-                enriched_obj.dict() if enriched_obj else {"title": title, "artist": artist}
+                enriched_obj.dict()
+                if enriched_obj
+                else {"title": title, "artist": artist}
             )
-            enriched.setdefault('text', f"{title} - {artist}")
-            enriched.setdefault('reason', "Imported from M3U file.")
+            enriched.setdefault("text", f"{title} - {artist}")
+            enriched.setdefault("reason", "Imported from M3U file.")
             enriched.setdefault(
-                'youtube_url',
+                "youtube_url",
                 f"https://www.youtube.com/results?search_query={title}+{artist}",
             )
-            enriched.setdefault('in_jellyfin', True)
-            enriched.setdefault('jellyfin_play_count', 0)
-            enriched.setdefault('Genres', [])
-            enriched.setdefault('RunTimeTicks', 0)
-            enriched.setdefault('tags', [])
-            enriched.setdefault('genre', "Unknown")
-            enriched.setdefault('mood', "Unknown")
-            enriched.setdefault('mood_confidence', 0.0)
-            enriched.setdefault('tempo', 0)
-            enriched.setdefault('decade', "Unknown")
-            enriched.setdefault('duration', 0)
-            enriched.setdefault('popularity', 0)
-            enriched.setdefault('year_flag', "")
-            enriched.setdefault('combined_popularity', 0)
-            enriched['path'] = path
-            if isinstance(result, dict) and 'Id' in result:
-                enriched['jellyfin_id'] = result['Id']
+            enriched.setdefault("in_jellyfin", True)
+            enriched.setdefault("jellyfin_play_count", 0)
+            enriched.setdefault("Genres", [])
+            enriched.setdefault("RunTimeTicks", 0)
+            enriched.setdefault("tags", [])
+            enriched.setdefault("genre", "Unknown")
+            enriched.setdefault("mood", "Unknown")
+            enriched.setdefault("mood_confidence", 0.0)
+            enriched.setdefault("tempo", 0)
+            enriched.setdefault("decade", "Unknown")
+            enriched.setdefault("duration", 0)
+            enriched.setdefault("popularity", 0)
+            enriched.setdefault("year_flag", "")
+            enriched.setdefault("combined_popularity", 0)
+            enriched["path"] = path
+            if isinstance(result, dict) and "Id" in result:
+                enriched["jellyfin_id"] = result["Id"]
                 # Ensure 'text' field is present for History UI compatibility
-            enriched['text'] = f"{title} - {artist}"
+            enriched["text"] = f"{title} - {artist}"
             imported_tracks.append(enriched)
         else:
             logger.warning(

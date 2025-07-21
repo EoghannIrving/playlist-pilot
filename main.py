@@ -17,8 +17,6 @@ Modules used:
 - logging: App logging to disk
 """
 
-
-
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -36,9 +34,13 @@ logger = logging.getLogger("playlist-pilot")
 logger.setLevel(logging.DEBUG)
 
 if not logger.handlers:
-    handler = RotatingFileHandler("logs/playlist_pilot.log", maxBytes=1_000_000, backupCount=3)
+    handler = RotatingFileHandler(
+        "logs/playlist_pilot.log", maxBytes=1_000_000, backupCount=3
+    )
     handler.setLevel(logging.DEBUG)  # Capture DEBUG logs!
-    formatter = logging.Formatter("%(asctime)s | %(levelname)8s | %(name)s | %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)8s | %(name)s | %(message)s"
+    )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 

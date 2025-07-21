@@ -11,6 +11,7 @@ from config import settings
 
 logger = logging.getLogger("playlist-pilot")
 
+
 def get_bpm_from_getsongbpm(
     artist: str, title: str, api_key: str
 ) -> Optional[Dict[str, Optional[int]]]:
@@ -59,11 +60,16 @@ def get_bpm_from_getsongbpm(
         "key": song.get("key_of"),
         "danceability": int(song["danceability"]) if song.get("danceability") else None,
         "acousticness": int(song["acousticness"]) if song.get("acousticness") else None,
-        "year": int(song["album"]["year"]) if song.get("album", {}).get("year") else None,
-        "duration": duration_sec
+        "year": (
+            int(song["album"]["year"]) if song.get("album", {}).get("year") else None
+        ),
+        "duration": duration_sec,
     }
 
-def get_cached_bpm(artist: str, title: str, api_key: str) -> Optional[Dict[str, Optional[int]]]:
+
+def get_cached_bpm(
+    artist: str, title: str, api_key: str
+) -> Optional[Dict[str, Optional[int]]]:
     """Return BPM data using cache to minimize external requests."""
     key = f"{title.strip().lower()}::{artist.strip().lower()}"
     if key in bpm_cache:

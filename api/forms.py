@@ -4,6 +4,7 @@ import json
 from fastapi import Form
 from config import AppSettings
 
+
 class SettingsForm(AppSettings):
     """Pydantic model for updating application settings via form."""
 
@@ -43,7 +44,9 @@ class SettingsForm(AppSettings):
             getsongbpm_api_key=getsongbpm_api_key,
             global_min_lfm=global_min_lfm,
             global_max_lfm=global_max_lfm,
-            cache_ttls=(json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls),
+            cache_ttls=(
+                json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls
+            ),
             getsongbpm_base_url=getsongbpm_base_url,
             getsongbpm_headers=(
                 json.loads(getsongbpm_headers)
