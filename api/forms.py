@@ -1,7 +1,8 @@
 """Form utilities for validating settings updates through FastAPI."""
 
 import json
-from fastapi import Form
+from json import JSONDecodeError
+from fastapi import Form, HTTPException
 from config import AppSettings
 
 
@@ -35,6 +36,19 @@ class SettingsForm(AppSettings):
         tags_weight: float = Form(0.7),
     ) -> "SettingsForm":
         """Create a SettingsForm instance from submitted form data."""
+
+        def _safe_json(value: str, default: dict, field_name: str) -> dict:
+            """Parse a JSON string or raise a ``HTTPException`` with details."""
+            if not value:
+                return default
+            try:
+                return json.loads(value)
+            except JSONDecodeError as exc:  # nosec B003 - informative error
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid JSON for {field_name}: {exc.msg}",
+                ) from exc
+
         return cls(
             jellyfin_url=jellyfin_url,
             jellyfin_api_key=jellyfin_api_key,
@@ -45,14 +59,12 @@ class SettingsForm(AppSettings):
             getsongbpm_api_key=getsongbpm_api_key,
             global_min_lfm=global_min_lfm,
             global_max_lfm=global_max_lfm,
-            cache_ttls=(
-                json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls
-            ),
+            cache_ttls=_safe_json(cache_ttls, AppSettings().cache_ttls, "cache_ttls"),
             getsongbpm_base_url=getsongbpm_base_url,
-            getsongbpm_headers=(
-                json.loads(getsongbpm_headers)
-                if getsongbpm_headers
-                else AppSettings().getsongbpm_headers
+            getsongbpm_headers=_safe_json(
+                getsongbpm_headers,
+                AppSettings().getsongbpm_headers,
+                "getsongbpm_headers",
             ),
             http_timeout_short=http_timeout_short,
             http_timeout_long=http_timeout_long,
