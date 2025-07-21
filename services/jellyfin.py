@@ -192,6 +192,8 @@ async def fetch_lyrics_for_item(item_id: str) -> str | None:
 
 async def _attach_lyrics(item: dict) -> None:
     """Attach lyrics to a track dictionary if available."""
+    if not settings.lyrics_enabled:
+        return
     track_path = item.get("Path")
     if track_path:
         lrc_contents = read_lrc_for_track(track_path)

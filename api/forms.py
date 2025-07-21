@@ -4,6 +4,7 @@ import json
 from fastapi import Form
 from config import AppSettings
 
+
 class SettingsForm(AppSettings):
     """Pydantic model for updating application settings via form."""
 
@@ -28,6 +29,7 @@ class SettingsForm(AppSettings):
         youtube_max_duration: int = Form(360),
         library_scan_limit: int = Form(1000),
         music_library_root: str = Form("Movies/Music"),
+        lyrics_enabled: bool = Form(False),
         lyrics_weight: float = Form(1.5),
         bpm_weight: float = Form(1.0),
         tags_weight: float = Form(0.7),
@@ -43,7 +45,9 @@ class SettingsForm(AppSettings):
             getsongbpm_api_key=getsongbpm_api_key,
             global_min_lfm=global_min_lfm,
             global_max_lfm=global_max_lfm,
-            cache_ttls=(json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls),
+            cache_ttls=(
+                json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls
+            ),
             getsongbpm_base_url=getsongbpm_base_url,
             getsongbpm_headers=(
                 json.loads(getsongbpm_headers)
@@ -56,6 +60,7 @@ class SettingsForm(AppSettings):
             youtube_max_duration=youtube_max_duration,
             library_scan_limit=library_scan_limit,
             music_library_root=music_library_root,
+            lyrics_enabled=lyrics_enabled,
             lyrics_weight=lyrics_weight,
             bpm_weight=bpm_weight,
             tags_weight=tags_weight,
