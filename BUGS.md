@@ -93,12 +93,13 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/analysis.py†L223-L255】
 
 ## 10. Windows paths not handled when naming imported playlists
-*Open.* `import_m3u_as_history_entry` derives the playlist label using `filepath.split('/')[-1]`. This fails for Windows-style paths with backslashes.
+*Fixed.* `import_m3u_as_history_entry` now derives the label using
+`ntpath.basename(filepath)`, which recognizes both slash types.
 ```
     if imported_tracks:
-        playlist_name = f"Imported - {filepath.split('/')[-1]}"
+        playlist_name = f"Imported - {ntpath.basename(filepath)}"
 ```
-【F:core/m3u.py†L196-L204】
+【F:core/m3u.py†L209-L213】
 
 ## 11. `import_m3u_as_history_entry` treats bool as track metadata
 *Open.* `search_jellyfin_for_track` returns a boolean, but the importer assumes it may return a dict with an `Id` field. As a result `jellyfin_id` is never set and the boolean value is misused.

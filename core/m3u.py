@@ -11,6 +11,7 @@ import uuid
 import asyncio
 from datetime import datetime
 from pathlib import Path
+import ntpath
 
 from config import settings
 from services.jellyfin import resolve_jellyfin_path, search_jellyfin_for_track
@@ -206,7 +207,7 @@ async def import_m3u_as_history_entry(filepath: str):
                 artist,
             )
     if imported_tracks:
-        playlist_name = f"Imported - {filepath.split('/')[-1]}"
+        playlist_name = f"Imported - {ntpath.basename(filepath)}"
         save_user_history(user_id, label=playlist_name, suggestions=imported_tracks)
         logger.info(
             "✅ Imported playlist '%s' with %d tracks.",
