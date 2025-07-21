@@ -1,6 +1,6 @@
 """Unit tests for M3U parsing utilities."""
 
-# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-order,wrong-import-position
 
 import asyncio
 import importlib
