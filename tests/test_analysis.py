@@ -25,6 +25,16 @@ def test_add_combined_popularity():
     assert all("combined_popularity" in t for t in result)
 
 
+def test_add_combined_popularity_uniform_counts():
+    """Uniform Jellyfin counts should yield full popularity."""
+    tracks = [
+        {"jellyfin_play_count": 5, "popularity": 100},
+        {"jellyfin_play_count": 5, "popularity": 200},
+    ]
+    result = add_combined_popularity(tracks, w_lfm=0.0, w_jf=1.0)
+    assert all(t["combined_popularity"] == 100 for t in result)
+
+
 def test_summarize_tracks_basic():
     """Summarize a small list of tracks and validate statistics."""
     tracks = [
