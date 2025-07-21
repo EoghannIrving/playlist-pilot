@@ -8,7 +8,7 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
    - Keep Jellyfin and Last.fm integrations resilient to failures. - **Complete**
    - Finalize importing and exporting `.m3u` playlists. **Complete**
 2. **Lyrics Toggle**
-   - Lyrics are currently processed automatically—add a configuration option to disable this when desired.
+   - Lyrics are currently processed automatically—add a configuration option to disable this when desired. **Complete**
 3. **Documentation & Testing**
    - Expand documentation beyond the current README.
    - Increase test coverage.

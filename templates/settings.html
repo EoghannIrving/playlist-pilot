@@ -182,6 +182,10 @@
           <input type="text" id="MUSIC_LIBRARY_ROOT" name="music_library_root" value="{{ settings.music_library_root }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <small class="text-gray-300">Path to your Jellyfin music library.</small>
         </div>
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="LYRICS_ENABLED" name="lyrics_enabled" value="true" class="form-checkbox h-4 w-4 text-blue-600" {% if settings.lyrics_enabled %}checked{% endif %}>
+          <label for="LYRICS_ENABLED" class="font-semibold">Enable Lyrics Processing</label>
+        </div>
         <div class="space-y-4">
           <label for="LYRICS_WEIGHT" class="block font-semibold">Lyrics Weight</label>
           <input type="number" step="0.1" id="LYRICS_WEIGHT" name="lyrics_weight" value="{{ settings.lyrics_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">

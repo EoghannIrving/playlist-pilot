@@ -377,6 +377,7 @@ async def update_settings(
     settings.youtube_max_duration = form_data.youtube_max_duration
     settings.library_scan_limit = form_data.library_scan_limit
     settings.music_library_root = form_data.music_library_root
+    settings.lyrics_enabled = form_data.lyrics_enabled
     settings.lyrics_weight = form_data.lyrics_weight
     settings.bpm_weight = form_data.bpm_weight
     settings.tags_weight = form_data.tags_weight
