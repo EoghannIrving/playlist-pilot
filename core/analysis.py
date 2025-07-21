@@ -23,8 +23,24 @@ def percent_distribution(values: List[str]) -> Dict[str, str]:
     total = len(values)
     if total == 0:
         return {}
+
     counts = Counter(values)
-    return {k: f"{v * 100 // total}%" for k, v in counts.items()}
+    raw = {k: v * 100 / total for k, v in counts.items()}
+
+    # Round down then distribute any leftover percentage points to ensure
+    # the final values sum exactly to 100.
+    floored = {k: int(math.floor(p)) for k, p in raw.items()}
+    remainder = 100 - sum(floored.values())
+
+    if remainder:
+        # Sort keys by the size of their fractional remainder in descending order
+        fractions = sorted(
+            raw.items(), key=lambda item: item[1] - math.floor(item[1]), reverse=True
+        )
+        for i in range(remainder):
+            floored[fractions[i % len(fractions)][0]] += 1
+
+    return {k: f"{v}%" for k, v in floored.items()}
 
 
 def average_tempo(tracks: List[dict]) -> int:
