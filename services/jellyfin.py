@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+from typing import Any
 from urllib.parse import quote_plus
 
 import httpx
@@ -117,7 +118,7 @@ async def fetch_tracks_for_playlist_id(
     otherwise attempts Jellyfin Lyrics API fetch if HasLyrics is true.
     """
     url = f"{settings.jellyfin_url}/Playlists/{playlist_id}/Items"
-    params = {
+    params: dict[str, Any] = {
         "UserId": settings.jellyfin_user_id,
         "Fields": (
             "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate,"
@@ -149,7 +150,7 @@ async def fetch_tracks_for_playlist_id(
         return []
 
 
-async def fetch_lyrics_for_item(item_id: str) -> str:
+async def fetch_lyrics_for_item(item_id: str) -> str | None:
     """
     Fetch raw lyrics JSON for a given Jellyfin audio item ID.
 
@@ -197,7 +198,10 @@ async def _attach_lyrics(item: dict) -> None:
             "HasLyrics true but no .lrc found, checking Jellyfin API for item %s",
             item_id,
         )
-        lyrics_json = await fetch_lyrics_for_item(item_id)
+        if isinstance(item_id, str):
+            lyrics_json = await fetch_lyrics_for_item(item_id)
+        else:
+            lyrics_json = None
         if lyrics_json:
             try:
                 parsed = json.loads(lyrics_json)
@@ -423,7 +427,7 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
         return False
 
 
-def read_lrc_for_track(track_path: str) -> str:
+def read_lrc_for_track(track_path: str) -> str | None:
     """
     Attempt to read an adjacent .lrc file for the given track path.
 

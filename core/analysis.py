@@ -17,6 +17,7 @@ def most_common(values: List[str]) -> str:
         return "Unknown"
     return Counter(values).most_common(1)[0][0]
 
+
 def percent_distribution(values: List[str]) -> Dict[str, str]:
     """Return a mapping of value to percentage occurrence."""
     total = len(values)
@@ -25,14 +26,12 @@ def percent_distribution(values: List[str]) -> Dict[str, str]:
     counts = Counter(values)
     return {k: f"{v * 100 // total}%" for k, v in counts.items()}
 
+
 def average_tempo(tracks: List[dict]) -> int:
     """Calculate the rounded average tempo for a list of tracks."""
-    tempos = [
-        t["tempo"]
-        for t in tracks
-        if isinstance(t.get("tempo"), (int, float))
-    ]
+    tempos = [t["tempo"] for t in tracks if isinstance(t.get("tempo"), (int, float))]
     return round(sum(tempos) / len(tempos)) if tempos else 0
+
 
 def normalized_entropy(values: list[str]) -> float:
     """Return the normalized Shannon entropy of *values*."""
@@ -44,14 +43,14 @@ def normalized_entropy(values: list[str]) -> float:
     max_entropy = math.log2(len(counts))
     return round(entropy / max_entropy, 2) if max_entropy > 0 else 0.0
 
+
 def average_duration(tracks: List[dict]) -> int:
     """Return the average duration in seconds for the given tracks."""
     durations = [
-        t["duration"]
-        for t in tracks
-        if isinstance(t.get("duration"), (int, float))
+        t["duration"] for t in tracks if isinstance(t.get("duration"), (int, float))
     ]
     return round(sum(durations) / len(durations)) if durations else 0
+
 
 def summarize_tracks(tracks: List[dict]) -> dict:
     """Return a summary dictionary for a list of track metadata."""
@@ -83,14 +82,13 @@ def summarize_tracks(tracks: List[dict]) -> dict:
         "tempo_ranges": classify_tempo_ranges(tracks),
         "avg_listeners": mean(listener_values) if listener_values else 0,
         "avg_popularity": (
-            sum(popularity_values) / len(popularity_values)
-            if popularity_values
-            else 0
+            sum(popularity_values) / len(popularity_values) if popularity_values else 0
         ),
     }
 
     base_summary["outliers"] = detect_outliers(tracks, base_summary)
     return base_summary
+
 
 def classify_tempo_ranges(tracks: list[dict]) -> dict:
     """Group track tempos into broad BPM ranges."""
@@ -107,7 +105,7 @@ def classify_tempo_ranges(tracks: list[dict]) -> dict:
     return percent_distribution(ranges)
 
 
-def detect_outliers(tracks: List[dict], summary: dict) -> List[str]:
+def detect_outliers(tracks: List[dict], summary: dict) -> List[dict]:
     """Identify tracks that deviate strongly from the provided summary."""
     avg_tempo = summary.get("tempo_avg")
     dominant_genre = summary.get("dominant_genre")
@@ -119,11 +117,15 @@ def detect_outliers(tracks: List[dict], summary: dict) -> List[str]:
         reasons = []
 
         # Tempo deviation > 40 BPM
-        if isinstance(t.get("tempo"), (int, float)) and abs(t["tempo"] - avg_tempo) > 40:
+        if (
+            isinstance(t.get("tempo"), (int, float))
+            and abs(t["tempo"] - avg_tempo) > 40
+        ):
             reasons.append("tempo")
 
         # Genre mismatch (excluding 'Unknown')
-        if t.get("genre") and t["genre"].lower() != dominant_genre.lower():
+        genre = t.get("genre")
+        if isinstance(genre, str) and genre.lower() != dominant_genre.lower():
             reasons.append("genre")
 
         # Mood unknown or missing confidence
@@ -139,12 +141,10 @@ def detect_outliers(tracks: List[dict], summary: dict) -> List[str]:
             reasons.append("year")
 
         if reasons:
-            outliers.append({
-                "title": t["title"],
-                "reasons": reasons
-            })
+            outliers.append({"title": t["title"], "reasons": reasons})
     outliers.sort(key=lambda x: len(x["reasons"]), reverse=True)
     return outliers[:5]
+
 
 def normalize_popularity(value, min_val, max_val):
     """Normalize a value to a 0-100 scale given its min and max bounds."""
@@ -160,6 +160,7 @@ def normalize_popularity(value, min_val, max_val):
     result = round(100 * (value - min_val) / (max_val - min_val), 2)
     logger.debug("normalize_popularity for jellyfin returning %s", result)
     return result
+
 
 def combined_popularity_score(lastfm, jellyfin, w_lfm=0.4, w_jf=0.6):
     """Combine popularity metrics from Last.fm and Jellyfin."""
@@ -202,6 +203,7 @@ def combined_popularity_score(lastfm, jellyfin, w_lfm=0.4, w_jf=0.6):
         logger.warning("⚠️ combined_popularity_score result is 0")
 
     return result
+
 
 def normalize_popularity_log(value, min_val, max_val):
     """Normalize logarithmic popularity values to a 0-100 scale."""
@@ -250,9 +252,7 @@ def add_combined_popularity(
             else None
         )
         norm_jf = (
-            normalize_popularity(raw_jf, min_jf, max_jf)
-            if raw_jf is not None
-            else None
+            normalize_popularity(raw_jf, min_jf, max_jf) if raw_jf is not None else None
         )
         track["combined_popularity"] = combined_popularity_score(
             norm_lfm,
@@ -317,7 +317,9 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
 
     if bpm and bpm > 95 and "m" not in key and acoustic < 50 and dance > 55:
         scores["uplifting"] += 1.0
-        logger.debug("  +1.0 uplifting (strong match: upbeat, major key, synthetic, danceable)")
+        logger.debug(
+            "  +1.0 uplifting (strong match: upbeat, major key, synthetic, danceable)"
+        )
 
     if year and year < 2005 and acoustic > 45 and bpm and bpm < 105:
         scores["nostalgic"] += 1.0
@@ -372,6 +374,7 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
         logger.debug("  +0.5 sad, +0.5 chill (fallback: danceability < 30)")
     return scores
 
+
 # Apply mood-specific weightings
 MOOD_WEIGHTS = {
     "happy": 0.9,
@@ -405,13 +408,15 @@ MOOD_MAPPING = {
     "uplifting": "uplifting",
     "nostalgic": "nostalgic",
     "party": "party",
-    "hopeful": "uplifting"
+    "hopeful": "uplifting",
 }
 
-def map_lyrics_mood_to_internal_mood(lyrics_mood: str) -> str:
+
+def map_lyrics_mood_to_internal_mood(lyrics_mood: str) -> str | None:
     """Convert a raw lyrics mood string to an internal mood label."""
     mood = lyrics_mood.strip().lower()
     return MOOD_MAPPING.get(mood)
+
 
 def build_lyrics_scores(lyrics_mood: str) -> dict:
     """Return a mood score dictionary derived from lyrics analysis."""
@@ -421,6 +426,7 @@ def build_lyrics_scores(lyrics_mood: str) -> dict:
         scores[mapped_mood] = DEFAULT_LYRICS_CONFIDENCE
     return scores
 
+
 # Updated combine_mood_scores()
 def combine_mood_scores(
     tag_scores: dict,
@@ -429,12 +435,12 @@ def combine_mood_scores(
 ) -> tuple[str, float]:
     """Merge mood scores from tags, BPM analysis and optional lyrics."""
     # pylint: disable=too-many-locals
-    logger.debug("\n→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:")
+    logger.debug(
+        "\n→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:"
+    )
     logger.debug("  Raw Tag Scores: %s", tag_scores)
     logger.debug("  Raw BPM Scores: %s", bpm_scores)
     logger.debug("  Raw Lyrics Scores: %s", lyrics_scores)
-
-
 
     tag_sum = sum(tag_scores.values())
     bpm_sum = sum(bpm_scores.values())
@@ -445,16 +451,16 @@ def combine_mood_scores(
         tag_scores = {m: s * 1.5 for m, s in tag_scores.items()}
     if bpm_sum > 0 and tag_sum == 0 and lyrics_sum == 0:
         bpm_scores = {m: s * 1.5 for m, s in bpm_scores.items()}
-    if lyrics_sum > 0 and tag_sum == 0 and bpm_sum == 0:
+    if lyrics_sum > 0 and tag_sum == 0 and bpm_sum == 0 and lyrics_scores:
         lyrics_scores = {m: s * 1.5 for m, s in lyrics_scores.items()}
 
     # Combine with weighting:
     combined = {}
     for mood in MOOD_TAGS:
         score = (
-            TAGS_WEIGHT * tag_scores.get(mood, 0) +
-            BPM_WEIGHT * bpm_scores.get(mood, 0) +
-            (LYRICS_WEIGHT * lyrics_scores.get(mood, 0) if lyrics_scores else 0)
+            TAGS_WEIGHT * tag_scores.get(mood, 0)
+            + BPM_WEIGHT * bpm_scores.get(mood, 0)
+            + (LYRICS_WEIGHT * lyrics_scores.get(mood, 0) if lyrics_scores else 0)
         )
         weighted = score * MOOD_WEIGHTS.get(mood, 1.0)
         combined[mood] = weighted
@@ -470,7 +476,7 @@ def combine_mood_scores(
     # Softmax confidence
     exp_scores = {m: math.exp(s) for m, s in filtered.items()}
     total_exp = sum(exp_scores.values())
-    top_mood = max(exp_scores, key=exp_scores.get)
+    top_mood = max(exp_scores, key=lambda m: exp_scores[m])
     confidence = exp_scores[top_mood] / total_exp
 
     # Optional confidence bump if dominant
@@ -480,8 +486,15 @@ def combine_mood_scores(
 
     # Tie-breaking with preferred order
     preferred_order = [
-        "romantic", "chill", "uplifting", "party",
-        "happy", "nostalgic", "sad", "dark", "intense"
+        "romantic",
+        "chill",
+        "uplifting",
+        "party",
+        "happy",
+        "nostalgic",
+        "sad",
+        "dark",
+        "intense",
     ]
     top_score = max(filtered.values())
     top_moods = [m for m, s in filtered.items() if s == top_score]
@@ -493,6 +506,7 @@ def combine_mood_scores(
         confidence,
     )
     return best_mood, round(confidence, 2)
+
 
 def mood_scores_from_lastfm_tags(tags: list[str]) -> dict:
     """Calculate mood scores from a list of Last.fm tags."""

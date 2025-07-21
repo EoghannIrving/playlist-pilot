@@ -203,7 +203,8 @@ def normalize_track(raw: str | dict) -> Track:
 
     if isinstance(raw, dict):
         # Jellyfin track dict
-        tempo = extract_tag_value(raw.get("Tags"), "tempo")
+        tempo_tag = extract_tag_value(raw.get("Tags") or [], "tempo")
+        tempo_val = int(tempo_tag) if tempo_tag and tempo_tag.isdigit() else None
         lyrics = raw.get("lyrics")
         return Track(
             raw=raw.get("Name", ""),
@@ -213,7 +214,7 @@ def normalize_track(raw: str | dict) -> Track:
             year=extract_year(raw),
             Genres=raw.get("Genres", []),
             lyrics=lyrics,
-            tempo=tempo,
+            tempo=tempo_val,
             RunTimeTicks=raw.get("RunTimeTicks", 0),
         )
 
@@ -251,12 +252,13 @@ async def _fetch_bpm_data(artist: str, title: str) -> dict:
     """Return cached BPM data from GetSongBPM if configured."""
     if artist and title and settings.getsongbpm_api_key:
         try:
-            return await asyncio.to_thread(
+            result = await asyncio.to_thread(
                 get_cached_bpm,
                 artist=artist,
                 title=title,
                 api_key=settings.getsongbpm_api_key,
             )
+            return result or {}
         except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.warning("GetSongBPM API failed for %s - %s: %s", artist, title, exc)
     return {}
@@ -304,13 +306,12 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     """Enrich a track with Last.fm, BPM, mood and other metadata."""
     parsed = _ensure_track(parsed)
     lastfm = await _get_lastfm_data(parsed.title, parsed.artist)
-    parsed.tags = lastfm["tags"]  # used by mood scoring
     genre = _select_genre(parsed.Genres or [], lastfm["tags"])
     bpm_data = await _fetch_bpm_data(parsed.artist, parsed.title)
     bpm = bpm_data.get("bpm") or parsed.tempo
     duration_sec = _duration_from_ticks(parsed.RunTimeTicks, bpm_data)
     final_year, year_flag = _determine_year(parsed.year or "", bpm_data.get("year"))
-    decade = infer_decade(final_year)
+    decade = infer_decade(final_year or "")
     mood, confidence = await _classify_mood(parsed, lastfm["tags"], bpm_data)
 
     base_data = parsed.dict(exclude={"tempo", "jellyfin_play_count", "album"})
@@ -574,7 +575,7 @@ async def enrich_jellyfin_playlist(
 
 
 # Patch: Helper to get lyrics in enrich_track()
-def get_lyrics_for_enrich(track: dict) -> str:
+def get_lyrics_for_enrich(track: dict) -> str | None:
     """
     Unified helper for enrich_track() to retrieve lyrics from pre-fetched metadata.
 
@@ -631,12 +632,12 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
         title = suggestion["title"]
         artist = suggestion["artist"]
         jellyfin_data = await fetch_jellyfin_track_metadata(title, artist)
-        in_jellyfin = bool(jellyfin_data)
+        in_jellyfin = jellyfin_data is not None
         play_count = 0
         genres = []
         duration_ticks = 0
         youtube_url = None
-        if in_jellyfin:
+        if jellyfin_data:
             play_count = jellyfin_data.get("UserData", {}).get("PlayCount", 0)
             genres = jellyfin_data.get("Genres", [])
             duration_ticks = jellyfin_data.get("RunTimeTicks", 0)
