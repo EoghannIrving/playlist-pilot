@@ -1,6 +1,6 @@
 # Local Installation
 
-You can run Playlist Pilot without Docker by installing the Python requirements and running the app directly.
+You can run Playlist Pilot without Docker by installing the Python requirements and running the app directly. Playlist Pilot supports **Python 3.10 and above**.
 
 1. **Clone the repo** and install dependencies:
    ```bash
