@@ -177,7 +177,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 "Jellyfin Playlist",
             )
             formatted = [
-                f'{t["Name"]} - {t.get("AlbumArtist") or t.get("Artist", "")}'
+                f'{t["Name"]} - {(t.get("Artists") or [None])[0] or t.get("AlbumArtist", "")}'
                 for t in tracks
             ]
             return label, formatted
