@@ -1,0 +1,235 @@
+# Fixed Bugs
+
+This file lists bugs that have been resolved since the code audit.
+## 1. Incorrect average popularity calculation
+*Fixed.* `avg_popularity` now divides by the number of popularity values present and returns ``0`` when none exist.
+
+## 2. History directory not created
+*Fixed.* The user history directory is now created automatically before writing files.
+
+`save_user_history` writes to `USER_DATA_DIR`, but the directory was never ensured to exist. Attempting to save history on a clean install failed with `FileNotFoundError`.
+
+Code reference:
+```
+    history_file = user_history_path(user_id)
+    ...
+    with open(history_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+```
+【F:core/history.py†L45-L71】
+
+## 3. Crash when summarizing an empty track list
+*Fixed.* The function now falls back to ``0`` for ``avg_listeners`` and ``avg_popularity`` when no tracks are supplied.
+
+## 4. Artist names not normalized in Jellyfin metadata search
+*Fixed.* The search now normalizes the input `artist` value before comparison.
+
+Snippet:
+```
+    artists = [normalize_search_term(a) for a in artists_list]
+    if (
+        title_cleaned.lower() in name.lower()
+        and any(artist_cleaned.lower() in a.lower() for a in artists)
+    ):
+        ...
+```
+【F:services/jellyfin.py†L279-L285】
+
+## 5. `get_cached_playlists` ignores supplied user id
+*Fixed.* `fetch_audio_playlists` now accepts a `user_id` argument and `get_cached_playlists` forwards the provided value so the correct user's playlists are fetched.
+
+Code:
+```
+async def get_cached_playlists(user_id: str | None = None) -> dict:
+    user_id = user_id or settings.jellyfin_user_id
+    cache_key = f"playlists:{user_id}"
+    playlists_data = playlist_cache.get(cache_key)
+    if playlists_data is None:
+        playlists_data = await fetch_audio_playlists(user_id)
+        playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
+    return playlists_data
+```
+【F:utils/helpers.py†L15-L23】
+
+## 6. Title and artist swapped when exporting history playlists
+*Fixed.* The function now assigns the variables in the correct order before calling `resolve_jellyfin_path`.
+```
+    for track in entry.get("suggestions", []):
+        artist, title = parse_track_text(track["text"])
+        ...
+        path = await resolve_jellyfin_path(title, artist, jellyfin_url, jellyfin_api_key)
+```
+【F:core/m3u.py†L74-L88】
+
+## 7. `extract_year` can return the string "None"
+*Fixed.* The function now checks the ``ProductionYear`` value before converting to a string and only falls back to ``PremiereDate`` when it's missing.
+```
+    prod_year = track.get("ProductionYear")
+    if prod_year:
+        return str(prod_year)
+    premiere = track.get("PremiereDate", "")
+    return str(premiere)[:4] if premiere else ""
+```
+【F:core/playlist.py†L342-L350】
+
+## 8. `_determine_year` returns mixed types
+*Fixed.* This helper now consistently returns a string or ``None`` instead of mixing integer and string types.
+```
+    if bpm_year:
+        final_year = bpm_year
+    elif jellyfin_year:
+        final_year = jellyfin_year  # <-- string assigned
+```
+【F:core/playlist.py†L241-L255】
+
+## 9. Uniform Jellyfin play counts lead to zero popularity
+*Fixed.* `normalize_popularity` now returns `100` when all counts are equal and non-zero, preserving the Jellyfin contribution.
+```
+    jellyfin_raw = [t["jellyfin_play_count"] for t in tracks if isinstance(t.get("jellyfin_play_count"), int)]
+    min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
+    ... normalize_popularity(raw_jf, min_jf, max_jf)
+```
+【F:core/analysis.py†L223-L255】
+
+## 10. Windows paths not handled when naming imported playlists
+*Fixed.* `import_m3u_as_history_entry` now derives the label using
+`ntpath.basename(filepath)`, which recognizes both slash types.
+```
+    if imported_tracks:
+        playlist_name = f"Imported - {ntpath.basename(filepath)}"
+```
+【F:core/m3u.py†L209-L213】
+
+## 11. `import_m3u_as_history_entry` treats bool as track metadata
+*Fixed.* The importer now uses `fetch_jellyfin_track_metadata` to retrieve a track's metadata and `Id`.
+```
+    tasks = [
+        asyncio.create_task(
+            fetch_jellyfin_track_metadata(meta["title"], meta["artist"])
+        )
+        for _, meta in metas
+    ]
+    ...
+    if isinstance(metadata, dict) and "Id" in metadata:
+        enriched["jellyfin_id"] = metadata["Id"]
+```
+【F:core/m3u.py†L164-L202】
+
+## 12. `summarize_tracks` crashes on `None` popularity values
+*Fixed.* `avg_listeners` now filters out ``None`` values and falls back to ``0`` when no valid data is present.
+```
+    base_summary = {
+        ...
+        "avg_listeners": mean([t.get("popularity", 0) for t in tracks]),
+        "avg_popularity": sum(popularity_values) / len(tracks),
+    }
+```
+【F:core/analysis.py†L69-L81】
+
+## 13. Non-numeric tempo tags cause validation errors
+*Fixed.* `normalize_track` now converts tempo tags to integers only when the value is numeric, avoiding ``ValidationError`` for strings like ``"tempo:fast"``.
+```
+    tempo = extract_tag_value(raw.get("Tags"), "tempo")
+    return Track(
+        ...
+        tempo=tempo,
+        RunTimeTicks=raw.get("RunTimeTicks", 0),
+    )
+```
+【F:core/playlist.py†L181-L194】
+
+## 14. Percentage distribution may not sum to 100
+*Fixed.* Percentages now distribute leftover points so the total is exactly 100.
+```
+    counts = Counter(values)
+    raw = {k: v * 100 / total for k, v in counts.items()}
+    floored = {k: int(math.floor(p)) for k, p in raw.items()}
+    remainder = 100 - sum(floored.values())
+    if remainder:
+        fractions = sorted(
+            raw.items(), key=lambda item: item[1] - math.floor(item[1]), reverse=True
+        )
+        for i in range(remainder):
+            floored[fractions[i % len(fractions)][0]] += 1
+    return {k: f"{v}%" for k, v in floored.items()}
+```
+【F:core/analysis.py†L21-L40】
+
+## 15. Deleting history by label removes duplicates
+*Fixed.* Deletions now use the entry's unique ``id`` instead of the label, so only the selected item is removed.
+```
+    form = await request.form()
+    raw_id = form.get("entry_id")
+    entry_id = raw_id if isinstance(raw_id, str) else ""
+    delete_history_entry_by_id(settings.jellyfin_user_id, entry_id)
+```
+【F:api/routes.py†L308-L316】
+
+## 16. Extra hyphen breaks date extraction
+*Fixed.* `extract_date_from_label` now matches only the final timestamp segment.
+```
+    match = re.search(r"- (\d{4}-\d{2}-\d{2} \d{2}:\d{2})$", label)
+```
+【F:core/history.py†L21-L32】
+
+## 17. Jellyfin playlist comparison uses nonexistent artist field
+*Fixed.* `compare_playlists_form` now pulls the artist from the `Artists` list and falls back to `AlbumArtist`.
+```
+    formatted = [
+        f'{t["Name"]} - {(t.get("Artists") or [None])[0] or t.get("AlbumArtist", "")}'
+        for t in tracks
+    ]
+```
+【F:api/routes.py†L174-L183】
+
+## 18. YouTube lookup crashes with missing duration
+*Fixed.* `get_youtube_url_single` now falls back to ``0`` when duration is missing.
+```
+    filtered_entries = [
+        e
+        for e in entries
+        if settings.youtube_min_duration
+        <= (e.get("duration") or 0)
+        <= settings.youtube_max_duration
+    ]
+```
+【F:services/metube.py†L58-L64】
+
+## 19. Invalid JSON in settings form causes crash
+*Fixed.* JSON fields are parsed with `_safe_json` and invalid input triggers a 400 error.
+```
+    def _safe_json(value: str, default: dict, field_name: str) -> dict:
+        if not value:
+            return default
+        try:
+            return json.loads(value)
+        except JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON for {field_name}: {exc.msg}",
+            ) from exc
+
+    return cls(
+        ...
+        cache_ttls=_safe_json(cache_ttls, AppSettings().cache_ttls, "cache_ttls"),
+        getsongbpm_base_url=getsongbpm_base_url,
+        getsongbpm_headers=_safe_json(
+            getsongbpm_headers,
+            AppSettings().getsongbpm_headers,
+            "getsongbpm_headers",
+        ),
+```
+【F:api/forms.py†L40-L68】
+
+## 20. Unvalidated path components when generating proposed paths
+*Fixed.* Path components are sanitized with `_sanitize_component` before joining.
+```
+    artist_dir = _sanitize_component(artist, "Unknown Artist")
+    album_dir = _sanitize_component(album, "Unknown Album")
+    title_file = _sanitize_component(title, "Unknown Title")
+    return (
+        Path(settings.music_library_root) / artist_dir / album_dir / f"{title_file}.mp3"
+    ).as_posix()
+```
+【F:core/m3u.py†L37-L56】
+
