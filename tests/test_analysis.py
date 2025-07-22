@@ -4,6 +4,9 @@ from core.analysis import (
     combined_popularity_score,
     add_combined_popularity,
     summarize_tracks,
+    percent_distribution,
+    normalize_popularity,
+    normalized_entropy,
 )
 
 
@@ -68,3 +71,21 @@ def test_summarize_tracks_empty_list():
     summary = summarize_tracks([])
     assert summary["avg_listeners"] == 0
     assert summary["avg_popularity"] == 0
+
+
+def test_percent_distribution_rounding():
+    """Percentages should sum to 100 even with fractional parts."""
+    result = percent_distribution(["a", "a", "b"])
+    assert result == {"a": "67%", "b": "33%"}
+    assert sum(int(v.rstrip("%")) for v in result.values()) == 100
+
+
+def test_normalize_popularity_edge_cases():
+    """Handle uniform value ranges correctly."""
+    assert normalize_popularity(0, 0, 0) == 0
+    assert normalize_popularity(5, 5, 5) == 100
+
+
+def test_normalized_entropy_identical():
+    """Entropy of identical values should be zero."""
+    assert normalized_entropy(["rock", "rock", "rock"]) == 0.0
