@@ -7,6 +7,7 @@ from core.history import (
     extract_date_from_label,
     save_whole_user_history,
     load_user_history,
+    delete_history_entry_by_id,
 )
 
 
@@ -31,9 +32,7 @@ def test_delete_history_entry_by_id(monkeypatch, tmp_path):
     entry2 = {"id": "b", "label": "Mix", "suggestions": []}
     save_whole_user_history(user_id, [entry1, entry2])
 
-    history = load_user_history(user_id)
-    updated = [item for item in history if item.get("id") != "a"]
-    save_whole_user_history(user_id, updated)
+    delete_history_entry_by_id(user_id, "a")
 
     final = load_user_history(user_id)
     assert len(final) == 1
