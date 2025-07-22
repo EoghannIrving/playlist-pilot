@@ -9,11 +9,11 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
    - Finalize importing and exporting `.m3u` playlists. **Complete**
 2. **Lyrics Toggle**
    - Lyrics are currently processed automatically—add a configuration option to disable this when desired. **Complete**
-3. **Documentation & Testing**
-   - Expand documentation beyond the current README.
-   - Increase test coverage.
+3. **Documentation & Testing** 
+   - Expand documentation beyond the current README. **Complete**
+   - Increase test coverage. **Complete*
 4. **User Experience Improvements**
-   - Refine the web interface for editing settings, viewing history, and displaying clearer error messages and logs.
+   - Refine the web interface for editing settings, viewing history, and displaying clearer error messages and logs. **Complete**
 
 ## Phase 2 – Advanced Analysis & Playlist Management
 1. **Enhanced Analysis**
