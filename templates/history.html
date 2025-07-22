@@ -2,6 +2,7 @@
 {% block content %}
 
 <h2 class="text-3xl font-extrabold mb-4 text-blue-800 dark:text-blue-300">🎵 Playlist History</h2>
+<p class="text-sm text-gray-600 dark:text-gray-300 mb-4">View, export, or remove your previously generated playlists.</p>
 
 {% if deleted and deleted > 0 %}
   <div class="mb-4 p-2 rounded bg-green-100 text-green-800">
@@ -50,6 +51,7 @@
 <div class="flex justify-between items-center mb-2">
   <div class="flex items-center gap-2">
     <div class="text-2xl font-semibold text-gray-800 dark:text-gray-100 truncate">🎼 {{ entry.label }}
+      <span class="ml-1 text-sm text-gray-500">({{ entry.suggestions | length }})</span>
       {% if 'Imported' in entry.label %}
         <span class="ml-2 inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold rounded px-2">Imported</span>
       {% endif %}
@@ -121,7 +123,9 @@
       {% endfor %}
     </div>
 {% else %}
-  <p class="text-gray-500">No saved history yet. Try generating a playlist first.</p>
+  <div class="p-4 bg-yellow-100 text-yellow-800 rounded">
+    ⚠️ No saved history yet. Generate a playlist to see it here.
+  </div>
 {% endif %}
 
 <div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>

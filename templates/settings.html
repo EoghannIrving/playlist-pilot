@@ -10,10 +10,20 @@
     </button>
   </h1>
   <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Manage how Playlist Pilot connects to your services.</p>
+  <p class="text-xs text-gray-500 mb-4">Fields marked with <span class="text-red-600">*</span> are required.</p>
 
   {% if validation_message %}
-    <div class="bg-yellow-100 border-l-4 border-yellow-400 p-4 mb-4 text-yellow-800">
-      ⚠️ <strong>Configuration Warning:</strong> {{ validation_message }}
+    <div class="p-4 mb-4 border-l-4 rounded
+                {% if validation_error %}
+                  bg-yellow-100 border-yellow-400 text-yellow-800
+                {% else %}
+                  bg-green-100 border-green-400 text-green-800
+                {% endif %}">
+      {% if validation_error %}
+        ⚠️ <strong>Configuration Warning:</strong> {{ validation_message }}
+      {% else %}
+        ✅ {{ validation_message }}
+      {% endif %}
     </div>
   {% endif %}
   {% if jellyfin_users|length == 0 %}

@@ -332,8 +332,10 @@ async def get_settings(request: Request):
     try:
         settings.validate_settings()
         validation_message = None
+        validation_error = False
     except ValueError as ve:
         validation_message = str(ve)
+        validation_error = True
     users = await fetch_jellyfin_users()
     models = await fetch_openai_models(settings.openai_api_key)
 
@@ -344,6 +346,7 @@ async def get_settings(request: Request):
             "settings": settings.dict(),
             "models": models,
             "validation_message": validation_message,
+            "validation_error": validation_error,
             "jellyfin_users": users,
         },
     )
@@ -386,8 +389,10 @@ async def update_settings(
     try:
         settings.validate_settings()
         validation_message = "Settings saved successfully."
+        validation_error = False
     except ValueError as ve:
         validation_message = str(ve)
+        validation_error = True
 
     users = await fetch_jellyfin_users()
     return templates.TemplateResponse(
@@ -396,6 +401,7 @@ async def update_settings(
             "request": request,
             "settings": settings.dict(),
             "validation_message": validation_message,
+            "validation_error": validation_error,
             "models": models,
             "jellyfin_users": users,
         },
