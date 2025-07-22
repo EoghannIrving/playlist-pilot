@@ -1,5 +1,7 @@
 """Tests for additional helpers in ``core.playlist`` and ``utils.helpers``."""
 
+# pylint: disable=exec-used
+
 import ast
 from pathlib import Path
 import types
