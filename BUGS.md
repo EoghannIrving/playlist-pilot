@@ -4,14 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 26. Temporary M3U files written with unsupported newline argument
-`export_history_entry_as_m3u` calls `Path.write_text()` using a `newline` parameter, which does not exist and raises `TypeError` at runtime.
-```
-    m3u_path = Path(tempfile.gettempdir()) / f"suggest_{uuid.uuid4().hex}.m3u"
-    m3u_path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
-```
-【F:core/m3u.py†L124-L125】
-
 ## 44. M3U import aborts on a single metadata failure
 `import_m3u_as_history_entry` awaits ``asyncio.gather`` without ``return_exceptions`` so one failing request stops the entire import.
 ```

@@ -122,7 +122,7 @@ async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
             lines.append(f"# Suggested (not in library): {proposed_path}")
 
     m3u_path = Path(tempfile.gettempdir()) / f"suggest_{uuid.uuid4().hex}.m3u"
-    m3u_path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    m3u_path.write_text("\n".join(lines), encoding="utf-8")
 
     logger.info(
         "Wrote hybrid M3U playlist with %d entries: %s",
