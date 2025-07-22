@@ -4,20 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 44. M3U import aborts on a single metadata failure
-`import_m3u_as_history_entry` awaits ``asyncio.gather`` without ``return_exceptions`` so one failing request stops the entire import.
-```
-metas = [(path, infer_track_metadata_from_path(path)) for path in lines]
-tasks = [
-    asyncio.create_task(
-        fetch_jellyfin_track_metadata(meta["title"], meta["artist"])
-    )
-    for _, meta in metas
-]
-for (path, meta), metadata in zip(metas, await asyncio.gather(*tasks)):
-```
-【F:core/m3u.py†L190-L199】
-
 ## 42. ``normalize_popularity_log`` crashes with zero bounds
 The function calls ``math.log10`` on ``min_val`` and ``max_val`` without checking they are positive.
 ```

@@ -270,3 +270,22 @@ Code:
 ```
 【F:core/m3u.py†L124-L125】
 
+## 24. M3U import aborts on a single metadata failure
+*Fixed.* `import_m3u_as_history_entry` now gathers metadata with `return_exceptions=True` and skips tracks whose fetch fails instead of aborting the entire import.
+
+Code:
+```python
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for (path, meta), metadata in zip(metas, results):
+        title = meta["title"]
+        artist = meta["artist"]
+        if isinstance(metadata, Exception):
+            logger.warning(
+                "Metadata fetch failed for %s - %s: %s", title, artist, metadata
+            )
+            metadata = None
+        if metadata:
+            enriched_obj = await enrich_track({"title": title, "artist": artist})
+```
+【F:core/m3u.py†L196-L215】
+
