@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<main class="container mx-auto p-4">
+<div class="mx-auto p-4">
 
   <h1 class="text-2xl font-bold flex justify-between items-center mb-1">
     ⚙️ Settings
@@ -136,80 +136,104 @@
     <!-- ⚙️ Advanced Settings Section -->
     <details class="mt-4">
       <summary class="text-xl font-semibold text-gray-800 dark:text-gray-100 cursor-pointer">⚙️ Advanced Settings</summary>
-      <div class="mt-4 space-y-4">
-        <div class="space-y-4">
-          <label for="GLOBAL_MIN_LFM" class="block font-semibold">Global Min Last.fm Listeners</label>
-          <input type="number" id="GLOBAL_MIN_LFM" name="global_min_lfm" value="{{ settings.global_min_lfm }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Minimum listeners a track must have on Last.fm.</small>
+      <div class="mt-4 space-y-6">
+        <h3 class="text-lg font-semibold">Last.fm</h3>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="GLOBAL_MIN_LFM" class="block font-semibold">Global Min Last.fm Listeners</label>
+            <input type="number" id="GLOBAL_MIN_LFM" name="global_min_lfm" value="{{ settings.global_min_lfm }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Minimum listeners a track must have on Last.fm.</small>
+          </div>
+          <div class="space-y-2">
+            <label for="GLOBAL_MAX_LFM" class="block font-semibold">Global Max Last.fm Listeners</label>
+            <input type="number" id="GLOBAL_MAX_LFM" name="global_max_lfm" value="{{ settings.global_max_lfm }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Maximum listeners threshold for filtering results.</small>
+          </div>
         </div>
-        <div class="space-y-4">
-          <label for="GLOBAL_MAX_LFM" class="block font-semibold">Global Max Last.fm Listeners</label>
-          <input type="number" id="GLOBAL_MAX_LFM" name="global_max_lfm" value="{{ settings.global_max_lfm }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Maximum listeners threshold for filtering results.</small>
-        </div>
-        <div class="space-y-4">
+
+        <h3 class="text-lg font-semibold">Caching</h3>
+        <div class="space-y-2">
           <label for="CACHE_TTLS" class="block font-semibold">Cache TTLs (JSON)</label>
           <textarea id="CACHE_TTLS" name="cache_ttls" rows="4" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">{{ settings.cache_ttls | tojson }}</textarea>
           <small class="text-gray-300">Customize durations for cached API responses.</small>
         </div>
-        <div class="space-y-4">
-          <label for="GETSONGBPM_BASE_URL" class="block font-semibold">GetSongBPM Base URL</label>
-          <input type="text" id="GETSONGBPM_BASE_URL" name="getsongbpm_base_url" value="{{ settings.getsongbpm_base_url }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Override if using a custom instance.</small>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="GETSONGBPM_BASE_URL" class="block font-semibold">GetSongBPM Base URL</label>
+            <input type="text" id="GETSONGBPM_BASE_URL" name="getsongbpm_base_url" value="{{ settings.getsongbpm_base_url }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Override if using a custom instance.</small>
+          </div>
+          <div class="space-y-2">
+            <label for="GETSONGBPM_HEADERS" class="block font-semibold">GetSongBPM Headers (JSON)</label>
+            <textarea id="GETSONGBPM_HEADERS" name="getsongbpm_headers" rows="4" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">{{ settings.getsongbpm_headers | tojson }}</textarea>
+            <small class="text-gray-300">JSON headers sent with GetSongBPM requests.</small>
+          </div>
         </div>
-        <div class="space-y-4">
-          <label for="GETSONGBPM_HEADERS" class="block font-semibold">GetSongBPM Headers (JSON)</label>
-          <textarea id="GETSONGBPM_HEADERS" name="getsongbpm_headers" rows="4" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">{{ settings.getsongbpm_headers | tojson }}</textarea>
-          <small class="text-gray-300">JSON headers sent with GetSongBPM requests.</small>
+
+        <h3 class="text-lg font-semibold">Timeouts</h3>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="HTTP_TIMEOUT_SHORT" class="block font-semibold">HTTP Timeout Short (s)</label>
+            <input type="number" id="HTTP_TIMEOUT_SHORT" name="http_timeout_short" value="{{ settings.http_timeout_short }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Timeout for quick HTTP requests.</small>
+          </div>
+          <div class="space-y-2">
+            <label for="HTTP_TIMEOUT_LONG" class="block font-semibold">HTTP Timeout Long (s)</label>
+            <input type="number" id="HTTP_TIMEOUT_LONG" name="http_timeout_long" value="{{ settings.http_timeout_long }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Timeout for long-running HTTP requests.</small>
+          </div>
         </div>
-        <div class="space-y-4">
-          <label for="HTTP_TIMEOUT_SHORT" class="block font-semibold">HTTP Timeout Short (s)</label>
-          <input type="number" id="HTTP_TIMEOUT_SHORT" name="http_timeout_short" value="{{ settings.http_timeout_short }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Timeout for quick HTTP requests.</small>
+
+        <h3 class="text-lg font-semibold">YouTube</h3>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="YOUTUBE_MIN_DURATION" class="block font-semibold">YouTube Min Duration (s)</label>
+            <input type="number" id="YOUTUBE_MIN_DURATION" name="youtube_min_duration" value="{{ settings.youtube_min_duration }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Ignore videos shorter than this.</small>
+          </div>
+          <div class="space-y-2">
+            <label for="YOUTUBE_MAX_DURATION" class="block font-semibold">YouTube Max Duration (s)</label>
+            <input type="number" id="YOUTUBE_MAX_DURATION" name="youtube_max_duration" value="{{ settings.youtube_max_duration }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Ignore videos longer than this.</small>
+          </div>
         </div>
-        <div class="space-y-4">
-          <label for="HTTP_TIMEOUT_LONG" class="block font-semibold">HTTP Timeout Long (s)</label>
-          <input type="number" id="HTTP_TIMEOUT_LONG" name="http_timeout_long" value="{{ settings.http_timeout_long }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Timeout for long-running HTTP requests.</small>
+
+        <h3 class="text-lg font-semibold">Library</h3>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="LIBRARY_SCAN_LIMIT" class="block font-semibold">Library Scan Limit</label>
+            <input type="number" id="LIBRARY_SCAN_LIMIT" name="library_scan_limit" value="{{ settings.library_scan_limit }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Number of tracks processed per scan.</small>
+          </div>
+          <div class="space-y-2">
+            <label for="MUSIC_LIBRARY_ROOT" class="block font-semibold">Music Library Root</label>
+            <input type="text" id="MUSIC_LIBRARY_ROOT" name="music_library_root" value="{{ settings.music_library_root }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Path to your Jellyfin music library.</small>
+          </div>
         </div>
-        <div class="space-y-4">
-          <label for="YOUTUBE_MIN_DURATION" class="block font-semibold">YouTube Min Duration (s)</label>
-          <input type="number" id="YOUTUBE_MIN_DURATION" name="youtube_min_duration" value="{{ settings.youtube_min_duration }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Ignore videos shorter than this.</small>
-        </div>
-        <div class="space-y-4">
-          <label for="YOUTUBE_MAX_DURATION" class="block font-semibold">YouTube Max Duration (s)</label>
-          <input type="number" id="YOUTUBE_MAX_DURATION" name="youtube_max_duration" value="{{ settings.youtube_max_duration }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Ignore videos longer than this.</small>
-        </div>
-        <div class="space-y-4">
-          <label for="LIBRARY_SCAN_LIMIT" class="block font-semibold">Library Scan Limit</label>
-          <input type="number" id="LIBRARY_SCAN_LIMIT" name="library_scan_limit" value="{{ settings.library_scan_limit }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Number of tracks processed per scan.</small>
-        </div>
-        <div class="space-y-4">
-          <label for="MUSIC_LIBRARY_ROOT" class="block font-semibold">Music Library Root</label>
-          <input type="text" id="MUSIC_LIBRARY_ROOT" name="music_library_root" value="{{ settings.music_library_root }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Path to your Jellyfin music library.</small>
-        </div>
+
         <div class="flex items-center space-x-2">
           <input type="checkbox" id="LYRICS_ENABLED" name="lyrics_enabled" value="true" class="form-checkbox h-4 w-4 text-blue-600" {% if settings.lyrics_enabled %}checked{% endif %}>
           <label for="LYRICS_ENABLED" class="font-semibold">Enable Lyrics Processing</label>
         </div>
-        <div class="space-y-4">
-          <label for="LYRICS_WEIGHT" class="block font-semibold">Lyrics Weight</label>
-          <input type="number" step="0.1" id="LYRICS_WEIGHT" name="lyrics_weight" value="{{ settings.lyrics_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Relative weight given to lyric matches.</small>
-        </div>
-        <div class="space-y-4">
-          <label for="BPM_WEIGHT" class="block font-semibold">BPM Weight</label>
-          <input type="number" step="0.1" id="BPM_WEIGHT" name="bpm_weight" value="{{ settings.bpm_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Relative weight given to BPM similarity.</small>
-        </div>
-        <div class="space-y-4">
-          <label for="TAGS_WEIGHT" class="block font-semibold">Tags Weight</label>
-          <input type="number" step="0.1" id="TAGS_WEIGHT" name="tags_weight" value="{{ settings.tags_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <small class="text-gray-300">Relative weight given to tag matches.</small>
+
+        <h3 class="text-lg font-semibold">Weights</h3>
+        <div class="grid gap-4 md:grid-cols-3">
+          <div class="space-y-2">
+            <label for="LYRICS_WEIGHT" class="block font-semibold">Lyrics Weight</label>
+            <input type="number" step="0.1" id="LYRICS_WEIGHT" name="lyrics_weight" value="{{ settings.lyrics_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Relative weight given to lyric matches.</small>
+          </div>
+          <div class="space-y-2">
+            <label for="BPM_WEIGHT" class="block font-semibold">BPM Weight</label>
+            <input type="number" step="0.1" id="BPM_WEIGHT" name="bpm_weight" value="{{ settings.bpm_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Relative weight given to BPM similarity.</small>
+          </div>
+          <div class="space-y-2">
+            <label for="TAGS_WEIGHT" class="block font-semibold">Tags Weight</label>
+            <input type="number" step="0.1" id="TAGS_WEIGHT" name="tags_weight" value="{{ settings.tags_weight }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Relative weight given to tag matches.</small>
+          </div>
         </div>
       </div>
     </details>
@@ -304,5 +328,5 @@
     }
   </script>
 
-</main>
+</div>
 {% endblock %}
