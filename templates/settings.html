@@ -13,7 +13,7 @@
   <p class="text-xs text-gray-500 mb-4">Fields marked with <span class="text-red-600">*</span> are required.</p>
 
   {% if validation_message %}
-    <div class="p-4 mb-4 border-l-4 rounded
+    <div class="p-4 mb-6 border-l-4 rounded shadow text-lg font-semibold
                 {% if validation_error %}
                   bg-yellow-100 border-yellow-400 text-yellow-800
                 {% else %}
@@ -220,6 +220,11 @@
       <a href="/" class="text-sm text-blue-600 hover:underline">Cancel</a>
     </div>
   </form>
+
+  {% if log_excerpt %}
+    <h2 class="text-xl font-semibold mt-8">Recent Logs</h2>
+    <pre class="bg-gray-800 text-green-300 p-4 rounded overflow-auto text-xs max-h-60 whitespace-pre-wrap">{{ log_excerpt | join('\n') }}</pre>
+  {% endif %}
 
   <script>
     window.updateStatus = function(id, result, message) {

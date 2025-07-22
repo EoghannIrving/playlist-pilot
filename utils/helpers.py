@@ -9,7 +9,9 @@ from fastapi import Request
 from config import settings
 from core.history import load_user_history, extract_date_from_label
 from core.playlist import fetch_audio_playlists
+from core.constants import LOG_FILE
 from utils.cache_manager import playlist_cache, CACHE_TTLS
+
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -53,3 +55,17 @@ async def parse_suggest_request(request: Request) -> tuple[list[dict], str, str]
         tracks = []
 
     return tracks, playlist_name, text_summary
+
+
+def get_log_excerpt(lines: int = 20) -> list[str]:
+    """Return the last ``lines`` lines from the application log file."""
+    log_path = LOG_FILE
+    if not log_path.exists():
+        return []
+    try:
+        with open(log_path, "r", encoding="utf-8") as file:
+            data = file.readlines()[-lines:]
+        return [ln.rstrip() for ln in data]
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.error("Failed to read log file: %s", exc)
+        return [f"Error reading log file: {exc}"]

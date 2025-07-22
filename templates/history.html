@@ -5,7 +5,7 @@
 <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">View, export, or remove your previously generated playlists.</p>
 
 {% if deleted and deleted > 0 %}
-  <div class="mb-4 p-2 rounded bg-green-100 text-green-800">
+  <div class="mb-6 p-4 rounded bg-green-100 text-green-800 border-l-4 border-green-400 shadow text-lg font-semibold">
     ✅ {{ deleted }} playlist{{ 's' if deleted > 1 else '' }} deleted successfully.
   </div>
 {% endif %}
@@ -129,6 +129,11 @@
 {% endif %}
 
 <div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>
+
+{% if log_excerpt %}
+  <h2 class="text-xl font-semibold mt-8">Recent Logs</h2>
+  <pre class="bg-gray-800 text-green-300 p-4 rounded overflow-auto text-xs max-h-60 whitespace-pre-wrap">{{ log_excerpt | join('\n') }}</pre>
+{% endif %}
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {

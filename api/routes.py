@@ -81,6 +81,7 @@ from utils.helpers import (
     get_cached_playlists,
     load_sorted_history,
     parse_suggest_request,
+    get_log_excerpt,
 )
 from api.forms import SettingsForm
 
@@ -298,9 +299,16 @@ async def history_page(
     elif sort == "za":
         history.sort(key=lambda e: e["label"].lower(), reverse=True)
 
+    log_excerpt = get_log_excerpt()
     return templates.TemplateResponse(
         "history.html",
-        {"request": request, "history": history, "sort": sort, "deleted": deleted},
+        {
+            "request": request,
+            "history": history,
+            "sort": sort,
+            "deleted": deleted,
+            "log_excerpt": log_excerpt,
+        },
     )
 
 
@@ -338,6 +346,7 @@ async def get_settings(request: Request):
         validation_error = True
     users = await fetch_jellyfin_users()
     models = await fetch_openai_models(settings.openai_api_key)
+    log_excerpt = get_log_excerpt()
 
     return templates.TemplateResponse(
         "settings.html",
@@ -348,6 +357,7 @@ async def get_settings(request: Request):
             "validation_message": validation_message,
             "validation_error": validation_error,
             "jellyfin_users": users,
+            "log_excerpt": log_excerpt,
         },
     )
 
@@ -395,6 +405,7 @@ async def update_settings(
         validation_error = True
 
     users = await fetch_jellyfin_users()
+    log_excerpt = get_log_excerpt()
     return templates.TemplateResponse(
         "settings.html",
         {
@@ -404,6 +415,7 @@ async def update_settings(
             "validation_error": validation_error,
             "models": models,
             "jellyfin_users": users,
+            "log_excerpt": log_excerpt,
         },
     )
 
