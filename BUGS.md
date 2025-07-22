@@ -151,3 +151,107 @@ def normalize_genre(raw: str) -> str:
     return GENRE_SYNONYMS.get(cleaned, cleaned)
 ```
 【F:core/playlist.py†L413-L416】
+## 36. OpenAI clients ignore updated API keys
+`sync_openai_client` and `async_openai_client` are created at import time using the initial `openai_api_key`. Updating the key through `/settings` leaves these clients unchanged.
+```
+sync_openai_client = OpenAI(api_key=settings.openai_api_key)
+async_openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+```
+【F:services/gpt.py†L20-L21】
+
+## 37. Logging fails when combined popularity is ``None``
+`enrich_and_score_suggestions` formats the score with ``%.1f`` even when `combined_popularity` is ``None`` which raises ``TypeError``.
+```
+for track in suggestions:
+    logger.info(
+        "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
+        track["title"],
+        track["artist"],
+        track["combined_popularity"],
+        raw_lfm,
+        raw_jf,
+    )
+```
+【F:core/playlist.py†L686-L697】
+
+## 38. Template directory bound to current working directory
+`Jinja2Templates` uses the relative path ``"templates"`` so running the app from another directory cannot locate the HTML files.
+```
+templates = Jinja2Templates(directory="templates")
+```
+【F:core/templates.py†L3-L5】
+
+## 39. Library scan records tracks with missing metadata
+`get_full_audio_library` appends song strings even when ``Name`` or ``AlbumArtist`` are ``None`` resulting in entries like ``"None - None"``.
+```
+for item in chunk:
+    if isinstance(item, dict):
+        song = item.get("Name")
+        artist = item.get("AlbumArtist")
+        items.append(f"{song} - {artist}")
+```
+【F:core/playlist.py†L150-L155】
+
+## 40. Invalid settings persisted before validation
+`update_settings` writes the new configuration to disk prior to calling `validate_settings`, so bad input still overwrites ``settings.json``.
+```
+save_settings(settings)
+try:
+    settings.validate_settings()
+    validation_message = "Settings saved successfully."
+```
+【F:api/routes.py†L368-L402】
+
+## 41. Mood weight constants stay stale after updates
+`LYRICS_WEIGHT`, `BPM_WEIGHT`, and `TAGS_WEIGHT` are set once from ``settings`` and never refreshed when the values change.
+```
+LYRICS_WEIGHT = settings.lyrics_weight
+BPM_WEIGHT = settings.bpm_weight
+TAGS_WEIGHT = settings.tags_weight
+```
+【F:core/analysis.py†L419-L421】
+
+## 42. ``normalize_popularity_log`` crashes with zero bounds
+The function calls ``math.log10`` on ``min_val`` and ``max_val`` without checking they are positive.
+```
+log_min = math.log10(min_val)
+log_max = math.log10(max_val)
+log_val = math.log10(value)
+```
+【F:core/analysis.py†L248-L250】
+
+## 43. Outlier detection flags every genre when dominant genre is unknown
+`detect_outliers` intends to skip genre mismatches when the playlist's dominant genre is ``'Unknown'`` but no such check exists.
+```
+if (
+    isinstance(genre, str)
+    and isinstance(dominant_genre, str)
+    and genre.lower() != dominant_genre.lower()
+):
+    reasons.append("genre")
+```
+【F:core/analysis.py†L142-L149】
+
+## 44. M3U import aborts on a single metadata failure
+`import_m3u_as_history_entry` awaits ``asyncio.gather`` without ``return_exceptions`` so one failing request stops the entire import.
+```
+metas = [(path, infer_track_metadata_from_path(path)) for path in lines]
+tasks = [
+    asyncio.create_task(
+        fetch_jellyfin_track_metadata(meta["title"], meta["artist"])
+    )
+    for _, meta in metas
+]
+for (path, meta), metadata in zip(metas, await asyncio.gather(*tasks)):
+```
+【F:core/m3u.py†L190-L199】
+
+## 45. Last.fm tag failures repeatedly hit the API
+`get_lastfm_tags` returns an empty list on error but never caches the failure, causing repeated requests during outages.
+```
+except Exception as exc:  # pylint: disable=broad-exception-caught
+    record_failure("lastfm")
+    logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
+    return []
+```
+【F:services/lastfm.py†L60-L68】
