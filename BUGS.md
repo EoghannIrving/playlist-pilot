@@ -4,15 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 42. ``normalize_popularity_log`` crashes with zero bounds
-The function calls ``math.log10`` on ``min_val`` and ``max_val`` without checking they are positive.
-```
-log_min = math.log10(min_val)
-log_max = math.log10(max_val)
-log_val = math.log10(value)
-```
-【F:core/analysis.py†L248-L250】
-
 ## 37. Logging fails when combined popularity is ``None``
 `enrich_and_score_suggestions` formats the score with ``%.1f`` even when `combined_popularity` is ``None`` which raises ``TypeError``.
 ```
