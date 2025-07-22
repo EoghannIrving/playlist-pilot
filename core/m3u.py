@@ -179,6 +179,7 @@ def infer_track_metadata_from_path(path: str) -> dict:
 
 async def import_m3u_as_history_entry(filepath: str):
     """Import tracks from an M3U file into user history."""
+    # pylint: disable=too-many-locals
     logger.info("📂 Importing M3U playlist: %s", filepath)
     user_id = settings.jellyfin_user_id
     imported_tracks = []

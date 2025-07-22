@@ -168,7 +168,7 @@ def test_import_skips_failed_metadata(monkeypatch, tmp_path):
 
     services_stub = types.ModuleType("services.jellyfin")
 
-    async def fetch(title, artist):
+    async def fetch(title, _artist):
         if title == "First":
             raise RuntimeError("fail")
         return {"Id": "ok"}
@@ -185,7 +185,6 @@ def test_import_skips_failed_metadata(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "core.playlist", playlist_stub)
     sys.modules.pop("core.m3u", None)
     sys.modules.pop("core.history", None)
-    import importlib
 
     m3u = importlib.import_module("core.m3u")
     history = importlib.import_module("core.history")
