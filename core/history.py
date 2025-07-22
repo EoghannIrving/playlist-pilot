@@ -3,6 +3,7 @@ history.py
 
 Manages user playlist suggestion history (stored per user as JSON).
 Each entry contains:
+- id: A unique identifier for the entry
 - label: A user-friendly string for identification
 - suggestions: A list of track suggestion dictionaries
 """
@@ -10,6 +11,7 @@ Each entry contains:
 import os
 import json
 import logging
+import uuid
 from datetime import datetime
 import re
 from pathlib import Path
@@ -59,7 +61,7 @@ def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None
     else:
         data = []
 
-    data.append({"label": label, "suggestions": suggestions})
+    data.append({"id": uuid.uuid4().hex, "label": label, "suggestions": suggestions})
 
     try:
         with open(history_file, "w", encoding="utf-8") as f:
@@ -84,11 +86,21 @@ def load_user_history(user_id: str) -> list[dict]:
     try:
         with open(history_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-            logger.debug("✅ Loaded %d history entries", len(data))
-            return data
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("⚠️ Could not load history: %s", exc)
         return []
+
+    updated = False
+    for entry in data:
+        if "id" not in entry:
+            entry["id"] = uuid.uuid4().hex
+            updated = True
+
+    if updated:
+        save_whole_user_history(user_id, data)
+
+    logger.debug("✅ Loaded %d history entries", len(data))
+    return data
 
 
 def save_whole_user_history(user_id: str, history: list[dict]) -> None:
