@@ -26,7 +26,9 @@ def _load_helpers_func(name):
         "load_user_history": load_user_history,
         "extract_date_from_label": extract_date_from_label,
     }
-    exec(compile(module, filename=f"<helpers.{name}>", mode="exec"), ns)
+    exec(
+        compile(module, filename=f"<helpers.{name}>", mode="exec"), ns
+    )  # pylint: disable=exec-used
     return ns[name]
 
 
@@ -48,7 +50,9 @@ def _load_func(name):
     ]
     module = ast.Module(body=assigns + [func], type_ignores=[])
     ns = {}
-    exec(compile(module, filename=f"<{name}>", mode="exec"), ns)
+    exec(
+        compile(module, filename=f"<{name}>", mode="exec"), ns
+    )  # pylint: disable=exec-used
     return ns[name]
 
 
@@ -60,23 +64,27 @@ extract_tag_value = _load_func("extract_tag_value")
 
 
 def test_parse_suggestion_line_valid():
+    """`parse_suggestion_line` returns the text and reason for valid lines."""
     text, reason = parse_suggestion_line("Song - Artist - Album - 2023 - Good")
     assert text == "Song - Artist - Album - 2023"
     assert reason == "Good"
 
 
 def test_parse_suggestion_line_invalid():
+    """Invalid lines should raise ``ValueError``."""
     with pytest.raises(ValueError):
         parse_suggestion_line("Bad Line")
 
 
 def test_infer_decade_and_normalize_genre():
+    """`infer_decade` and `normalize_genre` basic behaviour."""
     assert infer_decade("1994") == "1990s"
     assert infer_decade("oops") == "Unknown"
     assert normalize_genre("Alternative Rock") == "alternative"
 
 
 def test_estimate_tempo_basic():
+    """Ensure tempo estimation falls back to expected defaults."""
     assert estimate_tempo(250, "electronic") == 140
     assert estimate_tempo(400, "rock") == 120
     assert estimate_tempo(200, "hip hop") == 90
@@ -84,12 +92,14 @@ def test_estimate_tempo_basic():
 
 
 def test_extract_tag_value():
+    """`extract_tag_value` should pull the value for a named tag."""
     tags = ["tempo:120", "mood:happy"]
     assert extract_tag_value(tags, "tempo") == "120"
     assert extract_tag_value(tags, "missing") is None
 
 
 def test_load_sorted_history(monkeypatch, tmp_path):
+    """``load_sorted_history`` should return entries sorted by date desc."""
     monkeypatch.setattr(constants, "USER_DATA_DIR", tmp_path)
     entries = [
         {"id": "1", "label": "Mix - 2023-01-01 10:00", "suggestions": []},
