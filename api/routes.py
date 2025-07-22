@@ -46,7 +46,7 @@ from config import (
 from core.analysis import summarize_tracks, add_combined_popularity
 from core.history import (
     extract_date_from_label,
-    save_whole_user_history,
+    delete_history_entry_by_id,
 )
 from core.m3u import (
     export_history_entry_as_m3u,
@@ -311,9 +311,7 @@ async def delete_history(request: Request):
     """
     form = await request.form()
     entry_id = form.get("entry_id")
-    history = load_sorted_history(settings.jellyfin_user_id)
-    updated_history = [item for item in history if str(item.get("id")) != str(entry_id)]
-    save_whole_user_history(settings.jellyfin_user_id, updated_history)
+    delete_history_entry_by_id(settings.jellyfin_user_id, entry_id)
     return RedirectResponse(url="/history", status_code=303)
 
 

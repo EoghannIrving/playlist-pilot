@@ -118,3 +118,25 @@ def save_whole_user_history(user_id: str, history: list[dict]) -> None:
         json.dump(history, f, indent=2)
     logger.debug("History saved to %s", history_file)
     logger.debug("Saved %d history entries", len(history))
+
+
+def delete_history_entry_by_id(user_id: str, entry_id: str) -> bool:
+    """Remove a single history entry matching ``entry_id``.
+
+    Args:
+        user_id: Jellyfin user ID
+        entry_id: The unique identifier of the entry to delete
+
+    Returns:
+        bool: ``True`` if an entry was removed, ``False`` otherwise.
+    """
+
+    history = load_user_history(user_id)
+    before = len(history)
+    updated_history = [h for h in history if str(h.get("id")) != str(entry_id)]
+
+    if len(updated_history) == before:
+        return False
+
+    save_whole_user_history(user_id, updated_history)
+    return True
