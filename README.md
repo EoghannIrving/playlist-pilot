@@ -67,6 +67,8 @@ uvicorn main:app --reload --port 8010
 ```
 
 See [Docs/local_installation.md](Docs/local_installation.md) for a detailed walkthrough.
+For a tour of the main screens and how to generate playlists see
+[Docs/usage_guide.md](Docs/usage_guide.md).
 
 ## Configuration
 
