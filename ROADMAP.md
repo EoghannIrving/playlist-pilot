@@ -2,7 +2,7 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
 
 ---
 
-## Phase 1 – Stabilization and Finishing Core Features
+## Phase 1 – Stabilization and Finishing Core Features ✅ Completed
 1. **Polish existing functionality**
    - Ensure playlist suggestions from similar tracks work reliably (no mood/genre generation). **Complete**
    - Keep Jellyfin and Last.fm integrations resilient to failures. - **Complete**
@@ -11,7 +11,7 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
    - Lyrics are currently processed automatically—add a configuration option to disable this when desired. **Complete**
 3. **Documentation & Testing** 
    - Expand documentation beyond the current README. **Complete**
-   - Increase test coverage. **Complete*
+   - Increase test coverage. **Complete**
 4. **User Experience Improvements**
    - Refine the web interface for editing settings, viewing history, and displaying clearer error messages and logs. **Complete**
 
