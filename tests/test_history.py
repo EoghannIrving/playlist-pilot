@@ -2,7 +2,12 @@
 
 from datetime import datetime
 
-from core.history import extract_date_from_label
+from core import constants
+from core.history import (
+    extract_date_from_label,
+    save_whole_user_history,
+    load_user_history,
+)
 
 
 def test_extract_date_from_label_extra_hyphen():
@@ -19,9 +24,6 @@ def test_extract_date_from_label_invalid():
 
 def test_delete_history_entry_by_id(monkeypatch, tmp_path):
     """Deleting by ID should remove only the matching entry."""
-    from core import constants
-    from core.history import save_whole_user_history, load_user_history
-
     monkeypatch.setattr(constants, "USER_DATA_DIR", tmp_path)
     user_id = "user"
 
