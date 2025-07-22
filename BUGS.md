@@ -4,16 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 40. Invalid settings persisted before validation
-`update_settings` writes the new configuration to disk prior to calling `validate_settings`, so bad input still overwrites ``settings.json``.
-```
-save_settings(settings)
-try:
-    settings.validate_settings()
-    validation_message = "Settings saved successfully."
-```
-【F:api/routes.py†L368-L402】
-
 ## 26. Temporary M3U files written with unsupported newline argument
 `export_history_entry_as_m3u` calls `Path.write_text()` using a `newline` parameter, which does not exist and raises `TypeError` at runtime.
 ```

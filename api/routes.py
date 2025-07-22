@@ -394,10 +394,9 @@ async def update_settings(
     settings.bpm_weight = form_data.bpm_weight
     settings.tags_weight = form_data.tags_weight
 
-    save_settings(settings)
-
     try:
         settings.validate_settings()
+        save_settings(settings)
         validation_message = "Settings saved successfully."
         validation_error = False
     except ValueError as ve:
