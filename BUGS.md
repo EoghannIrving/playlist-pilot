@@ -157,13 +157,14 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/analysis.py†L21-L40】
 
 ## 15. Deleting history by label removes duplicates
-*Open.* The delete route filters history entries by label string. If multiple entries share the same label, they will all be deleted.
+*Fixed.* Deletions now use the entry's unique ``id`` instead of the label, so only the selected item is removed.
 ```
-    label = form.get("playlist_name")
-    history = load_sorted_history(settings.jellyfin_user_id)
-    updated_history = [item for item in history if item.get("label") != label]
+    form = await request.form()
+    raw_id = form.get("entry_id")
+    entry_id = raw_id if isinstance(raw_id, str) else ""
+    delete_history_entry_by_id(settings.jellyfin_user_id, entry_id)
 ```
-【F:api/routes.py†L281-L291】
+【F:api/routes.py†L308-L316】
 
 ## 16. Extra hyphen breaks date extraction
 *Fixed.* `extract_date_from_label` now matches only the final timestamp segment.
