@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.routes import router as main_router
 from config import settings
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, LOG_FILE
 
 
 # ─────────────────────────────────────────────────────────────
@@ -34,9 +34,8 @@ logger = logging.getLogger("playlist-pilot")
 logger.setLevel(logging.DEBUG)
 
 if not logger.handlers:
-    handler = RotatingFileHandler(
-        "logs/playlist_pilot.log", maxBytes=1_000_000, backupCount=3
-    )
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(LOG_FILE, maxBytes=1_000_000, backupCount=3)
     handler.setLevel(logging.DEBUG)  # Capture DEBUG logs!
     formatter = logging.Formatter(
         "%(asctime)s | %(levelname)8s | %(name)s | %(message)s"

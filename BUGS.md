@@ -4,16 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 29. Logging setup assumes existing `logs/` directory
-`RotatingFileHandler` is created for `logs/playlist_pilot.log` but the directory is never created, causing startup failures on a fresh install.
-```
-if not logger.handlers:
-    handler = RotatingFileHandler(
-        "logs/playlist_pilot.log", maxBytes=1_000_000, backupCount=3
-    )
-```
-【F:main.py†L36-L38】
-
 ## 40. Invalid settings persisted before validation
 `update_settings` writes the new configuration to disk prior to calling `validate_settings`, so bad input still overwrites ``settings.json``.
 ```

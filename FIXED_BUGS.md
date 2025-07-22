@@ -233,3 +233,14 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 ```
 【F:core/m3u.py†L37-L56】
 
+## 21. Logging setup assumes existing `logs/` directory
+*Fixed.* The application now creates the log folder before adding the file handler.
+```
+if not logger.handlers:
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(
+        LOG_FILE, maxBytes=1_000_000, backupCount=3
+    )
+```
+【F:main.py†L36-L41】
+
