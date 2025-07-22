@@ -310,9 +310,9 @@ async def delete_history(request: Request):
     Delete a playlist entry from the user's history.
     """
     form = await request.form()
-    label = form.get("playlist_name")
+    entry_id = form.get("entry_id")
     history = load_sorted_history(settings.jellyfin_user_id)
-    updated_history = [item for item in history if item.get("label") != label]
+    updated_history = [item for item in history if str(item.get("id")) != str(entry_id)]
     save_whole_user_history(settings.jellyfin_user_id, updated_history)
     return RedirectResponse(url="/history", status_code=303)
 

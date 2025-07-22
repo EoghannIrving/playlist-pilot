@@ -73,6 +73,7 @@ def test_persist_history_and_load(monkeypatch, tmp_path):
     history = load_user_history("user")
     assert history
     assert history[0]["suggestions"] == suggestions
+    assert "id" in history[0]
 
 
 def test_enrich_suggestion_incomplete():
