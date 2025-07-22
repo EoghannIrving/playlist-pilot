@@ -57,3 +57,97 @@ def duration_human(seconds: int) -> str:
     return f"{seconds // 60}:{seconds % 60:02d}"
 ```
 【F:core/templates.py†L8-L12】
+
+## 26. Temporary M3U files written with unsupported newline argument
+`export_history_entry_as_m3u` calls `Path.write_text()` using a `newline` parameter, which does not exist and raises `TypeError` at runtime.
+```
+    m3u_path = Path(tempfile.gettempdir()) / f"suggest_{uuid.uuid4().hex}.m3u"
+    m3u_path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+```
+【F:core/m3u.py†L124-L125】
+
+## 27. Playlist fetch failures cached permanently
+`get_cached_playlists` stores the error response in the cache, so a transient fetch failure leaves the error cached until the TTL expires.
+```
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to fetch playlists: %s", exc)
+            playlists_data = {"playlists": [], "error": str(exc)}
+        playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
+```
+【F:utils/helpers.py†L24-L31】
+
+## 28. Debug route returns coroutine object
+The `/test-lastfm-tags` route calls the async `get_lastfm_tags` without awaiting it, returning a coroutine instead of tags.
+```
+@router.get("/test-lastfm-tags")
+def debug_lastfm_tags(title: str, artist: str):
+    """Return tags for a given track from Last.fm for debugging."""
+    tags = get_lastfm_tags(title, artist)
+    return {"tags": tags}
+```
+【F:api/routes.py†L659-L663】
+
+## 29. Logging setup assumes existing `logs/` directory
+`RotatingFileHandler` is created for `logs/playlist_pilot.log` but the directory is never created, causing startup failures on a fresh install.
+```
+if not logger.handlers:
+    handler = RotatingFileHandler(
+        "logs/playlist_pilot.log", maxBytes=1_000_000, backupCount=3
+    )
+```
+【F:main.py†L36-L38】
+
+## 30. Last.fm errors cached as track absence
+`get_lastfm_track_info` caches `False` when any exception occurs, so network issues mark the track as missing until the cache expires.
+```
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("lastfm")
+        logger.warning("Last.fm lookup failed for %s - %s: %s", title, artist, exc)
+        lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
+        return None
+```
+【F:services/lastfm.py†L108-L112】
+
+## 31. `strip_lrc_timecodes` removes bracketed lyrics
+The helper deletes all `[text]` sections, erasing annotations like `[Chorus]` rather than only timecodes.
+```
+return re.sub(r"\[.*?\]", "", lrc_text).strip()
+```
+【F:services/jellyfin.py†L484-L494】
+
+## 32. Suggest request parsing fails for list payloads
+`parse_suggest_request` converts the `tracks` field to a string before JSON parsing. If the form sends a list object, the resulting string uses single quotes and cannot be decoded.
+```
+    tracks_raw = data.get("tracks", "[]")
+    tracks_raw_str = str(tracks_raw)
+    ...
+    tracks = json.loads(tracks_raw_str)
+```
+【F:utils/helpers.py†L44-L52】
+
+## 33. Tag extraction is case-sensitive
+`extract_tag_value` only matches lowercase prefixes and misses tags like `Tempo:120`.
+```
+for tag in tags or []:
+    if tag.startswith(f"{prefix}:"):
+        return tag.split(":", 1)[1]
+```
+【F:core/playlist.py†L626-L630】
+
+## 34. OpenAI test route blocks the event loop
+`test_openai` performs a synchronous API call inside an async route without `await` or `to_thread`.
+```
+    client = openai.OpenAI(api_key=key)
+    models = client.models.list()
+    valid = any(m.id.startswith("gpt") for m in models.data)
+```
+【F:api/routes.py†L491-L499】
+
+## 35. `normalize_genre` crashes on ``None`` input
+The helper assumes a string and calls `.strip()`, raising ``AttributeError`` when passed ``None``.
+```
+def normalize_genre(raw: str) -> str:
+    cleaned = raw.strip().lower()
+    return GENRE_SYNONYMS.get(cleaned, cleaned)
+```
+【F:core/playlist.py†L413-L416】
