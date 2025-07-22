@@ -37,6 +37,12 @@ def cleanup_temp_file(path: Path):
 INVALID_CHARS_RE = re.compile(r"[\\/:*?\"<>|]")
 
 
+def _parse_title_artist(text: str) -> tuple[str, str]:
+    """Parse a saved suggestion line into title and artist."""
+    parts = [p.strip() for p in text.split(" - ")]
+    return (parts[1], parts[0]) if len(parts) >= 2 else ("", "")
+
+
 def _sanitize_component(value: str, fallback: str) -> str:
     """Return a filename-safe path component."""
     if not value:
@@ -95,7 +101,10 @@ async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
     lines = ["#EXTM3U"]
 
     for track in entry.get("suggestions", []):
-        artist, title = parse_track_text(track["text"])
+        title = track.get("title")
+        artist = track.get("artist")
+        if not title or not artist:
+            title, artist = _parse_title_artist(track.get("text", ""))
         album = track.get("album", "Unknown_Album")  # If `album` present in `track`
         if track.get("in_jellyfin"):
             path = await resolve_jellyfin_path(
