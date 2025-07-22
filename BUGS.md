@@ -173,44 +173,62 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 【F:core/history.py†L21-L32】
 
 ## 17. Jellyfin playlist comparison uses nonexistent artist field
-*Open.* `compare_playlists_form` looks for `Artist` on each Jellyfin track, but the API provides an `Artists` list. Artist names end up blank during comparison.
+*Fixed.* `compare_playlists_form` now pulls the artist from the `Artists` list and falls back to `AlbumArtist`.
 ```
     formatted = [
-        f'{t["Name"]} - {t.get("AlbumArtist") or t.get("Artist", "")}'
+        f'{t["Name"]} - {(t.get("Artists") or [None])[0] or t.get("AlbumArtist", "")}'
         for t in tracks
     ]
 ```
 【F:api/routes.py†L174-L183】
 
 ## 18. YouTube lookup crashes with missing duration
-*Open.* `get_youtube_url_single` filters search results by duration using `e.get("duration", 0)`. If a result has `None` for duration the comparison raises `TypeError`.
+*Fixed.* `get_youtube_url_single` now falls back to ``0`` when duration is missing.
 ```
     filtered_entries = [
         e
         for e in entries
-        if settings.youtube_min_duration <= e.get("duration", 0) <= settings.youtube_max_duration
+        if settings.youtube_min_duration
+        <= (e.get("duration") or 0)
+        <= settings.youtube_max_duration
     ]
 ```
 【F:services/metube.py†L58-L64】
 
 ## 19. Invalid JSON in settings form causes crash
-*Open.* `SettingsForm.as_form` passes user input directly to `json.loads`. Malformed JSON in `cache_ttls` or `getsongbpm_headers` raises `JSONDecodeError` and results in a 500 error.
+*Fixed.* JSON fields are parsed with `_safe_json` and invalid input triggers a 400 error.
 ```
-    cache_ttls=(json.loads(cache_ttls) if cache_ttls else AppSettings().cache_ttls),
-    getsongbpm_headers=(
-        json.loads(getsongbpm_headers)
-        if getsongbpm_headers
-        else AppSettings().getsongbpm_headers
-    ),
+    def _safe_json(value: str, default: dict, field_name: str) -> dict:
+        if not value:
+            return default
+        try:
+            return json.loads(value)
+        except JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON for {field_name}: {exc.msg}",
+            ) from exc
+
+    return cls(
+        ...
+        cache_ttls=_safe_json(cache_ttls, AppSettings().cache_ttls, "cache_ttls"),
+        getsongbpm_base_url=getsongbpm_base_url,
+        getsongbpm_headers=_safe_json(
+            getsongbpm_headers,
+            AppSettings().getsongbpm_headers,
+            "getsongbpm_headers",
+        ),
 ```
-【F:api/forms.py†L46-L51】
+【F:api/forms.py†L40-L68】
 
 ## 20. Unvalidated path components when generating proposed paths
-*Open.* `generate_proposed_path` simply strips whitespace from inputs before joining them into a file path, allowing traversal sequences like `../`.
+*Fixed.* Path components are sanitized with `_sanitize_component` before joining.
 ```
-    artist_dir = artist.strip()
-    album_dir = album.strip() if album else "Unknown Album"
-    title_file = title.strip()
-    return f"{settings.music_library_root}/{artist_dir}/{album_dir}/{title_file}.mp3"
+    artist_dir = _sanitize_component(artist, "Unknown Artist")
+    album_dir = _sanitize_component(album, "Unknown Album")
+    title_file = _sanitize_component(title, "Unknown Title")
+    return (
+        Path(settings.music_library_root) / artist_dir / album_dir / f"{title_file}.mp3"
+    ).as_posix()
 ```
-【F:core/m3u.py†L31-L36】
+【F:core/m3u.py†L37-L56】
