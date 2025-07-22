@@ -38,9 +38,11 @@ INVALID_CHARS_RE = re.compile(r"[\\/:*?\"<>|]")
 
 
 def _parse_title_artist(text: str) -> tuple[str, str]:
-    """Parse a saved suggestion line into title and artist."""
+    """Return the title and artist from a suggestion line."""
     parts = [p.strip() for p in text.split(" - ")]
-    return (parts[1], parts[0]) if len(parts) >= 2 else ("", "")
+    if len(parts) >= 2:
+        return parts[0], parts[1]
+    return "", ""
 
 
 def _sanitize_component(value: str, fallback: str) -> str:

@@ -36,6 +36,7 @@ from core.m3u import (
     parse_track_text,
     infer_track_metadata_from_path,
     generate_proposed_path,
+    _parse_title_artist,
 )  # pylint: disable=wrong-import-position
 
 
@@ -58,6 +59,13 @@ def test_parse_track_text_extra_parts():
     artist, title = parse_track_text("Metallica - One - Live")
     assert artist == "Metallica"
     assert title == "One"
+
+
+def test_parse_title_artist_full_line():
+    """Extract title and artist from a suggestion line."""
+    title, artist = _parse_title_artist("Song Name - Artist Name - Album - 2024")
+    assert title == "Song Name"
+    assert artist == "Artist Name"
 
 
 def test_infer_metadata_artist_title():
@@ -127,7 +135,7 @@ def _roundtrip(monkeypatch, tmp_path, path_template):
     m3u, history = _setup_roundtrip(monkeypatch, tmp_path, path_template)
     entry = {
         "suggestions": [
-            {"text": "Artist - Title", "in_jellyfin": True, "album": "Album"}
+            {"text": "Title - Artist", "in_jellyfin": True, "album": "Album"}
         ]
     }
     loop = asyncio.get_event_loop()
