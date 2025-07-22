@@ -17,3 +17,12 @@ def test_strip_markdown_basic():
     assert "bold" in cleaned
     assert "italic" in cleaned
     assert "link" in cleaned
+
+
+def test_clean_and_build_query():
+    """Verify text normalization and search query extraction."""
+    assert tu.clean(" Hello!!! ") == "hello"
+    assert tu.clean("MiXeD Case") == "mixed case"
+
+    assert tu.build_search_query("Song - Artist - Extra") == "Song Artist"
+    assert tu.build_search_query("Solo") == "Solo"
