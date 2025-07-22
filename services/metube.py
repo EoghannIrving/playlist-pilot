@@ -63,7 +63,7 @@ async def get_youtube_url_single(search_line: str) -> tuple[str, str | None]:
             e
             for e in entries
             if settings.youtube_min_duration
-            <= e.get("duration", 0)
+            <= (e.get("duration") or 0)
             <= settings.youtube_max_duration
         ]
 
