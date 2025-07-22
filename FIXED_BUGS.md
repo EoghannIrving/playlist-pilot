@@ -244,3 +244,19 @@ if not logger.handlers:
 ```
 【F:main.py†L36-L41】
 
+## 22. Invalid settings persisted before validation
+*Fixed.* `update_settings` now validates the form input before saving to `settings.json` so invalid data is not persisted.
+
+Code:
+```
+    try:
+        settings.validate_settings()
+        save_settings(settings)
+        validation_message = "Settings saved successfully."
+        validation_error = False
+    except ValueError as ve:
+        validation_message = str(ve)
+        validation_error = True
+```
+【F:api/routes.py†L392-L407】
+
