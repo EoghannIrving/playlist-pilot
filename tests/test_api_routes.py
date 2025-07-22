@@ -5,8 +5,10 @@
 import ast
 from pathlib import Path
 import asyncio
+import types
 import pytest
 from fastapi import HTTPException
+from starlette.datastructures import UploadFile
 
 
 def _extract_health_check():
@@ -91,19 +93,19 @@ def test_export_m3u_no_tracks():
     """``export_m3u`` should reject empty track lists."""
     export_m3u = _extract_export_m3u()
 
-    class DummyReq:
-        async def json(self):
-            return {"name": "x", "tracks": []}
+    async def dummy_json():
+        """Return an empty track list in request body."""
+        return {"name": "x", "tracks": []}
+
+    dummy_req = types.SimpleNamespace(json=dummy_json)
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.get_event_loop().run_until_complete(export_m3u(DummyReq()))
+        asyncio.get_event_loop().run_until_complete(export_m3u(dummy_req))
     assert exc.value.status_code == 400
 
 
 def test_import_m3u_file_invalid_extension(tmp_path):
     """Invalid file extensions should result in ``HTTPException``."""
-    from starlette.datastructures import UploadFile
-
     dummy = UploadFile(tmp_path / "test.txt", filename="test.txt")
     import_m3u = _extract_import_m3u_file()
 
