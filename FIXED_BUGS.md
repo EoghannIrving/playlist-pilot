@@ -260,3 +260,13 @@ Code:
 ```
 【F:api/routes.py†L392-L407】
 
+## 23. Temporary M3U files written with unsupported newline argument
+*Fixed.* `export_history_entry_as_m3u` no longer passes an unsupported `newline` parameter to `Path.write_text`.
+
+Code:
+```
+    m3u_path = Path(tempfile.gettempdir()) / f"suggest_{uuid.uuid4().hex}.m3u"
+    m3u_path.write_text("\n".join(lines), encoding="utf-8")
+```
+【F:core/m3u.py†L124-L125】
+
