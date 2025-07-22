@@ -6,6 +6,7 @@ from core.analysis import (
     summarize_tracks,
     percent_distribution,
     normalize_popularity,
+    normalize_popularity_log,
     normalized_entropy,
 )
 
@@ -89,3 +90,10 @@ def test_normalize_popularity_edge_cases():
 def test_normalized_entropy_identical():
     """Entropy of identical values should be zero."""
     assert normalized_entropy(["rock", "rock", "rock"]) == 0.0
+
+
+def test_normalize_popularity_log_bounds():
+    """Edge cases for ``normalize_popularity_log`` should not error."""
+    assert normalize_popularity_log(10, 0, 0) == 0
+    assert normalize_popularity_log(10, -5, 5) == 0
+    assert normalize_popularity_log(10, 5, 5) == 100

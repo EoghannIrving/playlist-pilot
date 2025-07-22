@@ -289,3 +289,20 @@ Code:
 ```
 【F:core/m3u.py†L196-L215】
 
+## 42. ``normalize_popularity_log`` crashes with zero bounds
+*Fixed.* The helper now verifies both bounds are positive and returns ``0`` when they are not.
+
+Code snippet:
+```python
+    if min_val <= 0 or max_val <= 0:
+        logger.warning(
+            "normalize_popularity_log returning 0 due to non-positive bounds"
+        )
+        return 0
+    if min_val == max_val:
+        logger.warning(
+            "normalize_popularity_log returning %s due to uniform bounds", 100
+        )
+        return 100
+```
+【F:core/analysis.py†L239-L255】
