@@ -195,9 +195,15 @@ async def import_m3u_as_history_entry(filepath: str):
         for _, meta in metas
     ]
 
-    for (path, meta), metadata in zip(metas, await asyncio.gather(*tasks)):
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for (path, meta), metadata in zip(metas, results):
         title = meta["title"]
         artist = meta["artist"]
+        if isinstance(metadata, Exception):
+            logger.warning(
+                "Metadata fetch failed for %s - %s: %s", title, artist, metadata
+            )
+            metadata = None
         if metadata:
             enriched_obj = await enrich_track({"title": title, "artist": artist})
             enriched = (

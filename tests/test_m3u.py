@@ -158,3 +158,53 @@ def test_export_import_roundtrip_posix(monkeypatch, tmp_path):
 def test_export_import_roundtrip_windows(monkeypatch, tmp_path):
     """Playlists round-trip using Windows paths."""
     _roundtrip(monkeypatch, tmp_path, r"C:\Music\{artist}\Album\{title}.mp3")
+
+
+def test_import_skips_failed_metadata(monkeypatch, tmp_path):
+    """Import should continue when metadata fetch fails for a track."""
+    monkeypatch.setattr(constants, "USER_DATA_DIR", tmp_path)
+    monkeypatch.setattr(settings, "jellyfin_user_id", "user", raising=False)
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+
+    services_stub = types.ModuleType("services.jellyfin")
+
+    async def fetch(title, artist):
+        if title == "First":
+            raise RuntimeError("fail")
+        return {"Id": "ok"}
+
+    services_stub.fetch_jellyfin_track_metadata = fetch
+    services_stub.resolve_jellyfin_path = lambda *_a, **_kw: None
+    playlist_stub = types.ModuleType("core.playlist")
+
+    async def enrich(track):
+        return types.SimpleNamespace(**track, dict=lambda: track)
+
+    playlist_stub.enrich_track = enrich
+    monkeypatch.setitem(sys.modules, "services.jellyfin", services_stub)
+    monkeypatch.setitem(sys.modules, "core.playlist", playlist_stub)
+    sys.modules.pop("core.m3u", None)
+    sys.modules.pop("core.history", None)
+    import importlib
+
+    m3u = importlib.import_module("core.m3u")
+    history = importlib.import_module("core.history")
+
+    m3u_path = tmp_path / "list.m3u"
+    m3u_path.write_text(
+        "\n".join(
+            [
+                "Music/A/Album/A - First.mp3",
+                "Music/B/Album/B - Second.mp3",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(m3u.import_m3u_as_history_entry(str(m3u_path)))
+    hist = history.load_user_history("user")
+    assert hist
+    suggestions = hist[0]["suggestions"]
+    assert len(suggestions) == 1
+    assert suggestions[0]["title"] == "Second"
+    assert suggestions[0]["artist"] == "B"
