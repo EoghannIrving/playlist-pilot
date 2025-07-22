@@ -6,20 +6,20 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 
 ## Features
 
-- **Playlist suggestions** from moods, genres or existing songs using GPT with Last.fm metadata and Jellyfin library sampling.
-- **Playlist analysis** of Jellyfin or saved GPT playlists measuring mood, tempo, decade distribution and popularity.
-- **Playlist comparison** showing overlap between two Jellyfin or GPT playlists.
+- **Playlist suggestions** existing song playlists using GPT with Last.fm metadata and Jellyfin library sampling.
+- **Playlist analysis** of Jellyfin, saved GPT suggested playlists, or imported m3u playlists, measuring mood, tempo, decade distribution and popularity.
+- **Playlist comparison** showing overlap between two Jellyfin or GPT/m3u imported playlists.
 - **BPM and audio data** from GetSongBPM to enrich mood scoring.
 - **Lyrics-based mood analysis** when `.lrc` files or Jellyfin lyrics are
   available.
 - **Toggle for lyrics processing** if you want to disable GPT lyric analysis.
 - **Customizable weights** for lyrics, BPM and tag matching to fine tune
   playlist mood detection.
-- **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin.
+- **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin. Not sure if you like the suggested song, then watch the video!
 - **Import/export** `.m3u` files and create playlists directly in Jellyfin.
-- **Track metadata export** back to Jellyfin (genre, mood tags, album, etc.).
+- **Track metadata export** back to Jellyfin (genre, mood tags, album, etc.), helping to standardize your metadata.
 - **History management** with the ability to view and delete past GPT suggestions.
-- **DiskCache based caching** for GPT prompts, Jellyfin queries, Last.fm lookups and more.
+- **DiskCache based caching** for GPT prompts, Jellyfin queries, Last.fm lookups and more. Agressively caches for both speed and to reduce API costs.
 - **Integration monitoring** with a simple watchdog that logs repeated Jellyfin and Last.fm failures.
 - Runs as a Docker container or directly with Python.
 
