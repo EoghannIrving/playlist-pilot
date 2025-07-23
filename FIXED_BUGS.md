@@ -357,3 +357,21 @@ errors from marking tracks as permanently absent.
         return None
 ```
 【F:services/lastfm.py†L108-L112】
+
+## 27. Playlist fetch failures cached permanently
+*Fixed.* `get_cached_playlists` now only caches successful playlist fetches.
+```python
+    playlists_data = playlist_cache.get(cache_key)
+    if playlists_data is None:
+        try:
+            playlists_data = await fetch_audio_playlists(user_id)
+            playlist_cache.set(
+                cache_key, playlists_data, expire=CACHE_TTLS["playlists"]
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to fetch playlists: %s", exc)
+            # Return the error response but avoid caching it so transient issues
+            # do not persist until the TTL expires
+            return {"playlists": [], "error": str(exc)}
+```
+【F:utils/helpers.py†L19-L35】

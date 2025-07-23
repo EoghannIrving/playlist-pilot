@@ -5,16 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 27. Playlist fetch failures cached permanently
-`get_cached_playlists` stores the error response in the cache, so a transient fetch failure leaves the error cached until the TTL expires.
-```
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.error("Failed to fetch playlists: %s", exc)
-            playlists_data = {"playlists": [], "error": str(exc)}
-        playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
-```
-【F:utils/helpers.py†L24-L31】
-
 ## 45. Last.fm tag failures repeatedly hit the API
 `get_lastfm_tags` returns an empty list on error but never caches the failure, causing repeated requests during outages.
 ```
