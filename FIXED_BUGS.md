@@ -306,3 +306,20 @@ Code snippet:
         return 100
 ```
 【F:core/analysis.py†L239-L255】
+
+## 37. Logging fails when combined popularity is ``None``
+*Fixed.* The logger now formats ``combined_popularity`` with ``%s`` so ``None`` values no longer raise ``TypeError``.
+
+Code snippet:
+```python
+        combined = track.get("combined_popularity")
+        logger.info(
+            "%s - %s | Combined: %s | Last.fm: %s, Jellyfin: %s",
+            track["title"],
+            track["artist"],
+            f"{combined:.1f}" if isinstance(combined, (int, float)) else combined,
+            raw_lfm,
+            raw_jf,
+        )
+```
+【F:core/playlist.py†L688-L698】

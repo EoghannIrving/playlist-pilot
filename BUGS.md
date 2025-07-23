@@ -4,21 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 37. Logging fails when combined popularity is ``None``
-`enrich_and_score_suggestions` formats the score with ``%.1f`` even when `combined_popularity` is ``None`` which raises ``TypeError``.
-```
-for track in suggestions:
-    logger.info(
-        "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
-        track["title"],
-        track["artist"],
-        track["combined_popularity"],
-        raw_lfm,
-        raw_jf,
-    )
-```
-【F:core/playlist.py†L686-L697】
-
 ## 36. OpenAI clients ignore updated API keys
 `sync_openai_client` and `async_openai_client` are created at import time using the initial `openai_api_key`. Updating the key through `/settings` leaves these clients unchanged.
 ```

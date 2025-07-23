@@ -687,11 +687,12 @@ async def enrich_and_score_suggestions(suggestions_raw: list[dict]) -> list[dict
     for track in suggestions:
         raw_lfm = track.get("popularity")
         raw_jf = track.get("jellyfin_play_count")
+        combined = track.get("combined_popularity")
         logger.info(
-            "%s - %s | Combined: %.1f | Last.fm: %s, Jellyfin: %s",
+            "%s - %s | Combined: %s | Last.fm: %s, Jellyfin: %s",
             track["title"],
             track["artist"],
-            track["combined_popularity"],
+            f"{combined:.1f}" if isinstance(combined, (int, float)) else combined,
             raw_lfm,
             raw_jf,
         )
