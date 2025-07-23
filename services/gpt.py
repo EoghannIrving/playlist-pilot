@@ -17,8 +17,16 @@ from utils.text_utils import strip_markdown
 from services.lastfm import get_lastfm_track_info
 
 logger = logging.getLogger("playlist-pilot")
-sync_openai_client = OpenAI(api_key=settings.openai_api_key)
-async_openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+
+def get_sync_openai_client() -> OpenAI:
+    """Return an OpenAI client using the current API key."""
+    return OpenAI(api_key=settings.openai_api_key)
+
+
+def get_async_openai_client() -> AsyncOpenAI:
+    """Return an asynchronous OpenAI client using the current API key."""
+    return AsyncOpenAI(api_key=settings.openai_api_key)
 
 
 async def fetch_openai_models(api_key: str) -> list[str]:
@@ -134,7 +142,7 @@ def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
         return content
 
     logger.info("GPT cache miss: %s", key)
-    response = sync_openai_client.chat.completions.create(
+    response = get_sync_openai_client().chat.completions.create(
         model=settings.model,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
@@ -156,7 +164,7 @@ async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
         return content
 
     logger.info("GPT cache miss: %s", key)
-    response = await async_openai_client.chat.completions.create(
+    response = await get_async_openai_client().chat.completions.create(
         model=settings.model,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
@@ -327,7 +335,7 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
         f"{track_blob}"
     )
 
-    response = await async_openai_client.chat.completions.create(
+    response = await get_async_openai_client().chat.completions.create(
         model=settings.model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,

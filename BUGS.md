@@ -4,14 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 36. OpenAI clients ignore updated API keys
-`sync_openai_client` and `async_openai_client` are created at import time using the initial `openai_api_key`. Updating the key through `/settings` leaves these clients unchanged.
-```
-sync_openai_client = OpenAI(api_key=settings.openai_api_key)
-async_openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
-```
-【F:services/gpt.py†L20-L21】
-
 ## 23. Network failures cached as missing Jellyfin tracks
 If `search_jellyfin_for_track` encounters an HTTP error, it stores `False`
 in the cache, permanently marking the track as absent.
