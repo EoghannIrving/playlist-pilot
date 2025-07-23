@@ -5,15 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 45. Last.fm tag failures repeatedly hit the API
-`get_lastfm_tags` returns an empty list on error but never caches the failure, causing repeated requests during outages.
-```
-except Exception as exc:  # pylint: disable=broad-exception-caught
-    record_failure("lastfm")
-    logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
-    return []
-```
-【F:services/lastfm.py†L60-L68】
 ## 41. Mood weight constants stay stale after updates
 `LYRICS_WEIGHT`, `BPM_WEIGHT`, and `TAGS_WEIGHT` are set once from ``settings`` and never refreshed when the values change.
 ```
