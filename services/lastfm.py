@@ -108,7 +108,7 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         record_failure("lastfm")
         logger.warning("Last.fm lookup failed for %s - %s: %s", title, artist, exc)
-        lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
+        # Avoid caching failures so transient issues don't mark the track as missing
         return None
 
 
