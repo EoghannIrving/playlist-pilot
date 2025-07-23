@@ -65,6 +65,7 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         record_failure("lastfm")
         logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
+        lastfm_cache.set(cache_key, [], expire=CACHE_TTLS["lastfm"])
         return []
 
 

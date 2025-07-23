@@ -375,3 +375,14 @@ errors from marking tracks as permanently absent.
             return {"playlists": [], "error": str(exc)}
 ```
 【F:utils/helpers.py†L19-L35】
+
+## 45. Last.fm tag failures repeatedly hit the API
+*Fixed.* `get_lastfm_tags` now caches an empty list when a request fails so repeated errors don't hammer the API.
+```python
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("lastfm")
+        logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
+        lastfm_cache.set(cache_key, [], expire=CACHE_TTLS["lastfm"])
+        return []
+```
+【F:services/lastfm.py†L60-L67】
