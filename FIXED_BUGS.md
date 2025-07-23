@@ -323,3 +323,14 @@ Code snippet:
         )
 ```
 【F:core/playlist.py†L688-L698】
+
+## 36. OpenAI clients ignore updated API keys
+*Fixed.* OpenAI clients are now created with the current API key each time they are used.
+```python
+def get_sync_openai_client() -> OpenAI:
+    return OpenAI(api_key=settings.openai_api_key)
+
+def get_async_openai_client() -> AsyncOpenAI:
+    return AsyncOpenAI(api_key=settings.openai_api_key)
+```
+【F:services/gpt.py†L22-L29】
