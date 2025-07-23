@@ -4,18 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 23. Network failures cached as missing Jellyfin tracks
-If `search_jellyfin_for_track` encounters an HTTP error, it stores `False`
-in the cache, permanently marking the track as absent.
-```
-except Exception as exc:  # pylint: disable=broad-exception-caught
-    record_failure("jellyfin")
-    logger.warning("Jellyfin search failed for %s - %s: %s", title, artist, exc)
-    jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
-    return False
-```
-【F:services/jellyfin.py†L91-L95】
-
 ## 30. Last.fm errors cached as track absence
 `get_lastfm_track_info` caches `False` when any exception occurs, so network issues mark the track as missing until the cache expires.
 ```

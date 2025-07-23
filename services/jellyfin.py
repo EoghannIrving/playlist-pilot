@@ -91,7 +91,7 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         record_failure("jellyfin")
         logger.warning("Jellyfin search failed for %s - %s: %s", title, artist, exc)
-        jellyfin_track_cache.set(key, False, expire=CACHE_TTLS["jellyfin_tracks"])
+        # Avoid caching failures so transient issues don't mark the track as missing
         return False
 
 
