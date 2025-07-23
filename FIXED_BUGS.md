@@ -346,3 +346,14 @@ errors from marking tracks as permanently absent.
         return False
 ```
 【F:services/jellyfin.py†L91-L95】
+
+## 30. Last.fm errors cached as track absence
+*Fixed.* `get_lastfm_track_info` now returns ``None`` without caching when a request fails.
+```python
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("lastfm")
+        logger.warning("Last.fm lookup failed for %s - %s: %s", title, artist, exc)
+        # Avoid caching failures so transient issues don't mark the track as missing
+        return None
+```
+【F:services/lastfm.py†L108-L112】

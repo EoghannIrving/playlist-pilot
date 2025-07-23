@@ -4,16 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 30. Last.fm errors cached as track absence
-`get_lastfm_track_info` caches `False` when any exception occurs, so network issues mark the track as missing until the cache expires.
-```
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        record_failure("lastfm")
-        logger.warning("Last.fm lookup failed for %s - %s: %s", title, artist, exc)
-        lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
-        return None
-```
-【F:services/lastfm.py†L108-L112】
 
 ## 27. Playlist fetch failures cached permanently
 `get_cached_playlists` stores the error response in the cache, so a transient fetch failure leaves the error cached until the TTL expires.
