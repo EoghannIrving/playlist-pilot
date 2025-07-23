@@ -24,10 +24,14 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
     if playlists_data is None:
         try:
             playlists_data = await fetch_audio_playlists(user_id)
+            playlist_cache.set(
+                cache_key, playlists_data, expire=CACHE_TTLS["playlists"]
+            )
         except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.error("Failed to fetch playlists: %s", exc)
-            playlists_data = {"playlists": [], "error": str(exc)}
-        playlist_cache.set(cache_key, playlists_data, expire=CACHE_TTLS["playlists"])
+            # Return the error response but avoid caching it so transient issues
+            # do not persist until the TTL expires
+            return {"playlists": [], "error": str(exc)}
     return playlists_data
 
 
