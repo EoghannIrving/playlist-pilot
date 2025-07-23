@@ -334,3 +334,15 @@ def get_async_openai_client() -> AsyncOpenAI:
     return AsyncOpenAI(api_key=settings.openai_api_key)
 ```
 【F:services/gpt.py†L22-L29】
+
+## 23. Network failures cached as missing Jellyfin tracks
+*Fixed.* The search function no longer caches failures, preventing transient
+errors from marking tracks as permanently absent.
+```python
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
+        logger.warning("Jellyfin search failed for %s - %s: %s", title, artist, exc)
+        # Avoid caching failures so transient issues don't mark the track as missing
+        return False
+```
+【F:services/jellyfin.py†L91-L95】
