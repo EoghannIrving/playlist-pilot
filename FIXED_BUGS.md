@@ -427,3 +427,17 @@ norm_lfm = normalize_popularity_log(
 )
 ```
 【F:core/analysis.py†L284-L289】
+
+## 22. Cache TTL configuration not refreshed
+*Fixed.* Updating settings now refreshes the shared cache TTL dictionary so new cache entries honor the changed values.
+
+```python
+    settings.cache_ttls = form_data.cache_ttls
+    # Update shared cache TTLs in-place so other modules
+    # that imported the dictionary see the new values
+    from utils import cache_manager  # import here to avoid circular dependency
+
+    cache_manager.CACHE_TTLS.clear()
+    cache_manager.CACHE_TTLS.update(settings.cache_ttls)
+```
+【F:api/routes.py†L383-L389】

@@ -5,15 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 22. Cache TTL configuration not refreshed
-`CACHE_TTLS` is set once at import time from `settings.cache_ttls`.
-Updating TTLs through the settings page does not propagate to existing caches.
-```
-# TTL configuration (in seconds) for each named cache
-CACHE_TTLS = settings.cache_ttls
-```
-【F:utils/cache_manager.py†L49-L50】
-
 ## 24. Imported M3U files must be UTF-8
 `import_m3u_as_history_entry` opens playlists with a fixed UTF‑8 encoding.
 Files encoded differently trigger `UnicodeDecodeError` and abort the import.

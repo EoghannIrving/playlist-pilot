@@ -47,4 +47,6 @@ library_cache = Cache(BASE_CACHE / "full_library")
 
 
 # TTL configuration (in seconds) for each named cache
-CACHE_TTLS = settings.cache_ttls
+# This copy is updated when settings change so other modules
+# using the dict see refreshed values.
+CACHE_TTLS = dict(settings.cache_ttls)
