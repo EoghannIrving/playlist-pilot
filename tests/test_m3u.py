@@ -207,3 +207,24 @@ def test_import_skips_failed_metadata(monkeypatch, tmp_path):
     assert len(suggestions) == 1
     assert suggestions[0]["title"] == "Second"
     assert suggestions[0]["artist"] == "B"
+
+
+def test_import_handles_non_utf8(monkeypatch, tmp_path):
+    """Import should succeed when the M3U file uses a non-UTF8 encoding."""
+    m3u, history = _setup_roundtrip(
+        monkeypatch, tmp_path, "/Music/{artist}/Album/{title}.mp3"
+    )
+
+    m3u_path = tmp_path / "latin1.m3u"
+    m3u_path.write_text(
+        "Music/Caf\xe9/Album/Artist - Title.mp3",
+        encoding="latin-1",
+    )
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(m3u.import_m3u_as_history_entry(str(m3u_path)))
+    hist = history.load_user_history("user")
+    assert hist
+    track = hist[0]["suggestions"][0]
+    assert track["artist"] == "Artist"
+    assert track["title"] == "Title"

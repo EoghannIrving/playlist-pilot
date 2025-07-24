@@ -5,15 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 24. Imported M3U files must be UTF-8
-`import_m3u_as_history_entry` opens playlists with a fixed UTF‑8 encoding.
-Files encoded differently trigger `UnicodeDecodeError` and abort the import.
-```
-with open(filepath, "r", encoding="utf-8") as f:
-    lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
-```
-【F:core/m3u.py†L185-L188】
-
 ## 32. Suggest request parsing fails for list payloads
 `parse_suggest_request` converts the `tracks` field to a string before JSON parsing. If the form sends a list object, the resulting string uses single quotes and cannot be decoded.
 ```

@@ -183,7 +183,7 @@ async def import_m3u_as_history_entry(filepath: str):
     logger.info("📂 Importing M3U playlist: %s", filepath)
     user_id = settings.jellyfin_user_id
     imported_tracks = []
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
         lines = [
             line.strip() for line in f if line.strip() and not line.startswith("#")
         ]
