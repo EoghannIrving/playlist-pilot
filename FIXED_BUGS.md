@@ -386,3 +386,24 @@ errors from marking tracks as permanently absent.
         return []
 ```
 【F:services/lastfm.py†L60-L67】
+
+## 41. Mood weight constants stay stale after updates
+*Fixed.* `combine_mood_scores` now reads weighting values from `settings` each
+time it runs, ensuring updates take effect immediately.
+
+```python
+    combined = {}
+    tags_weight = settings.tags_weight
+    bpm_weight = settings.bpm_weight
+    lyrics_weight = settings.lyrics_weight
+
+    for mood in MOOD_TAGS:
+        score = (
+            tags_weight * tag_scores.get(mood, 0)
+            + bpm_weight * bpm_scores.get(mood, 0)
+            + (lyrics_weight * lyrics_scores.get(mood, 0) if lyrics_scores else 0)
+        )
+        weighted = score * MOOD_WEIGHTS.get(mood, 1.0)
+        combined[mood] = weighted
+```
+【F:core/analysis.py†L492-L503】
