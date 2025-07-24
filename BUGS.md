@@ -5,15 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 41. Mood weight constants stay stale after updates
-`LYRICS_WEIGHT`, `BPM_WEIGHT`, and `TAGS_WEIGHT` are set once from ``settings`` and never refreshed when the values change.
-```
-LYRICS_WEIGHT = settings.lyrics_weight
-BPM_WEIGHT = settings.bpm_weight
-TAGS_WEIGHT = settings.tags_weight
-```
-【F:core/analysis.py†L419-L421】
-
 ## 21. Popularity thresholds remain stale after settings updates
 When `global_min_lfm` or `global_max_lfm` are changed in the UI, the
 module-level constants used by the analysis functions retain their original

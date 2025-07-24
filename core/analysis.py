@@ -426,9 +426,6 @@ MOOD_WEIGHTS = {
 }
 
 
-LYRICS_WEIGHT = settings.lyrics_weight
-BPM_WEIGHT = settings.bpm_weight
-TAGS_WEIGHT = settings.tags_weight
 DEFAULT_LYRICS_CONFIDENCE = 1  # Confidence assigned to GPT-derived mood
 
 MOOD_MAPPING = {
@@ -493,11 +490,15 @@ def combine_mood_scores(
 
     # Combine with weighting:
     combined = {}
+    tags_weight = settings.tags_weight
+    bpm_weight = settings.bpm_weight
+    lyrics_weight = settings.lyrics_weight
+
     for mood in MOOD_TAGS:
         score = (
-            TAGS_WEIGHT * tag_scores.get(mood, 0)
-            + BPM_WEIGHT * bpm_scores.get(mood, 0)
-            + (LYRICS_WEIGHT * lyrics_scores.get(mood, 0) if lyrics_scores else 0)
+            tags_weight * tag_scores.get(mood, 0)
+            + bpm_weight * bpm_scores.get(mood, 0)
+            + (lyrics_weight * lyrics_scores.get(mood, 0) if lyrics_scores else 0)
         )
         weighted = score * MOOD_WEIGHTS.get(mood, 1.0)
         combined[mood] = weighted
