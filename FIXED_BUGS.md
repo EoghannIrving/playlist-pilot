@@ -407,3 +407,23 @@ time it runs, ensuring updates take effect immediately.
         combined[mood] = weighted
 ```
 【F:core/analysis.py†L492-L503】
+
+## 21. Popularity thresholds remain stale after settings updates
+*Fixed.* Popularity calculations now read the Last.fm listener bounds from
+`settings` whenever they run instead of using constants set at import time.
+
+```python
+def get_global_min_lfm() -> int:
+    return settings.global_min_lfm
+
+def get_global_max_lfm() -> int:
+    return settings.global_max_lfm
+```
+【F:config.py†L195-L202】
+
+```python
+norm_lfm = normalize_popularity_log(
+    raw_lfm, get_global_min_lfm(), get_global_max_lfm()
+)
+```
+【F:core/analysis.py†L284-L289】
