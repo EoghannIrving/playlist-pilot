@@ -441,3 +441,14 @@ norm_lfm = normalize_popularity_log(
     cache_manager.CACHE_TTLS.update(settings.cache_ttls)
 ```
 【F:api/routes.py†L383-L389】
+
+## 24. Imported M3U files must be UTF-8
+*Fixed.* The importer now ignores decoding errors so playlists encoded differently can still be read.
+
+```python
+    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+        lines = [
+            line.strip() for line in f if line.strip() and not line.startswith("#")
+        ]
+```
+【F:core/m3u.py†L186-L189】
