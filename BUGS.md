@@ -5,19 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 21. Popularity thresholds remain stale after settings updates
-When `global_min_lfm` or `global_max_lfm` are changed in the UI, the
-module-level constants used by the analysis functions retain their original
-values. This causes all popularity calculations to keep using outdated
-thresholds.
-```
-settings: AppSettings = load_settings()
-...
-GLOBAL_MIN_LFM = settings.global_min_lfm
-GLOBAL_MAX_LFM = settings.global_max_lfm
-```
-【F:config.py†L191-L195】
-
 ## 22. Cache TTL configuration not refreshed
 `CACHE_TTLS` is set once at import time from `settings.cache_ttls`.
 Updating TTLs through the settings page does not propagate to existing caches.

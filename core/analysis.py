@@ -6,7 +6,7 @@ from statistics import mean
 import math
 import logging
 import re
-from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
+from config import settings, get_global_min_lfm, get_global_max_lfm
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -284,7 +284,9 @@ def add_combined_popularity(
         raw_lfm = track.get("popularity")
         raw_jf = track.get("jellyfin_play_count")
         norm_lfm = (
-            normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+            normalize_popularity_log(
+                raw_lfm, get_global_min_lfm(), get_global_max_lfm()
+            )
             if raw_lfm is not None
             else None
         )

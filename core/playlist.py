@@ -16,7 +16,7 @@ import re
 
 import httpx
 
-from config import settings, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM
+from config import settings, get_global_min_lfm, get_global_max_lfm
 from core.analysis import (
     mood_scores_from_bpm_data,
     mood_scores_from_lastfm_tags,
@@ -561,7 +561,9 @@ async def enrich_jellyfin_playlist(
     for t in enriched:
         raw_lfm = t.get("popularity")
         raw_jf = t.get("jellyfin_play_count")
-        norm_lfm = normalize_popularity_log(raw_lfm, GLOBAL_MIN_LFM, GLOBAL_MAX_LFM)
+        norm_lfm = normalize_popularity_log(
+            raw_lfm, get_global_min_lfm(), get_global_max_lfm()
+        )
         norm_jf = normalize_popularity(raw_jf, 0, max_jf)
         logger.debug("%s", t["title"])
         combined = combined_popularity_score(norm_lfm, norm_jf)

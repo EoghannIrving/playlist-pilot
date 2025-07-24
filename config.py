@@ -191,5 +191,12 @@ def save_settings(s: AppSettings) -> None:
 settings: AppSettings = load_settings()
 logging.getLogger("playlist-pilot").debug("settings loaded: %s", settings.dict())
 
-GLOBAL_MIN_LFM = settings.global_min_lfm
-GLOBAL_MAX_LFM = settings.global_max_lfm
+
+def get_global_min_lfm() -> int:
+    """Return the current minimum Last.fm listener threshold."""
+    return settings.global_min_lfm
+
+
+def get_global_max_lfm() -> int:
+    """Return the current maximum Last.fm listener threshold."""
+    return settings.global_max_lfm
