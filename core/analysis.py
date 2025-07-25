@@ -139,11 +139,12 @@ def detect_outliers(tracks: List[dict], summary: dict) -> List[dict]:
         ):
             reasons.append("tempo")
 
-        # Genre mismatch (excluding 'Unknown')
+        # Genre mismatch only when a dominant genre is known
         genre = t.get("genre")
         if (
             isinstance(genre, str)
             and isinstance(dominant_genre, str)
+            and dominant_genre.lower() != "unknown"
             and genre.lower() != dominant_genre.lower()
         ):
             reasons.append("genre")
