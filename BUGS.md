@@ -3,15 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 35. `normalize_genre` crashes on ``None`` input
-The helper assumes a string and calls `.strip()`, raising ``AttributeError`` when passed ``None``.
-```
-def normalize_genre(raw: str) -> str:
-    cleaned = raw.strip().lower()
-    return GENRE_SYNONYMS.get(cleaned, cleaned)
-```
-【F:core/playlist.py†L413-L416】
-
 ## 46. Album overwrite check triggers unnecessarily
 `export_track_metadata` asks for confirmation even when the Jellyfin album field is blank.
 ```
@@ -37,11 +28,6 @@ The loader decodes using UTF‑8 without fallback, raising ``UnicodeDecodeError`
 
 ## 38. Template directory bound to current working directory
 `Jinja2Templates` uses the relative path ``"templates"`` so running the app from another directory cannot locate the HTML files.
-
-```
-lines = file_path.read_text(encoding="utf-8").splitlines()
-```
-【F:core/m3u.py†L148-L148】
 
 ## 45. `lyrics_enabled` default disabled in settings form
 `SettingsForm.as_form` uses ``Form(False)`` which overrides the true default in ``AppSettings`` when saving settings.
@@ -84,17 +70,6 @@ return re.sub(r"\[.*?\]", "", lrc_text).strip()
 ```
 【F:services/jellyfin.py†L484-L494】
 
-## 43. Outlier detection flags every genre when dominant genre is unknown
-`detect_outliers` intends to skip genre mismatches when the playlist's dominant genre is ``'Unknown'`` but no such check exists.
-```
-if (
-    isinstance(genre, str)
-    and isinstance(dominant_genre, str)
-    and genre.lower() != dominant_genre.lower()
-):
-    reasons.append("genre")
-```
-【F:core/analysis.py†L142-L149】
 
 ## 34. OpenAI test route blocks the event loop
 `test_openai` performs a synchronous API call inside an async route without ``await`` or ``to_thread``.

@@ -3,7 +3,6 @@
 This file outlines upcoming tasks based on the current roadmap and list of outstanding bugs.
 
 ## Bug Fixes
-- [ ] **35. `normalize_genre` crashes on `None` input** – handle `None` safely when cleaning genres.
 - [ ] **46. Album overwrite check triggers unnecessarily** – skip confirmation when no existing album is set.
 - [ ] **47. `read_m3u` fails on non‑UTF‑8 files** – add encoding fallback when parsing playlists.
 - [ ] **38. Template directory bound to current working directory** – use an absolute templates path.
@@ -11,7 +10,6 @@ This file outlines upcoming tasks based on the current roadmap and list of outst
 - [ ] **44. Search misses tracks with smart quotes** – normalize quotes in search comparisons.
 - [ ] **39. Library scan records tracks with missing metadata** – skip items lacking name or artist.
 - [ ] **31. `strip_lrc_timecodes` removes bracketed lyrics** – preserve `[Chorus]` style annotations.
-- [ ] **43. Outlier detection flags every genre when dominant genre is unknown** – ignore genre mismatches when dominant genre is `'Unknown'`.
 - [ ] **34. OpenAI test route blocks the event loop** – make the request asynchronous.
 - [ ] **51. GPT prompt cache ignores model choice** – include the model name in the cache key.
 - [ ] **52. `get_playlist_id_by_name` fetches all playlists** – query Jellyfin for a single playlist instead.
