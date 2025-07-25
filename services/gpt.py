@@ -295,16 +295,17 @@ async def fetch_order_suggestions(
         for t in tracks
     ]
     prompt = (
-    "You are an expert DJ known for creating perfectly flowing playlists.\n"
-    f"Reorder the following {len(seed_lines)} tracks to maximize musical flow and emotional progression.\n"
-    "Consider transitions in tempo, energy, mood, genre, and style. Create a journey with natural rises and falls.\n"
-    "Start strong, build gradually, avoid abrupt changes, and end with a satisfying resolution.\n"
-    f"Return the new order using the exact format:\n\n1. Song - Artist\n2. Song - Artist\n...\n\nDo not add, remove, or comment on any tracks.\n\nTracks:\n"
-    + "\n".join(seed_lines)
-)
-if summary:
-    prompt += f"\n\nPlaylist summary:\n{summary}"
-    
+        "You are an expert DJ known for creating perfectly flowing playlists.\n"
+        f"Reorder the following {len(seed_lines)} tracks to maximize musical flow and emotional progression.\n"
+        "Consider transitions in tempo, energy, mood, genre, and style. Create a journey with natural rises and falls.\n"
+        "Start strong, build gradually, avoid abrupt changes, and end with a satisfying resolution.\n"
+        f"Return the new order using the exact format:\n\n1. Song - Artist\n2. Song - Artist\n...\n\nDo not add, remove, or comment on any tracks.\n\nTracks:\n"
+        + "\n".join(seed_lines)
+    )
+
+    if summary:
+        prompt += f"\n\nPlaylist summary:\n{summary}"
+
     result = await cached_chat_completion(prompt)
     ordered = []
     for line in result.splitlines():
