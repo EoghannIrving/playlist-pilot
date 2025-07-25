@@ -6,8 +6,13 @@
     ('/history', '🕓 History'),
     ('/settings', '⚙️ Settings')]
   %}
+    {% if href == '/' %}
+      {% set is_active = current == '/' %}
+    {% else %}
+      {% set is_active = current.startswith(href) %}
+    {% endif %}
     <a href="{{ href }}"
-       class="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 {% if current.startswith(href) %}text-blue-600 underline{% else %}text-gray-800 dark:text-gray-100{% endif %}">
+       class="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 {% if is_active %}underline text-white{% else %}text-gray-800 dark:text-gray-100{% endif %}">
       {{ label }}
     </a>
   {% endfor %}
