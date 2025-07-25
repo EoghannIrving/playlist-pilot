@@ -67,6 +67,7 @@ from services import jellyfin
 from services.gpt import (
     generate_playlist_analysis_summary,
     fetch_gpt_suggestions,
+    fetch_order_suggestions,
     fetch_openai_models,
 )
 from services.jellyfin import (
@@ -714,6 +715,21 @@ async def suggest_from_analyzed(request: Request):
             "Average_BPM": int(summary["tempo_avg"]),
             "Popularity": int(summary["avg_popularity"]),
             "Decades": summary["decades"].keys(),
+        },
+    )
+
+
+@router.post("/suggest-order")
+async def suggest_order_from_analyzed(request: Request):
+    """Return a recommended track order from GPT."""
+    tracks, playlist_name, text_summary = await parse_suggest_request(request)
+    ordered = await fetch_order_suggestions(tracks, text_summary)
+    return templates.TemplateResponse(
+        "order_results.html",
+        {
+            "request": request,
+            "ordered_tracks": ordered,
+            "playlist_name": playlist_name,
         },
     )
 

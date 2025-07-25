@@ -8,7 +8,8 @@ This document provides a quick walkthrough of the typical workflow once Playlist
 2. On the home page you will be prompted to select a playlist source (either Jellyfin or History) and to select a Playlist to analyze.
 3. Click **Analyze** and Playlist-Pilot will provide you with an analysis of that playlist including a Summary, suggested tracks to remove, stats about the decade, mood, popularity and tempo of the tracks and then a track by track listing.
 4. Click "Suggest Similar Playlist" and Playlist Pilot will use GPT to suggest additional tracks with a similar theme, mood etc.
-5. Review the suggestions, edit any tracks if needed and press **Save** to create the playlist in Jellyfin. (not yet available)
+5. Click "Suggest Playlist Order" to get a recommended track sequence for the analyzed playlist.
+6. Review the suggestions, edit any tracks if needed and press **Save** to create the playlist in Jellyfin. (not yet available)
 
 You can also download the results as an `.m3u` file from the history page.
 
