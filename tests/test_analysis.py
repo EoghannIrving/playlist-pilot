@@ -8,6 +8,7 @@ from core.analysis import (
     normalize_popularity,
     normalize_popularity_log,
     normalized_entropy,
+    detect_outliers,
 )
 
 
@@ -97,3 +98,59 @@ def test_normalize_popularity_log_bounds():
     assert normalize_popularity_log(10, 0, 0) == 0
     assert normalize_popularity_log(10, -5, 5) == 0
     assert normalize_popularity_log(10, 5, 5) == 100
+
+
+def test_detect_outliers_basic():
+    """Tracks deviating from summary should be flagged."""
+    tracks = [
+        {
+            "title": "Slow Song",
+            "tempo": 50,
+            "genre": "rock",
+            "mood": "happy",
+            "mood_confidence": 0.5,
+            "popularity": 100,
+        },
+        {
+            "title": "Weird Genre",
+            "tempo": 110,
+            "genre": "pop",
+            "mood": "",
+            "mood_confidence": 0.2,
+            "popularity": 2,
+            "year_flag": True,
+        },
+        {
+            "title": "OK",
+            "tempo": 100,
+            "genre": "rock",
+            "mood": "happy",
+            "mood_confidence": 0.9,
+            "popularity": 110,
+        },
+    ]
+    summary = {"tempo_avg": 100, "dominant_genre": "rock", "avg_listeners": 100}
+    outliers = detect_outliers(tracks, summary)
+    assert len(outliers) == 2
+    assert outliers[0]["title"] == "Weird Genre"
+    assert set(outliers[0]["reasons"]) == {"genre", "mood", "popularity", "year"}
+    assert outliers[1]["reasons"] == ["tempo"]
+
+
+def test_detect_outliers_unknown_genre():
+    """When dominant genre is unknown, genre mismatches are ignored."""
+    tracks = [
+        {
+            "title": "Song",
+            "tempo": 150,
+            "genre": "pop",
+            "mood": None,
+            "mood_confidence": 0.1,
+            "popularity": 1,
+        }
+    ]
+    summary = {"tempo_avg": 100, "dominant_genre": "Unknown", "avg_listeners": 100}
+    outliers = detect_outliers(tracks, summary)
+    assert outliers[0]["title"] == "Song"
+    assert "genre" not in outliers[0]["reasons"]
+    assert set(outliers[0]["reasons"]) == {"tempo", "mood", "popularity"}
