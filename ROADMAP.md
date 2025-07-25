@@ -16,8 +16,8 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
    - Refine the web interface for editing settings, viewing history, and displaying clearer error messages and logs. **Complete**
 
 ## Phase 2 – Advanced Analysis & Playlist Management
-1. **Enhanced Analysis**
-   - Build on the analysis utilities to surface mood/confidence scores and spot outliers.
+1. **Enhanced Analysis ✅ Completed**
+   - Mood badges display confidence levels and analyses highlight up to five outliers. **Complete**
 2. **Playlist Management Tools**
    - Add functions for renaming playlists, removing or reordering tracks, and handling duplicates.
 3. **Improved History & Settings**

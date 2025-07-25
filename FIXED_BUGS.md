@@ -489,3 +489,18 @@ def normalize_genre(raw: str | None) -> str:
     return GENRE_SYNONYMS.get(cleaned, cleaned)
 ```
 【F:core/playlist.py†L413-L418】
+
+## 43. Outlier detection flags every genre when dominant genre is unknown
+*Fixed.* The function now ignores mismatches when the dominant genre is `'Unknown'`.
+
+```python
+        genre = t.get("genre")
+        if (
+            isinstance(genre, str)
+            and isinstance(dominant_genre, str)
+            and dominant_genre.lower() != "unknown"
+            and genre.lower() != dominant_genre.lower()
+        ):
+            reasons.append("genre")
+```
+【F:core/analysis.py†L142-L150】
