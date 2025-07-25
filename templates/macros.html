@@ -6,7 +6,10 @@
     ('/history', '🕓 History'),
     ('/settings', '⚙️ Settings')]
   %}
-    <a href="{{ href }}" class="{% if current.startswith(href) %}text-blue-600 underline{% endif %}">{{ label }}</a>
+    <a href="{{ href }}"
+       class="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 {% if current.startswith(href) %}text-blue-600 underline{% else %}text-gray-800 dark:text-gray-100{% endif %}">
+      {{ label }}
+    </a>
   {% endfor %}
 {% endmacro %}
 

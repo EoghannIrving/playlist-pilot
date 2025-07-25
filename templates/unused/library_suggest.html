@@ -1,47 +1,50 @@
 {% extends "base.html" %}
+{% block title %}Library Suggestions{% endblock %}
+
 {% block content %}
+<div class="max-w-xl mx-auto p-4">
+  <h1 class="text-2xl font-bold mb-4">Library Playlist Suggestions</h1>
 
+  {% if error %}
+    <p class="text-red-600 mb-2">Error: {{ error }}</p>
+  {% endif %}
 
-    <h1>Library Playlist Suggestions</h1>
+  <form method="post" class="space-y-4 mb-4">
+    <div>
+      <label for="mood" class="block font-semibold">Mood:</label>
+      <select name="mood" id="mood" class="w-full p-2 border border-gray-300 rounded">
+        <option value="general" {% if mood == 'general' %}selected{% endif %}>General</option>
+        <option value="happy" {% if mood == 'happy' %}selected{% endif %}>Happy</option>
+        <option value="sad" {% if mood == 'sad' %}selected{% endif %}>Sad</option>
+        <option value="relaxed" {% if mood == 'relaxed' %}selected{% endif %}>Relaxed</option>
+        <option value="energetic" {% if mood == 'energetic' %}selected{% endif %}>Energetic</option>
+      </select>
+    </div>
+    <div>
+      <label for="genres" class="block font-semibold">Genres:</label>
+      <input type="text" name="genres" id="genres" value="{{ genres }}" placeholder="e.g., Rock, Pop, Jazz" class="w-full p-2 border border-gray-300 rounded">
+    </div>
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Generate Suggestions</button>
+  </form>
 
-    {% if error %}
-        <p style="color: red;">Error: {{ error }}</p>
-    {% endif %}
+  <h2 class="text-xl font-semibold mb-2">Suggested Playlists</h2>
+  {% if suggestions %}
+    <ul class="list-disc list-inside space-y-1">
+      {% for suggestion in suggestions %}
+        <li>
+          {{ suggestion.text }}
+          {% if suggestion.youtube_url %}
+            - <a href="{{ suggestion.youtube_url }}" target="_blank" class="text-blue-600 underline">Listen on YouTube</a>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No suggestions available.</p>
+  {% endif %}
 
-    <!-- Form for mood and genre selection -->
-    <form method="post">
-        <label for="mood">Mood:</label>
-        <select name="mood" id="mood">
-            <option value="general" {% if mood == 'general' %}selected{% endif %}>General</option>
-            <option value="happy" {% if mood == 'happy' %}selected{% endif %}>Happy</option>
-            <option value="sad" {% if mood == 'sad' %}selected{% endif %}>Sad</option>
-            <option value="relaxed" {% if mood == 'relaxed' %}selected{% endif %}>Relaxed</option>
-            <option value="energetic" {% if mood == 'energetic' %}selected{% endif %}>Energetic</option>
-        </select>
-
-        <label for="genres">Genres:</label>
-        <input type="text" name="genres" id="genres" value="{{ genres }}" placeholder="e.g., Rock, Pop, Jazz">
-
-        <button type="submit">Generate Suggestions</button>
-    </form>
-
-    <h2>Suggested Playlists</h2>
-    {% if suggestions %}
-        <ul>
-            {% for suggestion in suggestions %}
-                <li>{{ suggestion.text }} 
-                    {% if suggestion.youtube_url %}
-                        - <a href="{{ suggestion.youtube_url }}" target="_blank">Listen on YouTube</a>
-                    {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No suggestions available.</p>
-    {% endif %}
-
-    {% if download_link %}
-        <a href="{{ download_link }}" download>Download Playlist</a>
-    {% endif %}
-
+  {% if download_link %}
+    <a href="{{ download_link }}" download class="text-blue-600 underline">Download Playlist</a>
+  {% endif %}
+</div>
 {% endblock %}

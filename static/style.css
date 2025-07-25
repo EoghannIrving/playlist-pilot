@@ -6,60 +6,6 @@ body {
   color: #222;
 }
 
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 1rem;
-}
-
-.site-header {
-  background-color: #333;
-  color: #fff;
-  padding: 1rem 0;
-  text-align: center;
-}
-
-.site-title {
-  margin: 0;
-  font-size: 1.75rem;
-}
-
-.navbar {
-  background-color: #f4f4f4;
-  padding: 0.5rem;
-  border-top: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.navbar a {
-  text-decoration: none;
-  color: #333;
-  font-weight: bold;
-}
-
-.navbar a:hover {
-  color: #007bff;
-}
-
-.site-footer {
-  margin-top: 3rem;
-  background: #eee;
-  text-align: center;
-  padding: 1rem;
-  font-size: 0.9rem;
-  color: #555;
-  border-top: 1px solid #ccc;
-}
-
-.settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
 
 ul {
   padding-left: 1.25rem;
