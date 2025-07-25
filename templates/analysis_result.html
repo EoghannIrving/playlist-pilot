@@ -43,10 +43,10 @@
       <p class="text-gray-400 italic">AI summary not available.</p>
     {% endif %}
   </div>
-<!-- Spinner overlay -->
-<div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center">
-  <div class="w-20 h-20 border-8 border-gray-400 border-t-red-500 rounded-full animate-spin shadow-xl"></div>
-  <p class="mt-4 text-white text-lg font-semibold">Generating Suggestions...</p>
+<!-- Non-blocking spinner -->
+<div id="loading-overlay" class="hidden fixed bottom-4 right-4 bg-black bg-opacity-60 text-white p-4 rounded-lg z-50 flex flex-col items-center space-y-2 shadow-lg">
+  <div class="w-10 h-10 border-4 border-gray-400 border-t-red-500 rounded-full animate-spin"></div>
+  <p class="text-sm font-semibold">Generating Suggestions...</p>
 </div>
 
 <!-- Order Modal -->
