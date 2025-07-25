@@ -69,7 +69,13 @@
   </summary>
   <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
     {% if removal_suggestions %}
-      <p class="text-gray-200 whitespace-pre-line">{{ removal_suggestions }}</p>
+      <ul class="list-disc pl-5 text-gray-200">
+        {% for line in removal_suggestions.splitlines() %}
+          {% if line %}
+            <li class="whitespace-pre-line">{{ line }}</li>
+          {% endif %}
+        {% endfor %}
+      </ul>
     {% else %}
       <p class="text-gray-400 italic">No removal suggestions available.</p>
     {% endif %}
