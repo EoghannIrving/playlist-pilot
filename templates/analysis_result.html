@@ -79,7 +79,7 @@
             <p class="font-semibold text-white">{{ track.title }} <span class="text-sm text-gray-400">by {{ track.artist }}</span></p>
             <p class="text-sm text-gray-400">
               Genre: {{ track.genre }},
-              Mood: {{ track.mood or 'Unknown' }},
+              Mood: {{ macros.mood_badge(track.mood, track.mood_confidence) }},
               Tempo: {{ track.tempo }} BPM,
               Decade: {{ track.decade }},
               Popularity: {{ track.combined_popularity }}
@@ -161,6 +161,7 @@
     <div class="overflow-x-auto max-w-full">
       <div class="max-h-[600px] overflow-y-auto overscroll-y-contain">
         <table id="trackTable" class="w-full text-left border-collapse" data-sort-dir="asc">
+            {% set outlier_titles = summary.outliers | map(attribute='title') | list %}
             <thead class="bg-gray-100 dark:bg-gray-700 sticky top-0 z-10">
               <tr>
                 <th class="p-2 border-b cursor-pointer group text-left" onclick="sortTable(0)" data-column-index="0" data-tippy-content="Click to sort by title">
@@ -212,7 +213,7 @@
               </tr>
             </thead>
             {% for track in tracks %}
-            <tr class="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-700">
+            <tr class="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-700 {% if track.title in outlier_titles %}bg-red-100 dark:bg-red-800{% endif %}">
               <td class="p-2 border-b">{{ track.title }}</td>
               <td class="p-2 border-b">{{ track.artist }}</td>
               <td class="p-2 border-b">
