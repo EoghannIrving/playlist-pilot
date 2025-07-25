@@ -21,7 +21,7 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
 2. **Playlist Management Tools**
    - Add functions for renaming playlists, removing or reordering tracks, and handling duplicates.
 3. **Improved History & Settings**
-   - Continue refining playlist history views and configuration editing from the UI.
+   - Continue refining playlist history views and configuration editing from the UI. **Complete**
 
 ## Phase 3 – Cross-Service Integration & Scaling
 1. **Integrations with Other Streaming Services**
