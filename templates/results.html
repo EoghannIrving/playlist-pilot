@@ -54,7 +54,7 @@
 
   <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700 dark:text-gray-300">
     {% if s.genre %}<li>🎵 <strong>Genre:</strong> {{ s.genre }}</li>{% endif %}
-    {% if s.mood %}<li>🧠 <strong>Mood:</strong> {{ s.mood }}</li>{% endif %}
+    {% if s.mood %}<li>🧠 <strong>Mood:</strong> {{ macros.mood_badge(s.mood, s.mood_confidence) }}</li>{% endif %}
 
     {% if s.bpm %}
       <li>⏱️ <strong>BPM:</strong>

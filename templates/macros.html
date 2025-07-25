@@ -9,3 +9,29 @@
     <a href="{{ href }}" class="{% if current.startswith(href) %}text-blue-600 underline{% endif %}">{{ label }}</a>
   {% endfor %}
 {% endmacro %}
+
+{% macro mood_badge(mood, confidence) %}
+  {% if mood %}
+    {% set badge_class = "" %}
+    {% set confidence_text = "" %}
+    {% if confidence >= 0.66 %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-blue-500 text-white" %}
+      {% set confidence_text = "Very High confidence" %}
+    {% elif confidence >= 0.4 %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-green-600 text-white" %}
+      {% set confidence_text = "High confidence" %}
+    {% elif confidence >= 0.2 %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-yellow-400 text-gray-900" %}
+      {% set confidence_text = "Moderate confidence" %}
+    {% else %}
+      {% set badge_class = "inline-block px-2 py-1 rounded-full text-sm bg-gray-500 text-white" %}
+      {% set confidence_text = "Low confidence" %}
+    {% endif %}
+    <span class="{{ badge_class }}"
+          data-tippy-content="Mood: {{ mood | capitalize }} — {{ confidence_text }} ({{ confidence | round(2) }})">
+      {{ mood | capitalize }}
+    </span>
+  {% else %}
+    <span class="text-gray-400">Unknown</span>
+  {% endif %}
+{% endmacro %}
