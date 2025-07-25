@@ -476,3 +476,16 @@ norm_lfm = normalize_popularity_log(
         tracks = []
 ```
 【F:utils/helpers.py†L49-L67】
+
+## 35. `normalize_genre` crashes on ``None`` input
+*Fixed.* The helper now returns an empty string when passed ``None`` or another falsy value.
+
+```python
+def normalize_genre(raw: str | None) -> str:
+    """Map genre synonyms to canonical names."""
+    if not raw:
+        return ""
+    cleaned = str(raw).strip().lower()
+    return GENRE_SYNONYMS.get(cleaned, cleaned)
+```
+【F:core/playlist.py†L413-L418】

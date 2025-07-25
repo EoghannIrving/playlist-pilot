@@ -410,9 +410,11 @@ GENRE_SYNONYMS = {
 }
 
 
-def normalize_genre(raw: str) -> str:
+def normalize_genre(raw: str | None) -> str:
     """Map genre synonyms to canonical names."""
-    cleaned = raw.strip().lower()
+    if not raw:
+        return ""
+    cleaned = str(raw).strip().lower()
     return GENRE_SYNONYMS.get(cleaned, cleaned)
 
 
