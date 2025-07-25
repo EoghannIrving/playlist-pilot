@@ -5,14 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 35. `normalize_genre` crashes on ``None`` input
-The helper assumes a string and calls `.strip()`, raising ``AttributeError`` when passed ``None``.
-```
-def normalize_genre(raw: str) -> str:
-    cleaned = raw.strip().lower()
-    return GENRE_SYNONYMS.get(cleaned, cleaned)
-```
-【F:core/playlist.py†L413-L416】
 ## 38. Template directory bound to current working directory
 `Jinja2Templates` uses the relative path ``"templates"`` so running the app from another directory cannot locate the HTML files.
 ```

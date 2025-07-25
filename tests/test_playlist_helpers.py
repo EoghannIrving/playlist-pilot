@@ -85,6 +85,11 @@ def test_infer_decade_and_normalize_genre():
     assert normalize_genre("Alternative Rock") == "alternative"
 
 
+def test_normalize_genre_none():
+    """``normalize_genre`` should return an empty string for ``None`` input."""
+    assert normalize_genre(None) == ""
+
+
 def test_estimate_tempo_basic():
     """Ensure tempo estimation falls back to expected defaults."""
     assert estimate_tempo(250, "electronic") == 140
