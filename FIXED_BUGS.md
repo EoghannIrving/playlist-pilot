@@ -452,3 +452,27 @@ norm_lfm = normalize_popularity_log(
         ]
 ```
 【F:core/m3u.py†L186-L189】
+
+## 32. Suggest request parsing fails for list payloads
+*Fixed.* `parse_suggest_request` now handles list objects directly and only decodes JSON when the ``tracks`` value is a string.
+
+```python
+    tracks_raw = data.get("tracks", "[]")
+    logger.info("tracks_raw: %s", str(tracks_raw)[:100])
+    playlist_name = str(data.get("playlist_name", ""))
+    text_summary = str(data.get("text_summary", ""))
+
+    if isinstance(tracks_raw, str):
+        tracks_raw_str = tracks_raw
+        try:
+            tracks = json.loads(tracks_raw_str)
+        except json.JSONDecodeError:
+            logger.warning("Failed to decode tracks JSON from form.")
+            tracks = []
+    elif isinstance(tracks_raw, (list, tuple)):
+        tracks = list(tracks_raw)
+    else:
+        logger.warning("Unexpected tracks type: %s", type(tracks_raw))
+        tracks = []
+```
+【F:utils/helpers.py†L49-L67】

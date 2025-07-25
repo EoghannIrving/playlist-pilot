@@ -5,16 +5,6 @@ Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
 
-## 32. Suggest request parsing fails for list payloads
-`parse_suggest_request` converts the `tracks` field to a string before JSON parsing. If the form sends a list object, the resulting string uses single quotes and cannot be decoded.
-```
-    tracks_raw = data.get("tracks", "[]")
-    tracks_raw_str = str(tracks_raw)
-    ...
-    tracks = json.loads(tracks_raw_str)
-```
-【F:utils/helpers.py†L44-L52】
-
 ## 35. `normalize_genre` crashes on ``None`` input
 The helper assumes a string and calls `.strip()`, raising ``AttributeError`` when passed ``None``.
 ```
