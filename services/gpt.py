@@ -266,7 +266,11 @@ async def fetch_gpt_suggestions(
     tracks: list[dict], text_summary: str, count: int
 ) -> list[dict]:
     """Wrapper to request suggestions from GPT based on seed tracks."""
-    seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
+    seed_lines = [
+        f"{t['title']} - {t['artist']}"
+        f" - {t.get('tempo', '??')} BPM - mood: {t.get('mood', 'unknown')}"
+        for t in tracks
+    ]
     exclude_pairs = {(t["title"], t["artist"]) for t in tracks}
     return await gpt_suggest_validated(
         seed_lines,
@@ -285,7 +289,11 @@ async def fetch_order_suggestions(
     tracks: list[dict], summary: str | None = None
 ) -> list[dict]:
     """Ask GPT to reorder the given tracks and return the new order."""
-    seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
+    seed_lines = [
+        f"{t['title']} - {t['artist']}"
+        f" - {t.get('tempo', '??')} BPM - mood: {t.get('mood', 'unknown')}"
+        for t in tracks
+    ]
     prompt = (
         "You are an expert DJ arranging songs for the best flow.\n"
         f"Reorder the following {len(seed_lines)} tracks. "
