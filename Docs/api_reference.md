@@ -10,6 +10,7 @@ The table below summarises the main endpoints exposed by Playlist Pilot. All end
 | POST | `/analyze/result` | Display analysis results |
 | POST | `/analyze/export-m3u` | Export analyzed tracks as M3U |
 | POST | `/suggest-playlist` | Suggest a playlist from analysis results |
+| POST | `/suggest-order` | Get a recommended track order |
 | GET | `/compare` | Display comparison form |
 | POST | `/compare` | Compare two playlists |
 | GET | `/history` | View past GPT suggestions |

@@ -33,6 +33,12 @@
   <input type="hidden" name="playlist_name" value="{{ playlist_name | tojson | forceescape }}">
   <button type="submit" class="text-md px-2 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"  >Suggest Similar Playlist</button>
 </form>
+<form action="/suggest-order" method="post" class="mt-2" onsubmit="showSpinner()">
+  <input type="hidden" name="text_summary" value="{{ gpt_summary | tojson | forceescape }}">
+  <input type="hidden" name="tracks" value="{{ tracks | tojson | forceescape }}">
+  <input type="hidden" name="playlist_name" value="{{ playlist_name | tojson | forceescape }}">
+  <button type="submit" class="text-md px-2 py-0.5 bg-green-100 text-green-800 rounded hover:bg-green-200"  >Suggest Playlist Order</button>
+</form>
     {% else %}
       <p class="text-gray-400 italic">AI summary not available.</p>
     {% endif %}

@@ -8,6 +8,7 @@ import hashlib
 import logging
 import asyncio
 import json
+import re
 
 import openai
 from openai import OpenAI, AsyncOpenAI
@@ -273,6 +274,37 @@ async def fetch_gpt_suggestions(
         text_summary,
         exclude_pairs=exclude_pairs,
     )
+
+
+def strip_number_prefix(line: str) -> str:
+    """Remove any leading numbering from a playlist line."""
+    return re.sub(r"^\d+[).\-\s]*", "", line).strip()
+
+
+async def fetch_order_suggestions(
+    tracks: list[dict], summary: str | None = None
+) -> list[dict]:
+    """Ask GPT to reorder the given tracks and return the new order."""
+    seed_lines = [f"{t['title']} - {t['artist']}" for t in tracks]
+    prompt = (
+        "You are an expert DJ arranging songs for the best flow.\n"
+        f"Reorder the following {len(seed_lines)} tracks. "
+        "Respond with the new order numbered from 1 to "
+        f"{len(seed_lines)} using the format '1. Song - Artist'. "
+        "Do not add or remove tracks or include commentary.\n\nTracks:\n"
+        + "\n".join(seed_lines)
+    )
+    if summary:
+        prompt += f"\n\nPlaylist summary:\n{summary}"
+    result = await cached_chat_completion(prompt)
+    ordered = []
+    for line in result.splitlines():
+        line = strip_number_prefix(line)
+        if not line:
+            continue
+        title, artist = parse_gpt_line(line)
+        ordered.append({"title": title, "artist": artist, "text": line})
+    return ordered
 
 
 async def generate_playlist_analysis_summary(summary: dict, tracks: list):

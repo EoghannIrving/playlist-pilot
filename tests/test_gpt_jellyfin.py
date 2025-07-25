@@ -134,3 +134,29 @@ def test_parse_gpt_line():
     assert describe_popularity(55) == "Moderately mainstream"
     assert describe_popularity(35) == "Niche appeal"
     assert describe_popularity(10) == "Obscure or local"
+
+
+def test_strip_number_prefix():
+    """strip_number_prefix should remove leading digits and punctuation."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+    strip_prefix = gpt_mod.strip_number_prefix
+
+    assert strip_prefix("1. Song - Artist") == "Song - Artist"
+    assert strip_prefix("10) Track - Name") == "Track - Name"
