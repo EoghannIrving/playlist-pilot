@@ -67,10 +67,10 @@ sys.modules["diskcache"] = types.ModuleType("diskcache")
 sys.modules["diskcache"].Cache = DummyCache  # type: ignore[attr-defined]
 
 # Stub utils.cache_manager used inside jellyfin
-cache_stub = types.ModuleType("utils.cache_manager")
-cache_stub.jellyfin_track_cache = DummyCache()  # type: ignore[attr-defined]
-cache_stub.CACHE_TTLS = {"jellyfin_tracks": 1}  # type: ignore[attr-defined]
-sys.modules["utils.cache_manager"] = cache_stub
+jellyfin_cache_stub = types.ModuleType("utils.cache_manager")
+jellyfin_cache_stub.jellyfin_track_cache = DummyCache()  # type: ignore[attr-defined]
+jellyfin_cache_stub.CACHE_TTLS = {"jellyfin_tracks": 1}  # type: ignore[attr-defined]
+sys.modules["utils.cache_manager"] = jellyfin_cache_stub
 
 
 def test_search_jellyfin_track_found(monkeypatch):
@@ -141,7 +141,10 @@ def test_strip_number_prefix():
     openai_stub = types.ModuleType("openai")
 
     class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
         def __init__(self, **_kwargs):
+            """Ignore initialization parameters."""
             return
 
     openai_stub.OpenAI = Dummy
