@@ -33,7 +33,7 @@
   <input type="hidden" name="playlist_name" value="{{ playlist_name | tojson | forceescape }}">
   <button type="submit" class="text-md px-2 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"  >Suggest Similar Playlist</button>
 </form>
-<form action="/suggest-order" method="post" class="mt-2" onsubmit="showSpinner()">
+<form id="order-form" action="/suggest-order" method="post" class="mt-2">
   <input type="hidden" name="text_summary" value="{{ gpt_summary | tojson | forceescape }}">
   <input type="hidden" name="tracks" value="{{ tracks | tojson | forceescape }}">
   <input type="hidden" name="playlist_name" value="{{ playlist_name | tojson | forceescape }}">
@@ -47,6 +47,17 @@
 <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center">
   <div class="w-20 h-20 border-8 border-gray-400 border-t-red-500 rounded-full animate-spin shadow-xl"></div>
   <p class="mt-4 text-white text-lg font-semibold">Generating Suggestions...</p>
+</div>
+
+<!-- Order Modal -->
+<div id="order-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+  <div class="bg-white dark:bg-gray-800 p-6 rounded shadow-lg max-w-md w-full">
+    <h2 class="text-xl font-semibold mb-4" id="order-modal-title"></h2>
+    <ol id="order-modal-list" class="list-decimal list-inside space-y-1 text-gray-800 dark:text-gray-200"></ol>
+    <div class="text-right mt-4">
+      <button id="order-modal-close" type="button" class="px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">Close</button>
+    </div>
+  </div>
 </div>
 
 </details>
@@ -301,6 +312,10 @@
     document.getElementById("loading-overlay").classList.remove("hidden");
   }
 
+  function hideSpinner() {
+    document.getElementById("loading-overlay").classList.add("hidden");
+  }
+
 document.addEventListener('DOMContentLoaded', () => {
 
   // === Helper ===
@@ -317,6 +332,52 @@ document.addEventListener('DOMContentLoaded', () => {
     return Object.values(dataObject).map(v =>
       typeof v === 'string' && v.endsWith('%') ? parseFloat(v) : v
     );
+  }
+
+  // === Playlist Order Modal ===
+  const orderForm = document.getElementById('order-form');
+  const orderModal = document.getElementById('order-modal');
+  const orderTitle = document.getElementById('order-modal-title');
+  const orderList = document.getElementById('order-modal-list');
+  const orderClose = document.getElementById('order-modal-close');
+
+  if (orderClose) {
+    orderClose.addEventListener('click', () => orderModal.classList.add('hidden'));
+  }
+
+  if (orderForm) {
+    orderForm.addEventListener('submit', evt => {
+      evt.preventDefault();
+      showSpinner();
+      const formData = new FormData(orderForm);
+      fetch(orderForm.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: formData,
+        credentials: 'same-origin'
+      }).then(async resp => {
+        hideSpinner();
+        if (resp.ok) {
+          const data = await resp.json();
+          orderTitle.textContent = `Recommended Order for ${formData.get('playlist_name')}`;
+          orderList.innerHTML = '';
+          (data.ordered_tracks || []).forEach(t => {
+            const li = document.createElement('li');
+            li.textContent = `${t.title} - ${t.artist}`;
+            orderList.appendChild(li);
+          });
+          orderModal.classList.remove('hidden');
+        } else {
+          alert('Failed to fetch order suggestions.');
+        }
+      }).catch(() => {
+        hideSpinner();
+        alert('Network error while fetching order suggestions.');
+      });
+    });
   }
 
   // === Charts ===
