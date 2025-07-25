@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="max-w-screen-x1 mx-auto p-4">
+<div class="max-w-screen-xl mx-auto p-4">
 
   <h1 class="text-2xl font-bold flex justify-between items-center mb-1">
     ⚙️ Settings
@@ -54,7 +54,7 @@
       <div class="space-y-4">
         <label for="JELLYFIN_API_KEY" class="block font-semibold required-label">Jellyfin API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" placeholder="Jellyfin key" title="Jellyfin API Key" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" placeholder="Jellyfin key" title="Jellyfin API Key" required class="flex-1 min-w-0 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <button type="button" onclick="testJellyfinKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="jellyfin-status" class="text-sm"></span>
         </div>
@@ -78,7 +78,7 @@
       <div class="space-y-4">
         <label for="OPENAI_API_KEY" class="block font-semibold required-label">OpenAI API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="OPENAI_API_KEY" name="openai_api_key" value="{{ settings.openai_api_key }}" placeholder="sk-..." title="OpenAI API Key" required class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="OPENAI_API_KEY" name="openai_api_key" value="{{ settings.openai_api_key }}" placeholder="sk-..." title="OpenAI API Key" required class="flex-1 min-w-0 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <button type="button" onclick="testOpenAIKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="openai-status" class="text-sm"></span>
         </div>
@@ -116,7 +116,7 @@
       <div class="space-y-4">
         <label for="LASTFM_API_KEY" class="block font-semibold">Last.fm API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="LASTFM_API_KEY" name="lastfm_api_key" value="{{ settings.lastfm_api_key }}" placeholder="Last.fm key" title="Last.fm API Key" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="LASTFM_API_KEY" name="lastfm_api_key" value="{{ settings.lastfm_api_key }}" placeholder="Last.fm key" title="Last.fm API Key" class="flex-1 min-w-0 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <button type="button" onclick="testLastfmKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="lastfm-status" class="text-sm"></span>
         </div>
@@ -125,7 +125,7 @@
       <div class="space-y-4">
         <label for="GETSONGBPM_API_KEY" class="block font-semibold">GetSongBPM.com API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="GETSONGBPM_API_KEY" name="getsongbpm_api_key" value="{{ settings.getsongbpm_api_key }}" placeholder="GetSongBPM key" title="GetSongBPM API Key" class="flex-1 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="GETSONGBPM_API_KEY" name="getsongbpm_api_key" value="{{ settings.getsongbpm_api_key }}" placeholder="GetSongBPM key" title="GetSongBPM API Key" class="flex-1 min-w-0 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
           <button type="button" onclick="testGetSongBPMKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="getsongbpm-status" class="text-sm"></span>
         </div>
