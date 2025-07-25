@@ -724,6 +724,10 @@ async def suggest_order_from_analyzed(request: Request):
     """Return a recommended track order from GPT."""
     tracks, playlist_name, text_summary = await parse_suggest_request(request)
     ordered = await fetch_order_suggestions(tracks, text_summary)
+    if request.headers.get(
+        "x-requested-with"
+    ) == "XMLHttpRequest" or "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ordered_tracks": ordered})
     return templates.TemplateResponse(
         "order_results.html",
         {
