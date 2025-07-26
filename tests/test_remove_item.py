@@ -32,17 +32,18 @@ class DummyClient:
         """Exit without handling exceptions."""
         return False
 
-    async def delete(self, url, params=None, headers=None, timeout=None):
+    async def request(self, method, url, headers=None, json=None, timeout=None):
         """Record the call parameters and return a ``DummyResp``."""
+        self.called["method"] = method
         self.called["url"] = url
-        self.called["params"] = params
         self.called["headers"] = headers
+        self.called["json"] = json
         self.called["timeout"] = timeout
         return DummyResp()
 
 
 def test_remove_item_from_playlist(monkeypatch):
-    """Jellyfin deletion call should use the correct URL and params."""
+    """Jellyfin deletion call should use the correct URL and JSON body."""
 
     httpx_stub = types.ModuleType("httpx")
     client = DummyClient()
@@ -58,6 +59,8 @@ def test_remove_item_from_playlist(monkeypatch):
         jellyfin.remove_item_from_playlist("pl", "entry1")
     )
     assert result is True
+    assert client.called["method"] == "DELETE"
     assert client.called["url"] == "http://jf/Playlists/pl/Items"
-    assert client.called["params"]["EntryIds"] == "entry1"
+    assert client.called["json"]["EntryIds"] == ["entry1"]
     assert client.called["headers"]["X-Emby-Token"] == "k"
+    assert client.called["headers"]["Content-Type"] == "application/json"
