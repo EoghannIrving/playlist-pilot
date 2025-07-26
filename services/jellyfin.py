@@ -455,18 +455,18 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
 async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
     """Remove a playlist entry from a Jellyfin playlist."""
     url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
-    params = {
-        "EntryIds": entry_id,
-#        "UserId": settings.jellyfin_user_id,
+    headers = {
+        "X-Emby-Token": settings.jellyfin_api_key,
+        "Content-Type": "application/json",
     }
-    headers = {"X-Emby-Token": settings.jellyfin_api_key}
+    payload = {"EntryIds": [entry_id]}
     logger.info(
         "Removing entry %s from playlist %s",
         entry_id,
         playlist_id,
     )
     logger.debug("[remove_item_from_playlist] URL: %s", url)
-    logger.debug("[remove_item_from_playlist] Params: %s", params)
+    logger.debug("[remove_item_from_playlist] JSON payload: %s", payload)
     logger.debug(
         "[remove_item_from_playlist] Headers: %s",
         {"X-Emby-Token": "***" if headers.get("X-Emby-Token") else None},
@@ -475,10 +475,11 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
         logger.debug("[remove_item_from_playlist] Opening HTTP client")
         async with httpx.AsyncClient() as client:
             logger.debug("[remove_item_from_playlist] Sending DELETE request")
-            resp = await client.delete(
+            resp = await client.request(
+                "DELETE",
                 url,
-                params=params,
                 headers=headers,
+                json=payload,
                 timeout=settings.http_timeout_short,
             )
             logger.debug(
