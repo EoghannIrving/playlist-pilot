@@ -170,6 +170,8 @@ def test_format_removal_suggestions():
     openai_stub = types.ModuleType("openai")
 
     class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
         def __init__(self, **_kwargs):
             return
 
