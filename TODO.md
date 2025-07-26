@@ -24,7 +24,7 @@ This file outlines upcoming tasks based on the current roadmap and list of outst
 ## Roadmap
 ### Phase 2 – Advanced Analysis & Playlist Management
 - [X] Surface mood/confidence scores and highlight outliers.
-- [ ] Add playlist management tools for renaming, reordering and deduplication.
+- [ ] Add playlist management tools for renaming and reordering (track removal implemented).
 - [X] Refine history views and settings editing in the UI.
 
 ### Phase 3 – Cross-Service Integration & Scaling
