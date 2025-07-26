@@ -129,6 +129,10 @@ def test_parse_gpt_line():
     assert title == "Song"
     assert artist == "Artist"
 
+    title, artist = parse_gpt_line("Another Song by Some Artist - Reason")
+    assert title == "Another Song"
+    assert artist == "Some Artist"
+
     assert describe_popularity(95) == "Global smash hit"
     assert describe_popularity(75) == "Mainstream favorite"
     assert describe_popularity(55) == "Moderately mainstream"
