@@ -458,21 +458,26 @@ async def remove_item_from_playlist(
     """Remove a playlist entry from a Jellyfin playlist."""
     user_id = user_id or settings.jellyfin_user_id
 
-    # Resolve the playlist entry id from the user's playlist items
+    # Fetch current playlist item IDs
     try:
         logger.debug(
             "[remove_item_from_playlist] Fetching items for playlist %s as user %s",
             playlist_id,
             user_id,
         )
-        resp = await jf_get(f"/Users/{user_id}/Items", ParentId=playlist_id)
+        resp = await jf_get(f"/Playlists/{playlist_id}/Items", UserId=user_id)
         items = resp.get("Items", []) if isinstance(resp, dict) else []
-        playlist_item_id = None
+        new_ids = []
+        removed = False
         for itm in items:
-            if entry_id in (itm.get("PlaylistItemId"), itm.get("Id")):
-                playlist_item_id = itm.get("PlaylistItemId")
-                break
-        if not playlist_item_id:
+            item_id = itm.get("Id")
+            if not item_id:
+                continue
+            if entry_id in (itm.get("PlaylistItemId"), item_id):
+                removed = True
+                continue
+            new_ids.append(item_id)
+        if not removed:
             logger.error(
                 "[remove_item_from_playlist] Entry %s not found in playlist %s",
                 entry_id,
@@ -482,21 +487,21 @@ async def remove_item_from_playlist(
     except Exception as exc:  # pylint: disable=broad-exception-caught
         record_failure("jellyfin")
         logger.error(
-            "[remove_item_from_playlist] Failed to resolve playlist item: %s",
+            "[remove_item_from_playlist] Failed to fetch playlist items: %s",
             exc,
         )
         return False
 
     url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
-    params = {"EntryIds": playlist_item_id, "UserId": user_id}
+    payload = {"UserId": user_id, "Ids": new_ids, "Clear": True}
     logger.info(
-        "Removing entry %s from playlist %s",
-        playlist_item_id,
+        "Removing entry %s from playlist %s via override",
+        entry_id,
         playlist_id,
     )
     logger.debug("[remove_item_from_playlist] URL: %s", url)
-    logger.debug("[remove_item_from_playlist] Params: %s", params)
+    logger.debug("[remove_item_from_playlist] Payload: %s", payload)
     logger.debug(
         "[remove_item_from_playlist] Headers: %s",
         {"X-Emby-Token": "***" if headers.get("X-Emby-Token") else None},
@@ -504,12 +509,12 @@ async def remove_item_from_playlist(
     try:
         logger.debug("[remove_item_from_playlist] Opening HTTP client")
         async with httpx.AsyncClient() as client:
-            logger.debug("[remove_item_from_playlist] Sending DELETE request")
+            logger.debug("[remove_item_from_playlist] Sending POST request")
             resp = await client.request(
-                "DELETE",
+                "POST",
                 url,
                 headers=headers,
-                params=params,
+                json=payload,
                 timeout=settings.http_timeout_short,
             )
             logger.debug(
@@ -524,7 +529,7 @@ async def remove_item_from_playlist(
         record_success("jellyfin")
         logger.info(
             "✅ Removed entry %s from playlist %s",
-            playlist_item_id,
+            entry_id,
             playlist_id,
         )
         return True
@@ -532,7 +537,7 @@ async def remove_item_from_playlist(
         record_failure("jellyfin")
         logger.exception(
             "❌ Failed to remove entry %s from playlist %s: %s",
-            playlist_item_id,
+            entry_id,
             playlist_id,
             exc,
         )

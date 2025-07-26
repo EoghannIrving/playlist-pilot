@@ -72,7 +72,7 @@ class ClientFactory:
 
 
 def test_remove_item_from_playlist(monkeypatch):
-    """Jellyfin deletion call should use the correct URL params."""
+    """Playlist removal should post the updated item list."""
 
     httpx_stub = types.ModuleType("httpx")
     factory = ClientFactory()
@@ -92,13 +92,11 @@ def test_remove_item_from_playlist(monkeypatch):
     assert factory.clients[0].calls[0]["method"] == "GET"
     assert (
         factory.clients[0].calls[0]["url"]
-        == "http://jf/Users/u/Items?api_key=k&ParentId=pl"
+        == "http://jf/Playlists/pl/Items?api_key=k&UserId=u"
     )
 
-    delete_call = factory.clients[1].calls[0]
-    assert delete_call["method"] == "DELETE"
-    assert delete_call["url"] == "http://jf/Playlists/pl/Items"
-    assert delete_call["params"]["EntryIds"] == "entry1"
-    assert delete_call["params"]["UserId"] == "u"
-    assert delete_call["headers"]["X-Emby-Token"] == "k"
-    assert "Content-Type" not in delete_call["headers"]
+    post_call = factory.clients[1].calls[0]
+    assert post_call["method"] == "POST"
+    assert post_call["url"] == "http://jf/Playlists/pl/Items"
+    assert post_call["json"] == {"UserId": "u", "Ids": [], "Clear": True}
+    assert post_call["headers"]["X-Emby-Token"] == "k"
