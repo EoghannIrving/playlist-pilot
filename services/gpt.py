@@ -285,6 +285,25 @@ def strip_number_prefix(line: str) -> str:
     return re.sub(r"^\d+[).\-\s]*", "", line).strip()
 
 
+def format_removal_suggestions(raw: str) -> list[str]:
+    """Return a list of HTML formatted removal suggestion lines."""
+    lines: list[str] = []
+    for line in raw.splitlines():
+        text = strip_number_prefix(line).strip()
+        if not text:
+            continue
+        title, artist = parse_gpt_line(text)
+        if not title or not artist:
+            continue
+        parts = [p.strip() for p in text.split(" - ")]
+        remaining = " - ".join(parts[2:]).strip()
+        formatted = f"<strong>{title}</strong> - <strong>{artist}</strong>"
+        if remaining:
+            formatted += f" - {remaining}"
+        lines.append(formatted)
+    return lines
+
+
 async def fetch_order_suggestions(
     tracks: list[dict], summary: str | None = None
 ) -> list[dict]:

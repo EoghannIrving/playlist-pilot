@@ -70,9 +70,9 @@
   <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
     {% if removal_suggestions %}
       <ul class="list-disc pl-5 text-gray-200">
-        {% for line in removal_suggestions.splitlines() %}
+        {% for line in removal_suggestions %}
           {% if line %}
-            <li class="whitespace-pre-line">{{ line }}</li>
+            <li class="whitespace-pre-line">{{ line | safe }}</li>
           {% endif %}
         {% endfor %}
       </ul>

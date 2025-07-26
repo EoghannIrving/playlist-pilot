@@ -69,6 +69,7 @@ from services.gpt import (
     fetch_gpt_suggestions,
     fetch_order_suggestions,
     fetch_openai_models,
+    format_removal_suggestions,
 )
 from services.jellyfin import (
     create_jellyfin_playlist,
@@ -646,9 +647,10 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     base_summary = summarize_tracks(enriched)
     summary.update(base_summary)
 
-    gpt_summary, removal_suggestions = await generate_playlist_analysis_summary(
+    gpt_summary, removal_raw = await generate_playlist_analysis_summary(
         summary, enriched
     )
+    removal_suggestions = format_removal_suggestions(removal_raw)
 
     return templates.TemplateResponse(
         "analysis_result.html",

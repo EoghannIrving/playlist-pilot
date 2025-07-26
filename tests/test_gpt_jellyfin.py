@@ -163,3 +163,33 @@ def test_strip_number_prefix():
 
     assert strip_prefix("1. Song - Artist") == "Song - Artist"
     assert strip_prefix("10) Track - Name") == "Track - Name"
+
+
+def test_format_removal_suggestions():
+    """Format removal suggestions and drop invalid trailing lines."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+    format_lines = gpt_mod.format_removal_suggestions
+
+    raw = "1. Foo - Bar - Reason\n2. Baz - Qux - Another\nThanks!"
+    result = format_lines(raw)
+    assert result == [
+        "<strong>Foo</strong> - <strong>Bar</strong> - Reason",
+        "<strong>Baz</strong> - <strong>Qux</strong> - Another",
+    ]
