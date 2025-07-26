@@ -12,7 +12,7 @@
       {% set is_active = current.startswith(href) %}
     {% endif %}
       <a href="{{ href }}"
-         class="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 {% if is_active %}bg-blue-600 text-white{% else %}text-gray-800 dark:text-gray-100{% endif %}">
+         class="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 {% if is_active %}bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100{% else %}text-gray-800 dark:text-gray-100{% endif %}">
         {{ label }}
       </a>
   {% endfor %}
