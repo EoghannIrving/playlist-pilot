@@ -652,7 +652,7 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     gpt_summary, removal_raw = await generate_playlist_analysis_summary(
         summary, enriched
     )
-    removal_suggestions = format_removal_suggestions(removal_raw)
+    removal_suggestions = format_removal_suggestions(removal_raw, parsed_enriched)
 
     return templates.TemplateResponse(
         "analysis_result.html",

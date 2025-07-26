@@ -301,9 +301,22 @@ def strip_number_prefix(line: str) -> str:
     return re.sub(r"^\d+[).\-\s]*", "", line).strip()
 
 
-def format_removal_suggestions(raw: str) -> list[str]:
-    """Return a list of HTML formatted removal suggestion lines."""
-    lines: list[str] = []
+def format_removal_suggestions(
+    raw: str, tracks: list[dict] | None = None
+) -> list[dict]:
+    """Return removal suggestions with HTML and matching item IDs.
+
+    Each suggestion dict has ``html`` (formatted text) and ``item_id`` if a
+    matching track is found in ``tracks`` based on title and artist.
+    """
+
+    track_index = {}
+    if tracks:
+        track_index = {
+            (t.get("title", "").lower(), t.get("artist", "").lower()): t for t in tracks
+        }
+
+    suggestions: list[dict] = []
     for line in raw.splitlines():
         text = strip_number_prefix(line).strip()
         if not text:
@@ -329,9 +342,15 @@ def format_removal_suggestions(raw: str) -> list[str]:
         formatted = f"<strong>{title}</strong> - <strong>{artist}</strong>"
         if remaining:
             formatted += f" - {remaining}"
-        lines.append(formatted)
 
-    return lines
+        item_id = None
+        match = track_index.get((title.lower(), artist.lower()))
+        if match is not None:
+            item_id = match.get("PlaylistItemId") or match.get("Id")
+
+        suggestions.append({"html": formatted, "item_id": item_id})
+
+    return suggestions
 
 
 async def fetch_order_suggestions(
