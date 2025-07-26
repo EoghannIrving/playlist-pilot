@@ -74,14 +74,7 @@
           {% if item.html %}
             <li class="whitespace-pre-line flex justify-between items-center">
               <span>{{ item.html | safe }}</span>
-              {% if playlist_id and item.item_id %}
-                <button type="button"
-                        class="ml-2 text-sm text-red-500 underline remove-track-btn"
-                        data-item-id="{{ item.item_id }}"
-                        data-playlist-id="{{ playlist_id }}">
-                  Remove
-                </button>
-              {% endif %}
+              
             </li>
           {% endif %}
         {% endfor %}
@@ -241,9 +234,6 @@
                 <th class="p-2 border-b cursor-pointer group text-left" data-tippy-content="Export Metadata to Jellyfin">
                     Actions
                 </th>
-                <th class="p-2 border-b text-left" data-tippy-content="Remove track from playlist">
-                    🗑️
-                </th>
               </tr>
             </thead>
             {% for track in tracks %}
@@ -305,18 +295,6 @@
                 aria-label="Export metadata for {{ track.title }} to Jellyfin">
           📤
         </button>
-      </td>
-      <td class="p-2 border-b text-center align-middle">
-        {% if playlist_id and track.PlaylistItemId %}
-        <button type="button"
-                class="px-1 py-0 rounded hover:bg-red-200 remove-track-btn"
-                data-item-id="{{ track.PlaylistItemId }}"
-                data-playlist-id="{{ playlist_id }}"
-                data-tippy-content="Remove {{ track.title }} from playlist"
-                aria-label="Remove {{ track.title }} from playlist">
-          🗑️
-        </button>
-        {% endif %}
       </td>
             </tr>
             {% endfor %}
@@ -679,34 +657,7 @@ document.querySelectorAll('.export-track-metadata').forEach(button => {
   });
 });
 
-  // === Remove track buttons ===
-  document.querySelectorAll('.remove-track-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const playlistId = button.getAttribute('data-playlist-id');
-      const itemId = button.getAttribute('data-item-id');
-      if (!playlistId || !itemId) {
-        alert('Missing playlist or track ID for removal.');
-        return;
-      }
-      if (!confirm('Remove this track from the playlist?')) {
-        return;
-      }
-      fetch('/playlist/remove-item', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playlist_id: playlistId, item_id: itemId })
-      })
-      .then(resp => {
-        if (resp.ok) {
-          alert('Track removed from playlist');
-          button.disabled = true;
-        } else {
-          alert(`Failed to remove track (status ${resp.status})`);
-        }
-      })
-      .catch(() => alert('Network error while removing track'));
-    });
-  });
+
  
   // === Export to M3U ===
 

@@ -963,24 +963,3 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
     return JSONResponse(
         {"message": f"Metadata for track '{title}' exported to Jellyfin."}
     )
-
-
-@router.post("/playlist/remove-item")
-async def remove_playlist_item(request: Request):
-    """Remove a track from a Jellyfin playlist."""
-    data = await request.json()
-    playlist_id = data.get("playlist_id")
-    entry_id = data.get("item_id")
-    if not playlist_id or not entry_id:
-        raise HTTPException(
-            status_code=400, detail="playlist_id and item_id are required"
-        )
-
-    success = await jellyfin.remove_item_from_playlist(playlist_id, entry_id)
-    if not success:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to remove item from playlist",
-        )
-
-    return {"status": "success"}
