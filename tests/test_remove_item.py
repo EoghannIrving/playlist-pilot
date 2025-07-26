@@ -32,18 +32,18 @@ class DummyClient:
         """Exit without handling exceptions."""
         return False
 
-    async def request(self, method, url, headers=None, json=None, timeout=None):
+    async def request(self, method, url, headers=None, params=None, timeout=None):
         """Record the call parameters and return a ``DummyResp``."""
         self.called["method"] = method
         self.called["url"] = url
         self.called["headers"] = headers
-        self.called["json"] = json
+        self.called["params"] = params
         self.called["timeout"] = timeout
         return DummyResp()
 
 
 def test_remove_item_from_playlist(monkeypatch):
-    """Jellyfin deletion call should use the correct URL and JSON body."""
+    """Jellyfin deletion call should use the correct URL params."""
 
     httpx_stub = types.ModuleType("httpx")
     client = DummyClient()
@@ -61,6 +61,7 @@ def test_remove_item_from_playlist(monkeypatch):
     assert result is True
     assert client.called["method"] == "DELETE"
     assert client.called["url"] == "http://jf/Playlists/pl/Items"
-    assert client.called["json"]["EntryIds"] == ["entry1"]
+    assert client.called["params"]["EntryIds"] == "entry1"
+    assert client.called["params"]["UserId"] == "u"
     assert client.called["headers"]["X-Emby-Token"] == "k"
-    assert client.called["headers"]["Content-Type"] == "application/json"
+    assert "Content-Type" not in client.called["headers"]
