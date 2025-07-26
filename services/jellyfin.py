@@ -467,7 +467,7 @@ async def remove_item_from_playlist(
         )
         resp = await jf_get(f"/Playlists/{playlist_id}/Items", UserId=user_id)
         items = resp.get("Items", []) if isinstance(resp, dict) else []
-        new_ids = []
+        remaining_ids = []
         removed = False
         for itm in items:
             item_id = itm.get("Id")
@@ -476,7 +476,7 @@ async def remove_item_from_playlist(
             if entry_id in (itm.get("PlaylistItemId"), item_id):
                 removed = True
                 continue
-            new_ids.append(item_id)
+            remaining_ids.append(item_id)
         if not removed:
             logger.error(
                 "[remove_item_from_playlist] Entry %s not found in playlist %s",
@@ -494,14 +494,14 @@ async def remove_item_from_playlist(
 
     url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
-    payload = {"UserId": user_id, "Ids": new_ids, "Clear": True}
+    params = {"ids": ",".join(remaining_ids), "userId": user_id}
     logger.info(
         "Removing entry %s from playlist %s via override",
         entry_id,
         playlist_id,
     )
     logger.debug("[remove_item_from_playlist] URL: %s", url)
-    logger.debug("[remove_item_from_playlist] Payload: %s", payload)
+    logger.debug("[remove_item_from_playlist] Params: %s", params)
     logger.debug(
         "[remove_item_from_playlist] Headers: %s",
         {"X-Emby-Token": "***" if headers.get("X-Emby-Token") else None},
@@ -514,7 +514,7 @@ async def remove_item_from_playlist(
                 "POST",
                 url,
                 headers=headers,
-                json=payload,
+                params=params,
                 timeout=settings.http_timeout_short,
             )
             logger.debug(
