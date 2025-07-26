@@ -32,10 +32,11 @@ class DummyClient:
         """Exit without handling exceptions."""
         return False
 
-    async def delete(self, url, params=None, timeout=None):
+    async def delete(self, url, params=None, headers=None, timeout=None):
         """Record the call parameters and return a ``DummyResp``."""
         self.called["url"] = url
         self.called["params"] = params
+        self.called["headers"] = headers
         self.called["timeout"] = timeout
         return DummyResp()
 
@@ -58,4 +59,5 @@ def test_remove_item_from_playlist(monkeypatch):
     )
     assert result is True
     assert client.called["url"] == "http://jf/Playlists/pl/Items"
-    assert client.called["params"]["entryIds"] == "entry1"
+    assert client.called["params"]["EntryIds"] == "entry1"
+    assert client.called["headers"]["X-Emby-Token"] == "k"

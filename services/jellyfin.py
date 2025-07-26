@@ -456,10 +456,10 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
     """Remove a playlist entry from a Jellyfin playlist."""
     url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
     params = {
-        "entryIds": entry_id,
+        "EntryIds": entry_id,
         "UserId": settings.jellyfin_user_id,
-        "api_key": settings.jellyfin_api_key,
     }
+    headers = {"X-Emby-Token": settings.jellyfin_api_key}
     logger.info(
         "Removing entry %s from playlist %s",
         entry_id,
@@ -473,6 +473,7 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
             resp = await client.delete(
                 url,
                 params=params,
+                headers=headers,
                 timeout=settings.http_timeout_short,
             )
             logger.debug(
