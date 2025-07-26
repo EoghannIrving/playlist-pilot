@@ -559,6 +559,33 @@ async def test_getsongbpm(request: Request):
         )
 
 
+@router.post("/api/verify-entry")
+async def verify_playlist_entry(request: Request):
+    """Confirm that a playlist contains the specified entry ID."""
+    data = await request.json()
+    playlist_id = data.get("playlist_id")
+    entry_id = data.get("entry_id")
+
+    if not playlist_id or not entry_id:
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "playlist_id and entry_id are required",
+            },
+            status_code=400,
+        )
+
+    tracks = await fetch_tracks_for_playlist_id(playlist_id)
+    match = next((t for t in tracks if t.get("PlaylistItemId") == entry_id), None)
+
+    if match:
+        return JSONResponse({"success": True, "track": match})
+
+    return JSONResponse(
+        {"success": False, "error": "Entry not found in playlist"}, status_code=404
+    )
+
+
 @router.get("/analyze", response_class=HTMLResponse)
 async def show_analysis_page(request: Request):
     """Display the playlist analysis form."""
