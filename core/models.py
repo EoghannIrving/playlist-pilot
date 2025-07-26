@@ -18,6 +18,7 @@ class Track(BaseModel):
     RunTimeTicks: int = 0
     jellyfin_play_count: int = 0
     Id: Optional[str] = None
+    PlaylistItemId: Optional[str] = None
 
     class Config:  # pylint: disable=too-few-public-methods
         """Pydantic configuration for ``Track`` model."""
