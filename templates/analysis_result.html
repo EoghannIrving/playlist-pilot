@@ -25,7 +25,7 @@
   </summary>
   <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
     {% if gpt_summary %}
-      <p class="text-gray-200 whitespace-pre-line">{{ gpt_summary }}</p>
+      <p class="text-gray-700 dark:text-gray-200 whitespace-pre-line">{{ gpt_summary }}</p>
 <br />
 <form action="/suggest-playlist" method="post"  onsubmit="showSpinner()">
   <input type="hidden" name="text_summary" value="{{ gpt_summary | tojson | forceescape }}">
@@ -69,7 +69,7 @@
   </summary>
   <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
     {% if removal_suggestions %}
-      <ul class="list-disc pl-5 text-gray-200">
+      <ul class="list-disc pl-5 text-gray-700 dark:text-gray-200">
         {% for item in removal_suggestions %}
           {% if item.html %}
             <li class="whitespace-pre-line flex justify-between items-center">
@@ -107,15 +107,15 @@
         {% for outlier in summary.outliers %}
           {% set track = (tracks | selectattr("title", "equalto", outlier.title) | list).0 %}
           <li class="border border-gray-600 p-4 rounded">
-            <p class="font-semibold text-white">{{ track.title }} <span class="text-sm text-gray-400">by {{ track.artist }}</span></p>
-            <p class="text-sm text-gray-400">
+            <p class="font-semibold text-gray-800 dark:text-white">{{ track.title }} <span class="text-sm text-gray-600 dark:text-gray-400">by {{ track.artist }}</span></p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
               Genre: {{ track.genre }},
               Mood: {{ macros.mood_badge(track.mood, track.mood_confidence) }},
               Tempo: {{ track.tempo }} BPM,
               Decade: {{ track.decade }},
               Popularity: {{ track.combined_popularity }}
             </p>
-            <p class="text-sm text-red-300 mt-1">
+            <p class="text-sm text-red-600 dark:text-red-300 mt-1">
               <strong>Reasons:</strong>
               {% for reason in outlier.reasons %}
                 <span class="inline-block bg-red-700 text-white text-xs px-2 py-0.5 rounded mr-1">{{ reason }}</span>
@@ -125,7 +125,7 @@
         {% endfor %}
       </ul>
     {% else %}
-      <p class="text-green-400">No significant outliers detected.</p>
+      <p class="text-green-700 dark:text-green-400">No significant outliers detected.</p>
     {% endif %}
   </div>
 </details>
