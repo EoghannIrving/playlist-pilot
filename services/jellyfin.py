@@ -452,14 +452,47 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
         return False
 
 
-async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
+async def remove_item_from_playlist(
+    playlist_id: str, entry_id: str, user_id: str | None = None
+) -> bool:
     """Remove a playlist entry from a Jellyfin playlist."""
+    user_id = user_id or settings.jellyfin_user_id
+
+    # Resolve the playlist entry id from the user's playlist items
+    try:
+        logger.debug(
+            "[remove_item_from_playlist] Fetching items for playlist %s as user %s",
+            playlist_id,
+            user_id,
+        )
+        resp = await jf_get(f"/Users/{user_id}/Items", ParentId=playlist_id)
+        items = resp.get("Items", []) if isinstance(resp, dict) else []
+        playlist_item_id = None
+        for itm in items:
+            if entry_id in (itm.get("PlaylistItemId"), itm.get("Id")):
+                playlist_item_id = itm.get("PlaylistItemId")
+                break
+        if not playlist_item_id:
+            logger.error(
+                "[remove_item_from_playlist] Entry %s not found in playlist %s",
+                entry_id,
+                playlist_id,
+            )
+            return False
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
+        logger.error(
+            "[remove_item_from_playlist] Failed to resolve playlist item: %s",
+            exc,
+        )
+        return False
+
     url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
-    params = {"EntryIds": entry_id, "UserId": settings.jellyfin_user_id}
+    params = {"EntryIds": playlist_item_id, "UserId": user_id}
     logger.info(
         "Removing entry %s from playlist %s",
-        entry_id,
+        playlist_item_id,
         playlist_id,
     )
     logger.debug("[remove_item_from_playlist] URL: %s", url)
@@ -491,7 +524,7 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
         record_success("jellyfin")
         logger.info(
             "✅ Removed entry %s from playlist %s",
-            entry_id,
+            playlist_item_id,
             playlist_id,
         )
         return True
@@ -499,7 +532,7 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
         record_failure("jellyfin")
         logger.exception(
             "❌ Failed to remove entry %s from playlist %s: %s",
-            entry_id,
+            playlist_item_id,
             playlist_id,
             exc,
         )
