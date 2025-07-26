@@ -179,17 +179,33 @@ async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
 
 
 def parse_gpt_line(line: str) -> tuple[str, str]:
-    """
-    Parse a GPT suggestion line into (title, artist).
+    """Parse a GPT suggestion line into ``(title, artist)``.
 
-    Args:
-        line (str): Formatted as "Song - Artist - Album - Year - Reason".
-
-    Returns:
-        tuple[str, str]: title, artist
+    GPT generally returns lines in the format ``"Song - Artist - Reason"`` but
+    occasionally uses ``"Song by Artist - Reason"``. This helper extracts the
+    title and artist from either style.
     """
+
+    line = line.replace("\u2013", "-").strip()  # normalize en dash
+
+    # Attempt to parse the common "Song - Artist" style first
     parts = [p.strip() for p in line.split(" - ")]
-    return (parts[0], parts[1]) if len(parts) >= 2 else ("", "")
+    if len(parts) >= 2:
+        title_part, artist_part = parts[0], parts[1]
+        if " by " in title_part.lower():
+            title_split = re.split(
+                r"\s+by\s+", title_part, maxsplit=1, flags=re.IGNORECASE
+            )
+            if len(title_split) == 2:
+                title_part, artist_part = title_split[0].strip(), title_split[1].strip()
+        return title_part, artist_part
+
+    # Fallback to "Song by Artist" when no dash is present
+    by_split = re.split(r"\s+by\s+", line, maxsplit=1, flags=re.IGNORECASE)
+    if len(by_split) == 2:
+        return by_split[0].strip(), by_split[1].strip()
+
+    return "", ""
 
 
 async def gpt_suggest_validated(
