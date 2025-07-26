@@ -11,43 +11,72 @@ import types
 class DummyResp:
     """Simple stand-in for ``httpx.Response``."""
 
-    status_code = 204
+    def __init__(self, data=None, status_code=204):
+        self._data = data or {}
+        self.status_code = status_code
 
     def raise_for_status(self):
-        """Pretend to validate the response status."""
         return None
+
+    def json(self):
+        return self._data
 
 
 class DummyClient:
     """Async ``httpx`` client stub capturing call parameters."""
 
     def __init__(self):
-        self.called = {}
+        self.calls = []
 
     async def __aenter__(self):
-        """Enter the asynchronous context."""
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        """Exit without handling exceptions."""
         return False
 
-    async def request(self, method, url, headers=None, params=None, timeout=None):
+    async def request(
+        self, method, url, headers=None, params=None, timeout=None, json=None
+    ):
         """Record the call parameters and return a ``DummyResp``."""
-        self.called["method"] = method
-        self.called["url"] = url
-        self.called["headers"] = headers
-        self.called["params"] = params
-        self.called["timeout"] = timeout
-        return DummyResp()
+        self.calls.append(
+            {
+                "method": method,
+                "url": url,
+                "headers": headers,
+                "params": params,
+                "timeout": timeout,
+                "json": json,
+            }
+        )
+        if method == "GET":
+            data = {"Items": [{"Id": "id1", "PlaylistItemId": "entry1"}]}
+            return DummyResp(data=data, status_code=200)
+        return DummyResp(status_code=204)
+
+    async def get(self, url, headers=None, params=None, timeout=None):
+        return await self.request(
+            "GET", url, headers=headers, params=params, timeout=timeout
+        )
+
+
+class ClientFactory:
+    """Return a fresh ``DummyClient`` each time ``AsyncClient`` is called."""
+
+    def __init__(self):
+        self.clients = []
+
+    def __call__(self, *args, **kwargs):
+        client = DummyClient()
+        self.clients.append(client)
+        return client
 
 
 def test_remove_item_from_playlist(monkeypatch):
     """Jellyfin deletion call should use the correct URL params."""
 
     httpx_stub = types.ModuleType("httpx")
-    client = DummyClient()
-    httpx_stub.AsyncClient = lambda *a, **kw: client
+    factory = ClientFactory()
+    httpx_stub.AsyncClient = factory
     monkeypatch.setitem(sys.modules, "httpx", httpx_stub)
     sys.modules.pop("services.jellyfin", None)
     jellyfin = importlib.import_module("services.jellyfin")
@@ -59,9 +88,17 @@ def test_remove_item_from_playlist(monkeypatch):
         jellyfin.remove_item_from_playlist("pl", "entry1")
     )
     assert result is True
-    assert client.called["method"] == "DELETE"
-    assert client.called["url"] == "http://jf/Playlists/pl/Items"
-    assert client.called["params"]["EntryIds"] == "entry1"
-    assert client.called["params"]["UserId"] == "u"
-    assert client.called["headers"]["X-Emby-Token"] == "k"
-    assert "Content-Type" not in client.called["headers"]
+    # first call fetches playlist items
+    assert factory.clients[0].calls[0]["method"] == "GET"
+    assert (
+        factory.clients[0].calls[0]["url"]
+        == "http://jf/Users/u/Items?api_key=k&ParentId=pl"
+    )
+
+    delete_call = factory.clients[1].calls[0]
+    assert delete_call["method"] == "DELETE"
+    assert delete_call["url"] == "http://jf/Playlists/pl/Items"
+    assert delete_call["params"]["EntryIds"] == "entry1"
+    assert delete_call["params"]["UserId"] == "u"
+    assert delete_call["headers"]["X-Emby-Token"] == "k"
+    assert "Content-Type" not in delete_call["headers"]
