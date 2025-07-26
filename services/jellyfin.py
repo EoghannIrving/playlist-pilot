@@ -460,12 +460,25 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
         "UserId": settings.jellyfin_user_id,
         "api_key": settings.jellyfin_api_key,
     }
+    logger.info(
+        "Removing entry %s from playlist %s",
+        entry_id,
+        playlist_id,
+    )
+    logger.debug("[remove_item_from_playlist] URL: %s", url)
+    logger.debug("[remove_item_from_playlist] Params: %s", params)
     try:
         async with httpx.AsyncClient() as client:
+            logger.debug("[remove_item_from_playlist] Sending DELETE request")
             resp = await client.delete(
                 url,
                 params=params,
                 timeout=settings.http_timeout_short,
+            )
+            logger.debug(
+                "[remove_item_from_playlist] Response %s: %s",
+                resp.status_code,
+                getattr(resp, "text", ""),
             )
         resp.raise_for_status()
         record_success("jellyfin")
