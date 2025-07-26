@@ -70,15 +70,14 @@
   <div class="p-4 transition-all duration-300 ease-in-out max-h-0 group-open:max-h-screen overflow-hidden">
     {% if removal_suggestions %}
       <ul class="list-disc pl-5 text-gray-200">
-        {% for line in removal_suggestions %}
-          {% if line %}
-
+        {% for item in removal_suggestions %}
+          {% if item.html %}
             <li class="whitespace-pre-line flex justify-between items-center">
-              <span>{{ line | safe }}</span>
-              {% if playlist_id %}
+              <span>{{ item.html | safe }}</span>
+              {% if playlist_id and item.item_id %}
                 <button type="button"
                         class="ml-2 text-sm text-red-500 underline remove-track-btn"
-                        data-line="{{ line | striptags }}"
+                        data-item-id="{{ item.item_id }}"
                         data-playlist-id="{{ playlist_id }}">
                   Remove
                 </button>
@@ -668,19 +667,13 @@ document.querySelectorAll('.export-track-metadata').forEach(button => {
   // === Remove track buttons ===
   document.querySelectorAll('.remove-track-btn').forEach(button => {
     button.addEventListener('click', () => {
-      const line = button.getAttribute('data-line') || '';
       const playlistId = button.getAttribute('data-playlist-id');
-      const cleaned = line.replace(/^\d+\.\s*/, '').trim();
-      const parts = cleaned.split(' - ');
-      const title = parts[0] || '';
-      const artist = parts[1] || '';
-      const track = (window.tracks || []).find(t => t.title === title && t.artist === artist);
-      const itemId = track && (track.PlaylistItemId || track.Id);
-      if (!itemId) {
-        alert('Track ID not found for removal.');
+      const itemId = button.getAttribute('data-item-id');
+      if (!playlistId || !itemId) {
+        alert('Missing playlist or track ID for removal.');
         return;
       }
-      if (!confirm(`Remove "${title}" by "${artist}" from this playlist?`)) {
+      if (!confirm('Remove this track from the playlist?')) {
         return;
       }
       fetch('/playlist/remove-item', {

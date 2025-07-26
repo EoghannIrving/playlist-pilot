@@ -194,10 +194,20 @@ def test_format_removal_suggestions():
     format_lines = gpt_mod.format_removal_suggestions
 
     raw = "1. Foo - Bar - Reason\n2. Baz - Qux - Another\nThanks!"
-    result = format_lines(raw)
+    tracks = [
+        {"title": "Foo", "artist": "Bar", "PlaylistItemId": "1"},
+        {"title": "Baz", "artist": "Qux", "PlaylistItemId": "2"},
+    ]
+    result = format_lines(raw, tracks)
     assert result == [
-        "<strong>Foo</strong> - <strong>Bar</strong> - Reason",
-        "<strong>Baz</strong> - <strong>Qux</strong> - Another",
+        {
+            "html": "<strong>Foo</strong> - <strong>Bar</strong> - Reason",
+            "item_id": "1",
+        },
+        {
+            "html": "<strong>Baz</strong> - <strong>Qux</strong> - Another",
+            "item_id": "2",
+        },
     ]
 
 
@@ -226,7 +236,11 @@ def test_format_removal_suggestions_by_style():
     format_lines = gpt_mod.format_removal_suggestions
 
     raw = "1. Track One by Artist A - too fast"
-    result = format_lines(raw)
+    tracks = [{"title": "Track One", "artist": "Artist A", "PlaylistItemId": "x"}]
+    result = format_lines(raw, tracks)
     assert result == [
-        "<strong>Track One</strong> - <strong>Artist A</strong> - too fast",
+        {
+            "html": "<strong>Track One</strong> - <strong>Artist A</strong> - too fast",
+            "item_id": "x",
+        },
     ]
