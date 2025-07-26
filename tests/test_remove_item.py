@@ -44,4 +44,4 @@ def test_remove_item_from_playlist(monkeypatch):
     )
     assert result is True
     assert client.called["url"] == "http://jf/Playlists/pl/Items"
-    assert client.called["params"]["EntryIds"] == "entry1"
+    assert client.called["params"]["entryIds"] == "entry1"
