@@ -943,13 +943,13 @@ async def remove_playlist_item(request: Request):
     """Remove a track from a Jellyfin playlist."""
     data = await request.json()
     playlist_id = data.get("playlist_id")
-    item_id = data.get("item_id")
-    if not playlist_id or not item_id:
+    entry_id = data.get("item_id")
+    if not playlist_id or not entry_id:
         raise HTTPException(
             status_code=400, detail="playlist_id and item_id are required"
         )
 
-    success = await jellyfin.remove_item_from_playlist(playlist_id, item_id)
+    success = await jellyfin.remove_item_from_playlist(playlist_id, entry_id)
     if not success:
         raise HTTPException(
             status_code=500,

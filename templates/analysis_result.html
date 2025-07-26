@@ -675,7 +675,7 @@ document.querySelectorAll('.export-track-metadata').forEach(button => {
       const title = parts[0] || '';
       const artist = parts[1] || '';
       const track = (window.tracks || []).find(t => t.title === title && t.artist === artist);
-      const itemId = track && track.Id;
+      const itemId = track && (track.PlaylistItemId || track.Id);
       if (!itemId) {
         alert('Track ID not found for removal.');
         return;

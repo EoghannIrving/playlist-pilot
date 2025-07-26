@@ -129,7 +129,7 @@ async def fetch_tracks_for_playlist_id(
         "UserId": settings.jellyfin_user_id,
         "Fields": (
             "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate,"
-            "Genres,RunTimeTicks,Genres,UserData,HasLyrics,Path,Tags"
+            "Genres,RunTimeTicks,Genres,UserData,HasLyrics,Path,Tags,PlaylistItemId"
         ),
         "api_key": settings.jellyfin_api_key,
     }
@@ -452,11 +452,11 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
         return False
 
 
-async def remove_item_from_playlist(playlist_id: str, item_id: str) -> bool:
-    """Remove an item from a Jellyfin playlist."""
+async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
+    """Remove a playlist entry from a Jellyfin playlist."""
     url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
     params = {
-        "Ids": item_id,
+        "EntryIds": entry_id,
         "UserId": settings.jellyfin_user_id,
         "api_key": settings.jellyfin_api_key,
     }
@@ -470,16 +470,16 @@ async def remove_item_from_playlist(playlist_id: str, item_id: str) -> bool:
         resp.raise_for_status()
         record_success("jellyfin")
         logger.info(
-            "✅ Removed item %s from playlist %s",
-            item_id,
+            "✅ Removed entry %s from playlist %s",
+            entry_id,
             playlist_id,
         )
         return True
     except Exception as exc:  # pylint: disable=broad-exception-caught
         record_failure("jellyfin")
         logger.error(
-            "❌ Failed to remove item %s from playlist %s: %s",
-            item_id,
+            "❌ Failed to remove entry %s from playlist %s: %s",
+            entry_id,
             playlist_id,
             exc,
         )
