@@ -467,7 +467,12 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
     )
     logger.debug("[remove_item_from_playlist] URL: %s", url)
     logger.debug("[remove_item_from_playlist] Params: %s", params)
+    logger.debug(
+        "[remove_item_from_playlist] Headers: %s",
+        {"X-Emby-Token": "***" if headers.get("X-Emby-Token") else None},
+    )
     try:
+        logger.debug("[remove_item_from_playlist] Opening HTTP client")
         async with httpx.AsyncClient() as client:
             logger.debug("[remove_item_from_playlist] Sending DELETE request")
             resp = await client.delete(
@@ -481,7 +486,10 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
                 resp.status_code,
                 getattr(resp, "text", ""),
             )
+        logger.debug("[remove_item_from_playlist] HTTP call completed")
+        logger.debug("[remove_item_from_playlist] Validating response")
         resp.raise_for_status()
+        logger.debug("[remove_item_from_playlist] Recording success")
         record_success("jellyfin")
         logger.info(
             "✅ Removed entry %s from playlist %s",
@@ -491,7 +499,7 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
         return True
     except Exception as exc:  # pylint: disable=broad-exception-caught
         record_failure("jellyfin")
-        logger.error(
+        logger.exception(
             "❌ Failed to remove entry %s from playlist %s: %s",
             entry_id,
             playlist_id,
