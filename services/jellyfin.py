@@ -452,6 +452,40 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
         return False
 
 
+async def remove_item_from_playlist(playlist_id: str, item_id: str) -> bool:
+    """Remove an item from a Jellyfin playlist."""
+    url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
+    params = {
+        "Ids": item_id,
+        "UserId": settings.jellyfin_user_id,
+        "api_key": settings.jellyfin_api_key,
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(
+                url,
+                params=params,
+                timeout=settings.http_timeout_short,
+            )
+        resp.raise_for_status()
+        record_success("jellyfin")
+        logger.info(
+            "✅ Removed item %s from playlist %s",
+            item_id,
+            playlist_id,
+        )
+        return True
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
+        logger.error(
+            "❌ Failed to remove item %s from playlist %s: %s",
+            item_id,
+            playlist_id,
+            exc,
+        )
+        return False
+
+
 def read_lrc_for_track(track_path: str) -> str | None:
     """
     Attempt to read an adjacent .lrc file for the given track path.
