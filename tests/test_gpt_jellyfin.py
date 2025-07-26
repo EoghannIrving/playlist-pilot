@@ -199,3 +199,34 @@ def test_format_removal_suggestions():
         "<strong>Foo</strong> - <strong>Bar</strong> - Reason",
         "<strong>Baz</strong> - <strong>Qux</strong> - Another",
     ]
+
+
+def test_format_removal_suggestions_by_style():
+    """Preserve explanation text when GPT uses 'by' formatting."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+    format_lines = gpt_mod.format_removal_suggestions
+
+    raw = "1. Track One by Artist A - too fast"
+    result = format_lines(raw)
+    assert result == [
+        "<strong>Track One</strong> - <strong>Artist A</strong> - too fast",
+    ]
