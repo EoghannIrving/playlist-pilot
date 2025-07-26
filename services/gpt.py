@@ -311,12 +311,26 @@ def format_removal_suggestions(raw: str) -> list[str]:
         title, artist = parse_gpt_line(text)
         if not title or not artist:
             continue
-        parts = [p.strip() for p in text.split(" - ")]
-        remaining = " - ".join(parts[2:]).strip()
+
+        # Determine remaining explanation after the title and artist
+        normalized = text.replace("\u2013", "-")
+        dash_pattern = f"{title} - {artist}"
+        by_pattern = f"{title} by {artist}"
+        lower_norm = normalized.lower()
+        remaining = ""
+        if lower_norm.startswith(dash_pattern.lower()):
+            remaining = normalized[len(dash_pattern) :].lstrip(" -")
+        elif lower_norm.startswith(by_pattern.lower()):
+            remaining = normalized[len(by_pattern) :].lstrip(" -")
+        else:
+            parts = [p.strip() for p in normalized.split(" - ")]
+            remaining = " - ".join(parts[2:]).strip()
+
         formatted = f"<strong>{title}</strong> - <strong>{artist}</strong>"
         if remaining:
             formatted += f" - {remaining}"
         lines.append(formatted)
+
     return lines
 
 
