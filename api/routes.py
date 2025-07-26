@@ -594,6 +594,7 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
                 playlist_name = playlist.get("name")
                 break
 
+        playlist_id_to_use = playlist_id
     else:
         history = load_sorted_history(settings.jellyfin_user_id)
         entry = history[int(playlist_id)]
@@ -604,6 +605,7 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
             label_parts[0].strip() if len(label_parts) > 1 else entry.get("label")
         )
         playlist_name = f"{clean_label} Suggestions"
+        playlist_id_to_use = None
         start = perf_counter()
         enriched = []
         for t in tracks:
@@ -661,6 +663,7 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
             "gpt_summary": gpt_summary,
             "removal_suggestions": removal_suggestions,
             "playlist_name": playlist_name,
+            "playlist_id": playlist_id_to_use,
         },
     )
 
@@ -933,3 +936,24 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
     return JSONResponse(
         {"message": f"Metadata for track '{title}' exported to Jellyfin."}
     )
+
+
+@router.post("/playlist/remove-item")
+async def remove_playlist_item(request: Request):
+    """Remove a track from a Jellyfin playlist."""
+    data = await request.json()
+    playlist_id = data.get("playlist_id")
+    item_id = data.get("item_id")
+    if not playlist_id or not item_id:
+        raise HTTPException(
+            status_code=400, detail="playlist_id and item_id are required"
+        )
+
+    success = await jellyfin.remove_item_from_playlist(playlist_id, item_id)
+    if not success:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to remove item from playlist",
+        )
+
+    return {"status": "success"}

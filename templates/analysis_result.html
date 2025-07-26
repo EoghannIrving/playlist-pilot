@@ -72,7 +72,18 @@
       <ul class="list-disc pl-5 text-gray-200">
         {% for line in removal_suggestions %}
           {% if line %}
-            <li class="whitespace-pre-line">{{ line | safe }}</li>
+
+            <li class="whitespace-pre-line flex justify-between items-center">
+              <span>{{ line }}</span>
+              {% if playlist_id %}
+                <button type="button"
+                        class="ml-2 text-sm text-red-500 underline remove-track-btn"
+                        data-line="{{ line }}"
+                        data-playlist-id="{{ playlist_id }}">
+                  Remove
+                </button>
+              {% endif %}
+            </li>
           {% endif %}
         {% endfor %}
       </ul>
@@ -653,6 +664,41 @@ document.querySelectorAll('.export-track-metadata').forEach(button => {
     }
   });
 });
+
+  // === Remove track buttons ===
+  document.querySelectorAll('.remove-track-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const line = button.getAttribute('data-line') || '';
+      const playlistId = button.getAttribute('data-playlist-id');
+      const cleaned = line.replace(/^\d+\.\s*/, '').trim();
+      const parts = cleaned.split(' - ');
+      const title = parts[0] || '';
+      const artist = parts[1] || '';
+      const track = (window.tracks || []).find(t => t.title === title && t.artist === artist);
+      const itemId = track && track.Id;
+      if (!itemId) {
+        alert('Track ID not found for removal.');
+        return;
+      }
+      if (!confirm(`Remove "${title}" by "${artist}" from this playlist?`)) {
+        return;
+      }
+      fetch('/playlist/remove-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlist_id: playlistId, item_id: itemId })
+      })
+      .then(resp => {
+        if (resp.ok) {
+          alert('Track removed from playlist');
+          button.disabled = true;
+        } else {
+          alert(`Failed to remove track (status ${resp.status})`);
+        }
+      })
+      .catch(() => alert('Network error while removing track'));
+    });
+  });
  
   // === Export to M3U ===
 

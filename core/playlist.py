@@ -216,6 +216,7 @@ def normalize_track(raw: str | dict) -> Track:
             lyrics=lyrics,
             tempo=tempo_val,
             RunTimeTicks=raw.get("RunTimeTicks", 0),
+            Id=raw.get("Id"),
         )
 
     return Track(raw=str(raw), title="", artist="", album="", year="")
