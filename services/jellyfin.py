@@ -457,7 +457,7 @@ async def remove_item_from_playlist(playlist_id: str, entry_id: str) -> bool:
     url = f"{settings.jellyfin_url.rstrip('/')}/Playlists/{playlist_id}/Items"
     params = {
         "EntryIds": entry_id,
-    """    "UserId": settings.jellyfin_user_id, """
+#        "UserId": settings.jellyfin_user_id,
     }
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
     logger.info(
