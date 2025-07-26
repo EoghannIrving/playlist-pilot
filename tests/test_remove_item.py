@@ -98,5 +98,6 @@ def test_remove_item_from_playlist(monkeypatch):
     post_call = factory.clients[1].calls[0]
     assert post_call["method"] == "POST"
     assert post_call["url"] == "http://jf/Playlists/pl/Items"
-    assert post_call["json"] == {"UserId": "u", "Ids": [], "Clear": True}
+    assert post_call["params"] == {"ids": "", "userId": "u"}
+    assert post_call["json"] is None
     assert post_call["headers"]["X-Emby-Token"] == "k"
