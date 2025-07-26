@@ -74,11 +74,11 @@
           {% if line %}
 
             <li class="whitespace-pre-line flex justify-between items-center">
-              <span>{{ line }}</span>
+              <span>{{ line | safe }}</span>
               {% if playlist_id %}
                 <button type="button"
                         class="ml-2 text-sm text-red-500 underline remove-track-btn"
-                        data-line="{{ line }}"
+                        data-line="{{ line | striptags }}"
                         data-playlist-id="{{ playlist_id }}">
                   Remove
                 </button>
