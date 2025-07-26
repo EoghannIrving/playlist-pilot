@@ -301,6 +301,20 @@ def strip_number_prefix(line: str) -> str:
     return re.sub(r"^\d+[).\-\s]*", "", line).strip()
 
 
+def _extract_remaining(text: str, title: str, artist: str) -> str:
+    """Return the explanatory text after the title/artist pair."""
+    normalized = text.replace("\u2013", "-")
+    dash_pattern = f"{title} - {artist}"
+    by_pattern = f"{title} by {artist}"
+    lower_norm = normalized.lower()
+    if lower_norm.startswith(dash_pattern.lower()):
+        return normalized[len(dash_pattern) :].lstrip(" -")
+    if lower_norm.startswith(by_pattern.lower()):
+        return normalized[len(by_pattern) :].lstrip(" -")
+    parts = [p.strip() for p in normalized.split(" - ")]
+    return " - ".join(parts[2:]).strip()
+
+
 def format_removal_suggestions(
     raw: str, tracks: list[dict] | None = None
 ) -> list[dict]:
@@ -325,19 +339,7 @@ def format_removal_suggestions(
         if not title or not artist:
             continue
 
-        # Determine remaining explanation after the title and artist
-        normalized = text.replace("\u2013", "-")
-        dash_pattern = f"{title} - {artist}"
-        by_pattern = f"{title} by {artist}"
-        lower_norm = normalized.lower()
-        remaining = ""
-        if lower_norm.startswith(dash_pattern.lower()):
-            remaining = normalized[len(dash_pattern) :].lstrip(" -")
-        elif lower_norm.startswith(by_pattern.lower()):
-            remaining = normalized[len(by_pattern) :].lstrip(" -")
-        else:
-            parts = [p.strip() for p in normalized.split(" - ")]
-            remaining = " - ".join(parts[2:]).strip()
+        remaining = _extract_remaining(text, title, artist)
 
         formatted = f"<strong>{title}</strong> - <strong>{artist}</strong>"
         if remaining:
