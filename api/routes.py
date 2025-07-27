@@ -935,18 +935,21 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
     merged_tags = list(set(existing_tags).union(filter(None, new_tags)))
 
     album_to_use = existing_album
-    if not skip_album and incoming_album and existing_album != incoming_album:
-        if force_album_overwrite:
+    if not skip_album and incoming_album:
+        if not existing_album:
             album_to_use = incoming_album
-        else:
-            return JSONResponse(
-                {
-                    "action": "confirm_overwrite_album",
-                    "current_album": existing_album,
-                    "suggested_album": incoming_album,
-                },
-                status_code=409,
-            )
+        elif existing_album != incoming_album:
+            if force_album_overwrite:
+                album_to_use = incoming_album
+            else:
+                return JSONResponse(
+                    {
+                        "action": "confirm_overwrite_album",
+                        "current_album": existing_album,
+                        "suggested_album": incoming_album,
+                    },
+                    status_code=409,
+                )
 
     # Apply updates to full item
     full_item["Genres"] = merged_genres
