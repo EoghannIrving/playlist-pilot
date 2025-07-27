@@ -9,6 +9,7 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 - **Playlist suggestions** existing song playlists using GPT with Last.fm metadata and Jellyfin library sampling.
 - **Playlist analysis** of Jellyfin, saved GPT suggested playlists, or imported m3u playlists, measuring mood, tempo, decade distribution and popularity.
 - **Playlist comparison** showing overlap between two Jellyfin or GPT/m3u imported playlists.
+- **Playlist order suggestions** using GPT to arrange tracks for optimal flow.
 - **BPM and audio data** from GetSongBPM to enrich mood scoring.
 - **Lyrics-based mood analysis** when `.lrc` files or Jellyfin lyrics are
   available.
