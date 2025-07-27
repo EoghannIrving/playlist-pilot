@@ -3,7 +3,7 @@
 This file outlines upcoming tasks based on the current roadmap and list of outstanding bugs.
 
 ## Bug Fixes
-- [ ] **46. Album overwrite check triggers unnecessarily** – skip confirmation when no existing album is set.
+- [X] **46. Album overwrite check triggers unnecessarily** – fixed; overwrite now occurs automatically when no existing album is present.
 - [ ] **47. `read_m3u` fails on non‑UTF‑8 files** – add encoding fallback when parsing playlists.
 - [ ] **38. Template directory bound to current working directory** – use an absolute templates path.
 - [ ] **45. `lyrics_enabled` default disabled in settings form** – align the form default with `AppSettings`.

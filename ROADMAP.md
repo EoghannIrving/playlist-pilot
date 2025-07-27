@@ -20,7 +20,7 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
    - Mood badges display confidence levels and analyses highlight up to five outliers. **Complete**
 2. **Playlist Management Tools**
    - Add functions for renaming playlists and reordering tracks, and handle duplicates.
-   - Removing tracks from a Jellyfin playlist is now supported via the API.
+   - Track removal from Jellyfin playlists was removed after testing proved unreliable.
    - Integrate Jellyfin's playlist API to rename playlists and change item order. Leverage the `MoveItem` and `UpdatePlaylist` endpoints.
 3. **Improved History & Settings**
    - Continue refining playlist history views and configuration editing from the UI. **Complete**

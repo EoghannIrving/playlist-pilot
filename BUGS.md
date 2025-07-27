@@ -37,12 +37,6 @@ for item in chunk:
 ```
 【F:core/playlist.py†L150-L155】
 
-## 38. Template directory bound to current working directory
-`Jinja2Templates` uses the relative path ``"templates"`` so running the app from another directory cannot locate the HTML files.
-```
-templates = Jinja2Templates(directory="templates")
-```
-【F:core/templates.py†L3-L5】
 
 ## 31. `strip_lrc_timecodes` removes bracketed lyrics
 The helper deletes all `[text]` sections, erasing annotations like `[Chorus]` rather than only timecodes.
