@@ -3,25 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 46. Album overwrite check triggers unnecessarily
-`export_track_metadata` asks for confirmation even when the Jellyfin album field is blank.
-```
-album_to_use = existing_album
-if not skip_album and incoming_album and existing_album != incoming_album:
-    if force_album_overwrite:
-        album_to_use = incoming_album
-    else:
-        return JSONResponse(
-            {
-                "action": "confirm_overwrite_album",
-                "current_album": existing_album,
-                "suggested_album": incoming_album,
-            },
-            status_code=409,
-        )
-```
-【F:api/routes.py†L884-L897】
-
 ## 47. `read_m3u` fails on non‑UTF‑8 files
 The loader decodes using UTF‑8 without fallback, raising ``UnicodeDecodeError`` for other encodings.
 

@@ -504,3 +504,28 @@ def normalize_genre(raw: str | None) -> str:
             reasons.append("genre")
 ```
 【F:core/analysis.py†L142-L150】
+
+## 46. Album overwrite check triggers unnecessarily
+*Fixed.* The exporter now overwrites the album automatically when Jellyfin has no existing album value, avoiding an unnecessary confirmation prompt.
+
+`export_track_metadata` asked for confirmation even when the Jellyfin album field was blank.
+
+```python
+    album_to_use = existing_album
+    if not skip_album and incoming_album:
+        if not existing_album:
+            album_to_use = incoming_album
+        elif existing_album != incoming_album:
+            if force_album_overwrite:
+                album_to_use = incoming_album
+            else:
+                return JSONResponse(
+                    {
+                        "action": "confirm_overwrite_album",
+                        "current_album": existing_album,
+                        "suggested_album": incoming_album,
+                    },
+                    status_code=409,
+                )
+```
+【F:api/routes.py†L937-L952】
