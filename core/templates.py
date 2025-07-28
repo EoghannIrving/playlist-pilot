@@ -1,8 +1,9 @@
 """FastAPI template configuration and custom Jinja filters."""
 
 from fastapi.templating import Jinja2Templates
+from core.constants import BASE_DIR
 
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 def duration_human(seconds: int) -> str:
