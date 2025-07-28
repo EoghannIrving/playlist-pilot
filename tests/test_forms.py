@@ -30,3 +30,15 @@ def test_as_form_invalid_getsongbpm_headers():
         SettingsForm.as_form(**{**defaults, "getsongbpm_headers": "{bad"})
     assert excinfo.value.status_code == 400
     assert "getsongbpm_headers" in excinfo.value.detail
+
+
+def test_as_form_lyrics_enabled_default():
+    """The lyrics_enabled field should default to ``True`` for missing input."""
+    import inspect
+    from fastapi.params import Form
+
+    sig = inspect.signature(SettingsForm.as_form)
+    param = sig.parameters["lyrics_enabled"]
+
+    assert isinstance(param.default, Form)
+    assert param.default.default is True

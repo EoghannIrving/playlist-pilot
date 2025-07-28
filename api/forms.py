@@ -30,7 +30,7 @@ class SettingsForm(AppSettings):
         youtube_max_duration: int = Form(360),
         library_scan_limit: int = Form(1000),
         music_library_root: str = Form("Movies/Music"),
-        lyrics_enabled: bool = Form(False),
+        lyrics_enabled: bool = Form(True),
         lyrics_weight: float = Form(1.5),
         bpm_weight: float = Form(1.0),
         tags_weight: float = Form(0.7),
