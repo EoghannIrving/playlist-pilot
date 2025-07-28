@@ -145,7 +145,11 @@ def read_m3u(file_path: Path) -> list[dict]:
     logger.debug("Reading M3U file: %s", file_path)
     tracks = []
 
-    lines = file_path.read_text(encoding="utf-8").splitlines()
+    try:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        logger.debug("UTF-8 decode failed for %s, trying Latin-1", file_path)
+        lines = file_path.read_text(encoding="latin-1").splitlines()
     for line in lines:
         line = line.strip()
         if not line or line.startswith("#"):
