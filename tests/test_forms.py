@@ -1,10 +1,12 @@
 """Unit tests for the :class:`SettingsForm` helper functions."""
 
-import json
 import inspect
+import json
+
 from fastapi import HTTPException
 from fastapi.params import Form
 import pytest
+
 from config import AppSettings
 from api.forms import SettingsForm
 
