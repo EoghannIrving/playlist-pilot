@@ -37,6 +37,7 @@ from core.m3u import (
     infer_track_metadata_from_path,
     generate_proposed_path,
     _parse_title_artist,
+    read_m3u,
 )  # pylint: disable=wrong-import-position
 
 
@@ -228,3 +229,13 @@ def test_import_handles_non_utf8(monkeypatch, tmp_path):
     track = hist[0]["suggestions"][0]
     assert track["artist"] == "Artist"
     assert track["title"] == "Title"
+
+
+def test_read_m3u_handles_non_utf8(tmp_path):
+    """``read_m3u`` should fall back to Latin-1 when UTF-8 decoding fails."""
+    m3u_path = tmp_path / "playlist.m3u"
+    m3u_path.write_text("Caf\xe9 - Title", encoding="latin-1")
+
+    result = read_m3u(m3u_path)
+
+    assert result == [{"artist": "Caf\xe9", "title": "Title"}]
