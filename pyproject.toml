@@ -30,4 +30,4 @@ where = ["."]
 include = ["api", "core", "services", "utils"]
 
 [tool.setuptools.package-data]
-"" = ["templates/*.html", "static/*"]
+"*" = ["templates/*.html", "static/*"]
