@@ -32,10 +32,18 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 
 ## Testing
 
-After installing the requirements you can execute all unit tests with:
+After installing the requirements you can execute all unit tests. Either install
+the package in editable mode:
 
 ```bash
+pip install -e .
 pytest
+```
+
+Or set the `PYTHONPATH` environment variable before running:
+
+```bash
+PYTHONPATH=$PWD pytest
 ```
 
 The [tests directory](tests/) contains standalone tests for key helpers and services. See [Docs/tests.md](Docs/tests.md) for a description of each file.
