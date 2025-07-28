@@ -79,6 +79,20 @@ See [Docs/local_installation.md](Docs/local_installation.md) for a detailed walk
 For a tour of the main screens and how to generate playlists see
 [Docs/usage_guide.md](Docs/usage_guide.md).
 
+## Development
+
+Install the development requirements to run the linters and type checker:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+`mypy` is executed in CI, so you can optionally run it locally with:
+
+```bash
+mypy . --ignore-missing-imports
+```
+
 ## Configuration
 
 Navigate to [http://localhost:8010/settings](http://localhost:8010/settings) and supply:
