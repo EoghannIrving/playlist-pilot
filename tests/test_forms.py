@@ -1,8 +1,10 @@
 """Unit tests for the :class:`SettingsForm` helper functions."""
 
 import json
-import pytest
+import inspect
 from fastapi import HTTPException
+from fastapi.params import Form
+import pytest
 from config import AppSettings
 from api.forms import SettingsForm
 
@@ -34,9 +36,6 @@ def test_as_form_invalid_getsongbpm_headers():
 
 def test_as_form_lyrics_enabled_default():
     """The lyrics_enabled field should default to ``True`` for missing input."""
-    import inspect
-    from fastapi.params import Form
-
     sig = inspect.signature(SettingsForm.as_form)
     param = sig.parameters["lyrics_enabled"]
 
