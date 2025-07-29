@@ -135,8 +135,8 @@ def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
         str: GPT's raw response content.
     """
     key = prompt_fingerprint(
-        f"{prompt}|temperature={temperature}"
-    )  # Ensure cache keys differentiate by temperature
+        f"{prompt}|temperature={temperature}|model={settings.model}"
+    )  # Ensure cache keys differentiate by model and temperature
     content = prompt_cache.get(key)
     if content is not None:
         logger.info("GPT cache hit: %s", key)
@@ -158,7 +158,9 @@ def cached_chat_completion_sync(prompt: str, temperature: float = 0.7) -> str:
 
 async def cached_chat_completion(prompt: str, temperature: float = 0.7) -> str:
     """Asynchronous variant of cached_chat_completion."""
-    key = prompt_fingerprint(f"{prompt}|temperature={temperature}")
+    key = prompt_fingerprint(
+        f"{prompt}|temperature={temperature}|model={settings.model}"
+    )
     content = prompt_cache.get(key)
     if content is not None:
         logger.info("GPT cache hit: %s", key)
