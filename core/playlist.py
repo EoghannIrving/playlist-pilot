@@ -152,7 +152,8 @@ async def get_full_audio_library(force_refresh: bool = False) -> list[str]:
             if isinstance(item, dict):
                 song = item.get("Name")
                 artist = item.get("AlbumArtist")
-                items.append(f"{song} - {artist}")
+                if song and artist:
+                    items.append(f"{song} - {artist}")
         if len(chunk) < limit:
             break
         start_index += limit

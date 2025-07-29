@@ -576,3 +576,16 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 lyrics_enabled: bool = Form(True)
 ```
 【F:api/forms.py†L30-L36】
+
+## 39. Library scan records tracks with missing metadata
+*Fixed.* ``get_full_audio_library`` now ignores items missing ``Name`` or ``AlbumArtist`` to avoid entries like ``"None - None"``.
+
+```python
+for item in chunk:
+    if isinstance(item, dict):
+        song = item.get("Name")
+        artist = item.get("AlbumArtist")
+        if song and artist:
+            items.append(f"{song} - {artist}")
+```
+【F:core/playlist.py†L150-L158】
