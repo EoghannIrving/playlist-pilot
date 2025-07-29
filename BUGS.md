@@ -3,18 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 39. Library scan records tracks with missing metadata
-`get_full_audio_library` appends song strings even when ``Name`` or ``AlbumArtist`` are ``None`` resulting in entries like ``"None - None"``.
-```
-for item in chunk:
-    if isinstance(item, dict):
-        song = item.get("Name")
-        artist = item.get("AlbumArtist")
-        items.append(f"{song} - {artist}")
-```
-【F:core/playlist.py†L150-L155】
-
-
 ## 31. `strip_lrc_timecodes` removes bracketed lyrics
 The helper deletes all `[text]` sections, erasing annotations like `[Chorus]` rather than only timecodes.
 ```
