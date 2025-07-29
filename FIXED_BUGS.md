@@ -529,3 +529,15 @@ def normalize_genre(raw: str | None) -> str:
                 )
 ```
 【F:api/routes.py†L937-L952】
+
+## 47. `read_m3u` fails on non‑UTF‑8 files
+*Fixed.* `read_m3u` now falls back to Latin‑1 when UTF‑8 decoding fails.
+
+```python
+    try:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        logger.debug("UTF-8 decode failed for %s, trying Latin-1", file_path)
+        lines = file_path.read_text(encoding="latin-1").splitlines()
+```
+【F:core/m3u.py†L148-L152】
