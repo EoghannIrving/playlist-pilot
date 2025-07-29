@@ -3,14 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 31. `strip_lrc_timecodes` removes bracketed lyrics
-The helper deletes all `[text]` sections, erasing annotations like `[Chorus]` rather than only timecodes.
-```
-return re.sub(r"\[.*?\]", "", lrc_text).strip()
-```
-【F:services/jellyfin.py†L484-L494】
-
-
 ## 34. OpenAI test route blocks the event loop
 `test_openai` performs a synchronous API call inside an async route without ``await`` or ``to_thread``.
 ```
