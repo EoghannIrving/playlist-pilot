@@ -3,10 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 47. `read_m3u` fails on non‑UTF‑8 files
-The loader decodes using UTF‑8 without fallback, raising ``UnicodeDecodeError`` for other encodings.
-
-
 ## 38. Template directory bound to current working directory
 `Jinja2Templates` uses the relative path ``"templates"`` so running the app from another directory cannot locate the HTML files.
 
