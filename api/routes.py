@@ -502,8 +502,12 @@ async def test_openai(request: Request):
     data = await request.json()
     key = data.get("key")
     try:
-        client = openai.OpenAI(api_key=key)
-        models = client.models.list()
+
+        def _list_models():
+            client = openai.OpenAI(api_key=key)
+            return client.models.list()
+
+        models = await asyncio.to_thread(_list_models)
         valid = any(m.id.startswith("gpt") for m in models.data)
         return JSONResponse({"success": valid})
     except openai.OpenAIError as exc:

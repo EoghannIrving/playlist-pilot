@@ -3,15 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 34. OpenAI test route blocks the event loop
-`test_openai` performs a synchronous API call inside an async route without ``await`` or ``to_thread``.
-```
-    client = openai.OpenAI(api_key=key)
-    models = client.models.list()
-    valid = any(m.id.startswith("gpt") for m in models.data)
-```
-【F:api/routes.py†L491-L499】
-
 ## 51. GPT prompt cache ignores model choice
 `cached_chat_completion` builds its cache key from only the prompt and temperature, so switching models may return stale text.
 ```

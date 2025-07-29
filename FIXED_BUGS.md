@@ -612,3 +612,14 @@ def duration_human(seconds: int | float | str) -> str:
     return re.sub(timecode_pattern, "", lrc_text).strip()
 ```
 【F:services/jellyfin.py†L488-L498】
+
+## 34. OpenAI test route blocks the event loop
+*Fixed.* `test_openai` now performs the model listing in a thread to avoid blocking.
+```python
+    def _list_models():
+        client = openai.OpenAI(api_key=key)
+        return client.models.list()
+
+    models = await asyncio.to_thread(_list_models)
+```
+【F:api/routes.py†L500-L509】
