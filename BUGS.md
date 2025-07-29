@@ -50,15 +50,6 @@ for tag in tags or []:
 ```
 【F:core/playlist.py†L626-L630】
 
-## 25. `duration_human` filter rejects numeric strings
-The Jinja filter only accepts integers and returns `?:??` for float or string durations.
-```
-def duration_human(seconds: int) -> str:
-    if not isinstance(seconds, int):
-        return "?:??"
-    return f"{seconds // 60}:{seconds % 60:02d}"
-```
-【F:core/templates.py†L8-L12】
 
 ## 28. Debug route returns coroutine object
 The `/test-lastfm-tags` route calls the async `get_lastfm_tags` without awaiting it, returning a coroutine instead of tags.

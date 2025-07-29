@@ -10,11 +10,13 @@ TEMPLATES_DIR = (Path(__file__).resolve().parent.parent / "templates").resolve()
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
-def duration_human(seconds: int) -> str:
+def duration_human(seconds: int | float | str) -> str:
     """Return ``MM:SS`` style duration strings for template rendering."""
-    if not isinstance(seconds, int):
+    try:
+        seconds_int = int(float(seconds))
+    except (TypeError, ValueError):
         return "?:??"
-    return f"{seconds // 60}:{seconds % 60:02d}"
+    return f"{seconds_int // 60}:{seconds_int % 60:02d}"
 
 
 templates.env.filters["duration_human"] = duration_human

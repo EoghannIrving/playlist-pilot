@@ -589,3 +589,17 @@ for item in chunk:
             items.append(f"{song} - {artist}")
 ```
 【F:core/playlist.py†L150-L158】
+
+## 25. `duration_human` filter rejects numeric strings
+*Fixed.* The template filter now accepts numeric strings and floats by casting them before formatting.
+
+```python
+def duration_human(seconds: int | float | str) -> str:
+    """Return ``MM:SS`` style duration strings for template rendering."""
+    try:
+        seconds_int = int(float(seconds))
+    except (TypeError, ValueError):
+        return "?:??"
+    return f"{seconds_int // 60}:{seconds_int % 60:02d}"
+```
+【F:core/templates.py†L13-L19】
