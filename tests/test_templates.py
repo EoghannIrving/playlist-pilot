@@ -1,3 +1,5 @@
+"""Unit tests for template helper functions."""
+
 from core.templates import duration_human
 
 
