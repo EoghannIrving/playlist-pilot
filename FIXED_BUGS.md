@@ -541,3 +541,20 @@ def normalize_genre(raw: str | None) -> str:
         lines = file_path.read_text(encoding="latin-1").splitlines()
 ```
 【F:core/m3u.py†L148-L152】
+
+## 44. Search misses tracks with smart quotes
+*Fixed.* `search_jellyfin_for_track` now normalizes curly quotes before comparing titles and artists.
+
+```python
+    title_cleaned = normalize_search_term(title)
+    artist_cleaned = normalize_search_term(artist)
+    ...
+            name = normalize_search_term(item.get("Name", ""))
+            artists_list = item.get("Artists", [])
+            artists = [normalize_search_term(a) for a in artists_list]
+            if title_cleaned.lower() in name.lower() and any(
+                artist_cleaned.lower() in a.lower() for a in artists
+            ):
+                ...
+```
+【F:services/jellyfin.py†L44-L79】

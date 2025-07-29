@@ -7,7 +7,7 @@ This file outlines upcoming tasks based on the current roadmap and list of outst
 - [ ] **47. `read_m3u` fails on non‑UTF‑8 files** – add encoding fallback when parsing playlists.
 - [ ] **38. Template directory bound to current working directory** – use an absolute templates path.
 - [ ] **45. `lyrics_enabled` default disabled in settings form** – align the form default with `AppSettings`.
-- [ ] **44. Search misses tracks with smart quotes** – normalize quotes in search comparisons.
+- [X] **44. Search misses tracks with smart quotes** – normalize quotes in search comparisons.
 - [ ] **39. Library scan records tracks with missing metadata** – skip items lacking name or artist.
 - [ ] **31. `strip_lrc_timecodes` removes bracketed lyrics** – preserve `[Chorus]` style annotations.
 - [ ] **34. OpenAI test route blocks the event loop** – make the request asynchronous.

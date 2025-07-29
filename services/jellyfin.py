@@ -44,7 +44,10 @@ async def fetch_jellyfin_users():
 async def search_jellyfin_for_track(title: str, artist: str) -> bool:
     """Return True if the track exists in Jellyfin."""
     logger.debug("🔍 search_jellyfin_for_track() called with: %s - %s", title, artist)
-    key = f"{title.strip().lower()}::{artist.strip().lower()}"
+
+    title_cleaned = normalize_search_term(title)
+    artist_cleaned = normalize_search_term(artist)
+    key = f"{title_cleaned.strip().lower()}::{artist_cleaned.strip().lower()}"
     cached = jellyfin_track_cache.get(key)
     if cached is not None:
         logger.info("Jellyfin cache hit for %s - %s", title, artist)
@@ -57,7 +60,7 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
                 params={
                     "IncludeItemTypes": "Audio",
                     "Recursive": "true",
-                    "SearchTerm": title,
+                    "SearchTerm": title_cleaned,
                     "api_key": settings.jellyfin_api_key,
                     "userId": settings.jellyfin_user_id,
                 },
@@ -71,12 +74,13 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
         logger.debug("Found %d items", len(items))
 
         for item in items:
-            name = item.get("Name", "")
-            artists = item.get("Artists", [])
+            name = normalize_search_term(item.get("Name", ""))
+            artists_list = item.get("Artists", [])
+            artists = [normalize_search_term(a) for a in artists_list]
             logger.debug("→ Track: %s, Artists: %s", name, artists)
 
-            if title.lower() in name.lower() and any(
-                artist.lower() in a.lower() for a in artists
+            if title_cleaned.lower() in name.lower() and any(
+                artist_cleaned.lower() in a.lower() for a in artists
             ):
                 logger.debug("✅ Match found!")
                 jellyfin_track_cache.set(

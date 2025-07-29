@@ -13,15 +13,6 @@ lyrics_enabled: bool = Form(False)
 ```
 【F:api/forms.py†L14-L36】
 
-## 44. Search misses tracks with smart quotes
-`search_jellyfin_for_track` compares raw titles without normalizing quotes, so `'` vs `’` fails to match.
-```
-if title.lower() in name.lower() and any(
-    artist.lower() in a.lower() for a in artists
-):
-```
-【F:services/jellyfin.py†L60-L81】
-
 ## 39. Library scan records tracks with missing metadata
 `get_full_audio_library` appends song strings even when ``Name`` or ``AlbumArtist`` are ``None`` resulting in entries like ``"None - None"``.
 ```
