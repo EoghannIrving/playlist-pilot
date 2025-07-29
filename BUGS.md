@@ -3,14 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 51. GPT prompt cache ignores model choice
-`cached_chat_completion` builds its cache key from only the prompt and temperature, so switching models may return stale text.
-```
-key = prompt_fingerprint(f"{prompt}|temperature={temperature}")
-content = prompt_cache.get(key)
-```
-【F:services/gpt.py†L139-L167】
-
 ## 52. `get_playlist_id_by_name` fetches all playlists
 The helper retrieves the full playlist list and scans it every call, which is inefficient on large libraries.
 ```

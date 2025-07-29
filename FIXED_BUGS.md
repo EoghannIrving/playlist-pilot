@@ -623,3 +623,12 @@ def duration_human(seconds: int | float | str) -> str:
     models = await asyncio.to_thread(_list_models)
 ```
 【F:api/routes.py†L500-L509】
+
+## 51. GPT prompt cache ignores model choice
+*Fixed.* The cache key now incorporates the selected model so prompts for different models don't collide.
+```python
+    key = prompt_fingerprint(
+        f"{prompt}|temperature={temperature}|model={settings.model}"
+    )
+```
+【F:services/gpt.py†L137-L151】
