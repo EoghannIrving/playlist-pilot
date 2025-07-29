@@ -568,3 +568,11 @@ TEMPLATES_DIR = (Path(__file__).resolve().parent.parent / "templates").resolve()
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 ```
 【F:core/templates.py†L4-L10】
+
+## 45. `lyrics_enabled` default disabled in settings form
+*Fixed.* The settings form now initializes ``lyrics_enabled`` with ``True`` so the application's default is preserved when the checkbox is omitted.
+
+```python
+lyrics_enabled: bool = Form(True)
+```
+【F:api/forms.py†L30-L36】
