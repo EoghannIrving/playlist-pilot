@@ -99,6 +99,20 @@ def test_search_jellyfin_track_not_found(monkeypatch):
     assert found is False
 
 
+def test_search_jellyfin_track_smart_quotes(monkeypatch):
+    """Smart quotes should be normalized when matching tracks."""
+    sys.modules["httpx"] = make_httpx_stub(
+        [{"Name": "Don’t Stop", "Artists": ["My Artist"]}]
+    )
+    sys.modules.pop("services.jellyfin", None)
+    jellyfin = importlib.import_module("services.jellyfin")
+    monkeypatch.setattr(jellyfin, "jellyfin_track_cache", DummyCache())
+    found = asyncio.get_event_loop().run_until_complete(
+        jellyfin.search_jellyfin_for_track("Don't Stop", "My Artist")
+    )
+    assert found is True
+
+
 def test_parse_gpt_line():
     """Validate GPT line parsing and popularity descriptions."""
     # Stub openai so importing services.gpt succeeds
