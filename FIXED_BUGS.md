@@ -603,3 +603,12 @@ def duration_human(seconds: int | float | str) -> str:
     return f"{seconds_int // 60}:{seconds_int % 60:02d}"
 ```
 【F:core/templates.py†L13-L19】
+
+## 31. `strip_lrc_timecodes` removes bracketed lyrics
+*Fixed.* Timecodes are now matched with a specific regex so annotations like `[Chorus]` remain intact.
+
+```python
+    timecode_pattern = r"\[(?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d{1,2})?\]"
+    return re.sub(timecode_pattern, "", lrc_text).strip()
+```
+【F:services/jellyfin.py†L488-L498】

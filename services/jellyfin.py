@@ -486,8 +486,7 @@ def read_lrc_for_track(track_path: str) -> str | None:
 
 
 def strip_lrc_timecodes(lrc_text: str) -> str:
-    """
-    Remove [mm:ss.xx] style timecodes from LRC file contents.
+    """Remove `[mm:ss.xx]` style timecodes from LRC file contents.
 
     Args:
         lrc_text (str): Raw LRC contents.
@@ -495,4 +494,5 @@ def strip_lrc_timecodes(lrc_text: str) -> str:
     Returns:
         str: Plain lyrics text without timecodes.
     """
-    return re.sub(r"\[.*?\]", "", lrc_text).strip()
+    timecode_pattern = r"\[(?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d{1,2})?\]"
+    return re.sub(timecode_pattern, "", lrc_text).strip()
