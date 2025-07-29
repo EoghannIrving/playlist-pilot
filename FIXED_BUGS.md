@@ -558,3 +558,13 @@ def normalize_genre(raw: str | None) -> str:
                 ...
 ```
 【F:services/jellyfin.py†L44-L79】
+
+## 38. Template directory bound to current working directory
+*Fixed.* `core.templates` now computes an absolute directory path so the app can
+load HTML files correctly no matter the invocation location.
+
+```python
+TEMPLATES_DIR = (Path(__file__).resolve().parent.parent / "templates").resolve()
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+```
+【F:core/templates.py†L4-L10】

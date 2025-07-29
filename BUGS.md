@@ -3,9 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 38. Template directory bound to current working directory
-`Jinja2Templates` uses the relative path ``"templates"`` so running the app from another directory cannot locate the HTML files.
-
 ## 45. `lyrics_enabled` default disabled in settings form
 `SettingsForm.as_form` uses ``Form(False)`` which overrides the true default in ``AppSettings`` when saving settings.
 ```
