@@ -1,9 +1,13 @@
 """FastAPI template configuration and custom Jinja filters."""
 
-from fastapi.templating import Jinja2Templates
-from core.constants import BASE_DIR
+from pathlib import Path
 
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+from fastapi.templating import Jinja2Templates
+
+# Use an absolute path so running the app from another working directory
+# still finds the HTML templates bundled with the package.
+TEMPLATES_DIR = (Path(__file__).resolve().parent.parent / "templates").resolve()
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def duration_human(seconds: int) -> str:
