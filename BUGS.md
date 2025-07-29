@@ -3,13 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 45. `lyrics_enabled` default disabled in settings form
-`SettingsForm.as_form` uses ``Form(False)`` which overrides the true default in ``AppSettings`` when saving settings.
-```
-lyrics_enabled: bool = Form(False)
-```
-【F:api/forms.py†L14-L36】
-
 ## 39. Library scan records tracks with missing metadata
 `get_full_audio_library` appends song strings even when ``Name`` or ``AlbumArtist`` are ``None`` resulting in entries like ``"None - None"``.
 ```
