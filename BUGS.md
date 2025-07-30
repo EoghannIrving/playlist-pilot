@@ -3,19 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-
-
-## 28. Debug route returns coroutine object
-The `/test-lastfm-tags` route calls the async `get_lastfm_tags` without awaiting it, returning a coroutine instead of tags.
-```
-@router.get("/test-lastfm-tags")
-def debug_lastfm_tags(title: str, artist: str):
-    """Return tags for a given track from Last.fm for debugging."""
-    tags = get_lastfm_tags(title, artist)
-    return {"tags": tags}
-```
-【F:api/routes.py†L659-L663】
-
 ## 48. `parse_gpt_line` hides malformed suggestions
 Invalid lines return empty strings instead of raising an error.
 ```

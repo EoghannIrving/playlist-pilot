@@ -700,9 +700,9 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
 
 
 @router.get("/test-lastfm-tags")
-def debug_lastfm_tags(title: str, artist: str):
+async def debug_lastfm_tags(title: str, artist: str):
     """Return tags for a given track from Last.fm for debugging."""
-    tags = get_lastfm_tags(title, artist)
+    tags = await get_lastfm_tags(title, artist)
     return {"tags": tags}
 
 

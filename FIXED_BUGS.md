@@ -655,3 +655,14 @@ def duration_human(seconds: int | float | str) -> str:
     )
 ```
 【F:core/playlist.py†L82-L101】
+
+## 28. Debug route returns coroutine object
+*Fixed.* The `/test-lastfm-tags` endpoint is now asynchronous and awaits ``get_lastfm_tags``.
+```python
+@router.get("/test-lastfm-tags")
+async def debug_lastfm_tags(title: str, artist: str):
+    """Return tags for a given track from Last.fm for debugging."""
+    tags = await get_lastfm_tags(title, artist)
+    return {"tags": tags}
+```
+【F:api/routes.py†L702-L706】
