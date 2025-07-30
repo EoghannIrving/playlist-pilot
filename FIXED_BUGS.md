@@ -477,6 +477,16 @@ norm_lfm = normalize_popularity_log(
 ```
 【F:utils/helpers.py†L49-L67】
 
+## 33. Tag extraction is case-sensitive
+*Fixed.* `extract_tag_value` now matches prefixes in a case-insensitive manner.
+```python
+    prefix_lower = prefix.lower()
+    for tag in tags or []:
+        if tag.lower().startswith(f"{prefix_lower}:"):
+            return tag.split(":", 1)[1]
+```
+【F:core/playlist.py†L638-L642】
+
 ## 35. `normalize_genre` crashes on ``None`` input
 *Fixed.* The helper now returns an empty string when passed ``None`` or another falsy value.
 

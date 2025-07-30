@@ -100,9 +100,10 @@ def test_estimate_tempo_basic():
 
 def test_extract_tag_value():
     """`extract_tag_value` should pull the value for a named tag."""
-    tags = ["tempo:120", "mood:happy"]
+    tags = ["tempo:120", "mood:happy", "Tempo:130"]
     assert extract_tag_value(tags, "tempo") == "120"
     assert extract_tag_value(tags, "missing") is None
+    assert extract_tag_value(["Tempo:120"], "tempo") == "120"
 
 
 def test_load_sorted_history(monkeypatch, tmp_path):

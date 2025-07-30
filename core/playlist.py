@@ -635,8 +635,9 @@ def extract_tag_value(tags: list[str], prefix: str) -> str | None:
     Returns:
         str or None: Value part if found, else None.
     """
+    prefix_lower = prefix.lower()
     for tag in tags or []:
-        if tag.startswith(f"{prefix}:"):
+        if tag.lower().startswith(f"{prefix_lower}:"):
             return tag.split(":", 1)[1]
     return None
 

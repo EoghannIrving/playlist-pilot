@@ -13,7 +13,7 @@ This file outlines upcoming tasks based on the current roadmap and list of outst
 - [ ] **34. OpenAI test route blocks the event loop** – make the request asynchronous.
 - [ ] **51. GPT prompt cache ignores model choice** – include the model name in the cache key.
 - [ ] **52. `get_playlist_id_by_name` fetches all playlists** – query Jellyfin for a single playlist instead.
-- [ ] **33. Tag extraction is case-sensitive** – support capitalized prefixes.
+- [X] **33. Tag extraction is case-sensitive** – support capitalized prefixes.
 - [ ] **25. `duration_human` filter rejects numeric strings** – accept numeric strings or floats.
 - [ ] **28. Debug route returns coroutine object** – await `get_lastfm_tags` in the debug route.
 - [ ] **48. `parse_gpt_line` hides malformed suggestions** – raise an error or log invalid lines.

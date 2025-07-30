@@ -4,15 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 33. Tag extraction is case-sensitive
-`extract_tag_value` only matches lowercase prefixes and misses tags like `Tempo:120`.
-```
-for tag in tags or []:
-    if tag.startswith(f"{prefix}:"):
-        return tag.split(":", 1)[1]
-```
-【F:core/playlist.py†L626-L630】
-
 
 ## 28. Debug route returns coroutine object
 The `/test-lastfm-tags` route calls the async `get_lastfm_tags` without awaiting it, returning a coroutine instead of tags.
