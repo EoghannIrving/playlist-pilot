@@ -632,3 +632,16 @@ def duration_human(seconds: int | float | str) -> str:
     )
 ```
 【F:services/gpt.py†L137-L151】
+
+## 52. `get_playlist_id_by_name` fetches all playlists
+*Fixed.* The helper now queries Jellyfin for the playlist name using ``SearchTerm`` instead of retrieving every playlist.
+```python
+    resp = await jf_get(
+        f"/Users/{settings.jellyfin_user_id}/Items",
+        IncludeItemTypes="Playlist",
+        Recursive="true",
+        SearchTerm=name,
+        Limit=20,
+    )
+```
+【F:core/playlist.py†L82-L101】

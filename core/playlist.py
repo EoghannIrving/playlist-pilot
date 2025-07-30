@@ -82,15 +82,18 @@ async def fetch_audio_playlists(user_id: str | None = None) -> dict:
 async def get_playlist_id_by_name(name: str) -> str | None:
     """Return the ID of a Jellyfin playlist given its name."""
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
-                headers={"X-Emby-Token": settings.jellyfin_api_key},
-                params={"IncludeItemTypes": "Playlist", "Recursive": "true"},
-                timeout=10,
-            )
-        resp.raise_for_status()
-        for item in resp.json().get("Items", []):
+        resp = await jf_get(
+            f"/Users/{settings.jellyfin_user_id}/Items",
+            IncludeItemTypes="Playlist",
+            Recursive="true",
+            SearchTerm=name,
+            Limit=20,
+        )
+
+        if "error" in resp:
+            raise RuntimeError(resp["error"])
+
+        for item in resp.get("Items", []):
             if item.get("Name") == name:
                 return item.get("Id")
     except Exception as exc:  # pylint: disable=broad-exception-caught

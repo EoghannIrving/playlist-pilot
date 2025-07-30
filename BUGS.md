@@ -3,18 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 52. `get_playlist_id_by_name` fetches all playlists
-The helper retrieves the full playlist list and scans it every call, which is inefficient on large libraries.
-```
-async with httpx.AsyncClient() as client:
-    resp = await client.get(
-        f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
-        headers={"X-Emby-Token": settings.jellyfin_api_key},
-        params={"IncludeItemTypes": "Playlist", "Recursive": "true"},
-        timeout=10,
-    )
-```
-【F:core/playlist.py†L82-L98】
 
 ## 33. Tag extraction is case-sensitive
 `extract_tag_value` only matches lowercase prefixes and misses tags like `Tempo:120`.
