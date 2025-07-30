@@ -35,3 +35,17 @@ def test_normalize_multiple_parens(monkeypatch):
     normalize = _load_normalize(monkeypatch)
     text = "(((Example)))"
     assert normalize(text) == ""
+
+
+def test_normalize_long_spaces(monkeypatch):
+    """Many spaces should not impact performance or output."""
+    normalize = _load_normalize(monkeypatch)
+    text = " " * 500 + "Example"
+    assert normalize(text) == "example"
+
+
+def test_normalize_long_open_parens(monkeypatch):
+    """Strings starting with numerous '(' characters are handled."""
+    normalize = _load_normalize(monkeypatch)
+    text = "(" * 500 + "Example"
+    assert normalize(text) == "example"

@@ -19,8 +19,12 @@ from utils.integration_watchdog import record_failure, record_success
 logger = logging.getLogger("playlist-pilot")
 
 # Precompile regex patterns for efficiency and to avoid backtracking
-_paren_re = re.compile(r"\s*\([^)]*\)")
+# Avoid leading whitespace in the parenthetical pattern to prevent
+# catastrophic backtracking on long inputs consisting of spaces or
+# parentheses.
+_paren_re = re.compile(r"\([^)]*\)")
 _punct_re = re.compile(r"[^a-z0-9 ]")
+_space_re = re.compile(r"\s+")
 
 
 def normalize(text: str) -> str:
@@ -28,6 +32,7 @@ def normalize(text: str) -> str:
     text = text.lower()
     text = _paren_re.sub("", text)  # Remove content in parentheses
     text = _punct_re.sub("", text)  # Remove punctuation
+    text = _space_re.sub(" ", text)  # Collapse whitespace
     return text.strip()
 
 
