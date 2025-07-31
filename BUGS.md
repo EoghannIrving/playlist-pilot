@@ -4,17 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 50. `parse_track_text` drops data after second dash
-Extra segments beyond ``Artist - Title`` are ignored.
-```
-parts = text.split(" - ")
-if len(parts) >= 2:
-    artist, title = parts[0].strip(), parts[1].strip()
-else:
-    artist, title = "Unknown", text.strip()
-```
-【F:core/m3u.py†L68-L74】
-
 ## 53. Filename metadata inference misreads complex names
 `infer_track_metadata_from_path` only keeps the last two dash-separated parts, so ``Artist - Title - Live.mp3`` records ``Title - Live`` as the title.
 ```

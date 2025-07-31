@@ -59,7 +59,7 @@ def test_parse_track_text_extra_parts():
     """Handle extra segments after artist and title."""
     artist, title = parse_track_text("Metallica - One - Live")
     assert artist == "Metallica"
-    assert title == "One"
+    assert title == "One - Live"
 
 
 def test_parse_title_artist_full_line():
