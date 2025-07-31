@@ -66,7 +66,7 @@ def generate_proposed_path(artist: str, album: str, title: str) -> str:
 
 def parse_track_text(text: str) -> tuple[str, str]:
     """Split a track label into artist and title parts."""
-    parts = text.split(" - ")
+    parts = text.split(" - ", 1)
     if len(parts) >= 2:
         artist, title = parts[0].strip(), parts[1].strip()
     else:

@@ -688,3 +688,16 @@ def build_search_query(line: str) -> str:
     return f"{parts[0]} {parts[1]}" if len(parts) >= 2 else line.strip()
 ```
 【F:utils/text_utils.py†L39-L42】
+
+## 50. `parse_track_text` drops data after second dash
+*Fixed.* The parser now splits only once so additional segments remain part of the title.
+```python
+def parse_track_text(text: str) -> tuple[str, str]:
+    parts = text.split(" - ", 1)
+    if len(parts) >= 2:
+        artist, title = parts[0].strip(), parts[1].strip()
+    else:
+        artist, title = "Unknown", text.strip()
+    return artist, title
+```
+【F:core/m3u.py†L67-L76】
