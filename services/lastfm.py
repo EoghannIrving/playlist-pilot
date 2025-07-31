@@ -8,6 +8,7 @@ Provides Last.fm integration for:
 
 import logging
 import re
+import unicodedata
 import asyncio
 import httpx
 
@@ -29,6 +30,8 @@ _space_re = re.compile(r"\s+")
 
 def normalize(text: str) -> str:
     """Standardize text for caching and comparison."""
+    # Normalize accents to their ASCII equivalents before lowercasing
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     text = text.lower()
     text = _paren_re.sub("", text)  # Remove content in parentheses
     text = _punct_re.sub("", text)  # Remove punctuation

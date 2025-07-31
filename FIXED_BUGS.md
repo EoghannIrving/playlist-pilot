@@ -713,3 +713,15 @@ def parse_track_text(text: str) -> tuple[str, str]:
         artist = parts[-3] if len(parts) >= 3 else "Unknown Artist"
 ```
 【F:core/m3u.py†L165-L175】
+
+## 54. Last.fm normalization strips accented characters
+*Fixed.* `normalize` now preserves accented characters by transliterating them to ASCII equivalents before removing punctuation.
+```python
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    text = _paren_re.sub("", text)
+    text = _punct_re.sub("", text)
+    text = _space_re.sub(" ", text)
+    return text.strip()
+```
+【F:services/lastfm.py†L26-L36】
