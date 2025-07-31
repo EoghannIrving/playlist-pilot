@@ -701,3 +701,15 @@ def parse_track_text(text: str) -> tuple[str, str]:
     return artist, title
 ```
 【F:core/m3u.py†L67-L76】
+
+## 53. Filename metadata inference misreads complex names
+*Fixed.* `infer_track_metadata_from_path` now splits only once, preserving extra dashes in titles.
+```python
+    clean_title = re.sub(r"^\d+\s*[-_.]\s*", "", filename).strip()
+    if " - " in clean_title:
+        artist, title = parse_track_text(clean_title)
+    else:
+        title = clean_title
+        artist = parts[-3] if len(parts) >= 3 else "Unknown Artist"
+```
+【F:core/m3u.py†L165-L175】

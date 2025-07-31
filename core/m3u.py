@@ -168,13 +168,7 @@ def infer_track_metadata_from_path(path: str) -> dict:
     filename = parts[-1].rsplit(".", 1)[0]
     clean_title = re.sub(r"^\d+\s*[-_.]\s*", "", filename).strip()
     if " - " in clean_title:
-        segments = clean_title.split(" - ")
-        if len(segments) >= 2:
-            artist = segments[-2].strip()
-            title = segments[-1].strip()
-        else:
-            title = segments[-1].strip()
-            artist = parts[-3] if len(parts) >= 3 else "Unknown Artist"
+        artist, title = parse_track_text(clean_title)
     else:
         title = clean_title
         artist = parts[-3] if len(parts) >= 3 else "Unknown Artist"
