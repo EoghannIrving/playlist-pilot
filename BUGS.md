@@ -4,15 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 54. Last.fm normalization strips accented characters
-`normalize` removes all non-ASCII characters so artists like "Beyoncé" are cached without the accent, causing mismatches.
-```
-_punct_re = re.compile(r"[^a-z0-9 ]")
-...
-text = _punct_re.sub("", text)
-```
-【F:services/lastfm.py†L21-L31】
-
 ## 55. `get_lastfm_track_info` makes API calls even when the API key is blank
 The function always queries Last.fm without validating `settings.lastfm_api_key`, leading to failing requests when no key is set.
 ```

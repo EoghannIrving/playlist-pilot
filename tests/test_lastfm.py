@@ -49,3 +49,9 @@ def test_normalize_long_open_parens(monkeypatch):
     normalize = _load_normalize(monkeypatch)
     text = "(" * 500 + "Example"
     assert normalize(text) == "example"
+
+
+def test_normalize_accents(monkeypatch):
+    """Accented characters should be converted to their ASCII equivalents."""
+    normalize = _load_normalize(monkeypatch)
+    assert normalize("Beyonc\u00e9") == "beyonce"
