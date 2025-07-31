@@ -91,6 +91,11 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
         return cached if isinstance(cached, dict) else None
 
     logger.info("Last.fm cache miss for %s - %s", title, artist)
+    if not settings.lastfm_api_key.strip():
+        logger.info("[Last.fm] API key not configured; skipping track info fetch")
+        # Cache the absence to avoid repeated lookups when the key is missing
+        lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
+        return None
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(

@@ -725,3 +725,13 @@ def parse_track_text(text: str) -> tuple[str, str]:
     return text.strip()
 ```
 【F:services/lastfm.py†L26-L36】
+
+## 55. `get_lastfm_track_info` makes API calls even when the API key is blank
+*Fixed.* The function now verifies that an API key is configured before issuing a request and caches the absence to avoid repeated lookups.
+```python
+    if not settings.lastfm_api_key.strip():
+        logger.info("[Last.fm] API key not configured; skipping track info fetch")
+        lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
+        return None
+```
+【F:services/lastfm.py†L93-L98】
