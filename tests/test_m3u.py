@@ -95,6 +95,14 @@ def test_infer_metadata_windows_path():
     assert meta == {"title": "One", "artist": "Metallica"}
 
 
+def test_infer_metadata_multiple_dashes():
+    """Handle filenames with additional dashes."""
+    meta = infer_track_metadata_from_path(
+        "Music/Metallica/Justice/Metallica - One - Live.mp3"
+    )
+    assert meta == {"title": "One - Live", "artist": "Metallica"}
+
+
 def test_generate_proposed_path_sanitizes(monkeypatch, tmp_path):
     """Path components are sanitized to prevent traversal and invalid characters."""
     monkeypatch.setattr(settings, "music_library_root", str(tmp_path), raising=False)

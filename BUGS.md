@@ -4,16 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 53. Filename metadata inference misreads complex names
-`infer_track_metadata_from_path` only keeps the last two dash-separated parts, so ``Artist - Title - Live.mp3`` records ``Title - Live`` as the title.
-```
-segments = clean_title.split(" - ")
-if len(segments) >= 2:
-    artist = segments[-2].strip()
-    title = segments[-1].strip()
-```
-【F:core/m3u.py†L161-L177】
-
 ## 54. Last.fm normalization strips accented characters
 `normalize` removes all non-ASCII characters so artists like "Beyoncé" are cached without the accent, causing mismatches.
 ```
