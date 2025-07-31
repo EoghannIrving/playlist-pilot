@@ -143,3 +143,31 @@ def test_lastfm_info_failure(monkeypatch):
         lastfm.get_lastfm_track_info("Song", "Artist")
     )
     assert result is None
+
+
+def test_lastfm_info_skipped_without_key(monkeypatch):
+    """No HTTP call is made when the Last.fm API key is missing."""
+
+    class Client:
+        """Client that raises if used."""
+
+        async def __aenter__(self):
+            raise AssertionError("HTTP call attempted without API key")
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    httpx_stub = types.ModuleType("httpx")
+    httpx_stub.AsyncClient = lambda *a, **kw: Client()
+    sys.modules["httpx"] = httpx_stub
+    sys.modules["utils.cache_manager"] = _make_cache_stub()
+    sys.modules.pop("services.lastfm", None)
+    lastfm = importlib.import_module("services.lastfm")
+    monkeypatch.setattr(lastfm, "lastfm_cache", DummyCache())
+    monkeypatch.setattr(lastfm, "CACHE_TTLS", {"lastfm": 1})
+    monkeypatch.setattr(lastfm.settings, "lastfm_api_key", "", raising=False)
+
+    result = asyncio.get_event_loop().run_until_complete(
+        lastfm.get_lastfm_track_info("Song", "Artist")
+    )
+    assert result is None
