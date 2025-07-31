@@ -185,7 +185,8 @@ def parse_gpt_line(line: str) -> tuple[str, str]:
 
     GPT generally returns lines in the format ``"Song - Artist - Reason"`` but
     occasionally uses ``"Song by Artist - Reason"``. This helper extracts the
-    title and artist from either style.
+    title and artist from either style. If the line cannot be parsed, a
+    ``ValueError`` is raised.
     """
 
     line = line.replace("\u2013", "-").strip()  # normalize en dash
@@ -207,7 +208,7 @@ def parse_gpt_line(line: str) -> tuple[str, str]:
     if len(by_split) == 2:
         return by_split[0].strip(), by_split[1].strip()
 
-    return "", ""
+    raise ValueError(f"Could not parse suggestion line: {line}")
 
 
 async def gpt_suggest_validated(
@@ -337,8 +338,9 @@ def format_removal_suggestions(
         text = strip_number_prefix(line).strip()
         if not text:
             continue
-        title, artist = parse_gpt_line(text)
-        if not title or not artist:
+        try:
+            title, artist = parse_gpt_line(text)
+        except ValueError:
             continue
 
         remaining = _extract_remaining(text, title, artist)
@@ -389,7 +391,10 @@ async def fetch_order_suggestions(
         line = strip_number_prefix(line)
         if not line:
             continue
-        title, artist = parse_gpt_line(line)
+        try:
+            title, artist = parse_gpt_line(line)
+        except ValueError:
+            continue
         ordered.append({"title": title, "artist": artist, "text": line})
     return ordered
 

@@ -4,6 +4,7 @@ import sys
 import types
 import importlib
 import asyncio
+import pytest
 
 
 # Stub httpx for jellyfin service
@@ -146,6 +147,9 @@ def test_parse_gpt_line():
     title, artist = parse_gpt_line("Another Song by Some Artist - Reason")
     assert title == "Another Song"
     assert artist == "Some Artist"
+
+    with pytest.raises(ValueError):
+        parse_gpt_line("Malformed line")
 
     assert describe_popularity(95) == "Global smash hit"
     assert describe_popularity(75) == "Mainstream favorite"

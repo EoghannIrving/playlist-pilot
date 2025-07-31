@@ -3,13 +3,6 @@
 This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
-## 48. `parse_gpt_line` hides malformed suggestions
-Invalid lines return empty strings instead of raising an error.
-```
-parts = [p.strip() for p in line.split(" - ")]
-return (parts[0], parts[1]) if len(parts) >= 2 else ("", "")
-```
-【F:services/gpt.py†L180-L191】
 
 ## 49. `build_search_query` splits on every dash
 Hyphens inside artist or title confuse the query generator.

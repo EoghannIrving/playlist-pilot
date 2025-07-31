@@ -666,3 +666,16 @@ async def debug_lastfm_tags(title: str, artist: str):
     return {"tags": tags}
 ```
 【F:api/routes.py†L702-L706】
+
+## 48. `parse_gpt_line` hides malformed suggestions
+*Fixed.* The helper now raises ``ValueError`` when lines cannot be parsed so invalid suggestions are skipped.
+```python
+    parts = [p.strip() for p in line.split(" - ")]
+    if len(parts) >= 2:
+        ...
+    by_split = re.split(r"\s+by\s+", line, maxsplit=1, flags=re.IGNORECASE)
+    if len(by_split) == 2:
+        return by_split[0].strip(), by_split[1].strip()
+    raise ValueError(f"Could not parse suggestion line: {line}")
+```
+【F:services/gpt.py†L183-L211】
