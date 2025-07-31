@@ -679,3 +679,12 @@ async def debug_lastfm_tags(title: str, artist: str):
     raise ValueError(f"Could not parse suggestion line: {line}")
 ```
 【F:services/gpt.py†L183-L211】
+
+## 49. `build_search_query` splits on every dash
+*Fixed.* ``build_search_query`` now splits only once so dashes inside titles are preserved.
+```python
+def build_search_query(line: str) -> str:
+    parts = [part.strip() for part in line.split("-", 1)]
+    return f"{parts[0]} {parts[1]}" if len(parts) >= 2 else line.strip()
+```
+【F:utils/text_utils.py†L39-L42】
