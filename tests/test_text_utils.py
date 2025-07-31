@@ -24,5 +24,5 @@ def test_clean_and_build_query():
     assert tu.clean(" Hello!!! ") == "hello"
     assert tu.clean("MiXeD Case") == "mixed case"
 
-    assert tu.build_search_query("Song - Artist - Extra") == "Song Artist"
+    assert tu.build_search_query("Song - Artist - Extra") == "Song Artist - Extra"
     assert tu.build_search_query("Solo") == "Solo"

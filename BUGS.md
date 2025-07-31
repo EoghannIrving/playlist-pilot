@@ -4,14 +4,6 @@ This file documents outstanding bugs discovered during a code audit.
 Fixed issues have been moved to [FIXED_BUGS.md](FIXED_BUGS.md).
 
 
-## 49. `build_search_query` splits on every dash
-Hyphens inside artist or title confuse the query generator.
-```
-parts = [part.strip() for part in line.split("-")]
-return f"{parts[0]} {parts[1]}" if len(parts) >= 2 else line.strip()
-```
-【F:utils/text_utils.py†L39-L42】
-
 ## 50. `parse_track_text` drops data after second dash
 Extra segments beyond ``Artist - Title`` are ignored.
 ```
