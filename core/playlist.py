@@ -292,7 +292,12 @@ def _duration_from_ticks(ticks: int, bpm_data: dict) -> int:
     """Convert Jellyfin run-time ticks to seconds, falling back to BPM data."""
     duration = int(ticks / 10_000_000) if ticks else 0
     bpm_duration = bpm_data.get("duration")
-    return int(bpm_duration) if bpm_duration is not None else duration
+    if bpm_duration is not None:
+        try:
+            return int(bpm_duration)
+        except (TypeError, ValueError):
+            logger.warning("Invalid BPM duration: %s", bpm_duration)
+    return duration
 
 
 async def _classify_mood(
