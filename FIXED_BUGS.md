@@ -735,3 +735,17 @@ def parse_track_text(text: str) -> tuple[str, str]:
         return None
 ```
 【F:services/lastfm.py†L93-L98】
+
+## 56. `_duration_from_ticks` may crash on non-numeric BPM data
+*Fixed.* The helper now handles invalid ``duration`` values gracefully and logs a warning.
+```python
+    duration = int(ticks / 10_000_000) if ticks else 0
+    bpm_duration = bpm_data.get("duration")
+    if bpm_duration is not None:
+        try:
+            return int(bpm_duration)
+        except (TypeError, ValueError):
+            logger.warning("Invalid BPM duration: %s", bpm_duration)
+    return duration
+```
+【F:core/playlist.py†L291-L300】
