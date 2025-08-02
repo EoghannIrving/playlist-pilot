@@ -17,6 +17,8 @@
     {{ macros.nav(request) }}
   </nav>
 
+  <div id="integration-failures" class="text-center text-red-600 text-sm"></div>
+
   <main class="max-w-screen-xl mx-auto p-4">
     {% block content %}{% endblock %}
   </main>
@@ -24,6 +26,18 @@
   <footer class="mt-8 bg-gray-200 dark:bg-gray-800 text-center p-4 text-sm text-gray-700 dark:text-gray-300">
     <p>Playlist Pilot — Curate your soundtrack.</p>
   </footer>
-
+  <script>
+    fetch('/api/integration-failures')
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('integration-failures');
+        const entries = Object.entries(data);
+        if (entries.length) {
+          el.textContent = 'Integration failures: ' +
+            entries.map(([k, v]) => `${k} (${v})`).join(', ');
+        }
+      })
+      .catch(() => {});
+  </script>
 </body>
 </html>

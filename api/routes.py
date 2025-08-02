@@ -85,6 +85,7 @@ from utils.helpers import (
     parse_suggest_request,
     get_log_excerpt,
 )
+from utils.integration_watchdog import get_failure_counts
 from api.forms import SettingsForm
 from api.schemas import (
     HealthResponse,
@@ -352,6 +353,12 @@ async def delete_history(request: Request):
 async def health_check():
     """Simple endpoint for container liveness monitoring."""
     return {"status": "ok"}
+
+
+@router.get("/api/integration-failures", tags=["Monitoring"])
+async def integration_failures() -> dict[str, int]:
+    """Return current integration failure counters."""
+    return get_failure_counts()
 
 
 @router.get("/settings", response_class=HTMLResponse, tags=["Settings"])

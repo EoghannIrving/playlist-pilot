@@ -46,6 +46,8 @@ class AppSettings(BaseModel):
         lastfm_api_key (str): Optional key for Last.fm integration.
         model (str): GPT model to use (default is 'gpt-4o-mini').
         lyrics_enabled (bool): Toggle for lyrics-based mood analysis.
+        integration_failure_limit (int): Consecutive integration failures
+            before logging warnings.
     """
 
     jellyfin_url: str = ""
@@ -89,6 +91,7 @@ class AppSettings(BaseModel):
     lyrics_weight: float = 1.5
     bpm_weight: float = 1.0
     tags_weight: float = 0.7
+    integration_failure_limit: int = 3
 
     def clear_cache(self, name: str | None = None) -> None:
         """Clear one or all disk caches.
