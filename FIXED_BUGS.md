@@ -756,3 +756,11 @@ def parse_track_text(text: str) -> tuple[str, str]:
     line = re.sub(r"[\u2013\u2014]", "-", line).strip()  # normalize en/em dashes
 ```
 【F:services/gpt.py†L183-L205】
+
+## 58. `_extract_remaining` splits on every dash
+*Fixed.* `_extract_remaining` now splits only once so dashes inside titles or artists are preserved.
+```python
+    parts = [p.strip() for p in normalized.split(" - ", 2)]
+    return parts[2].strip() if len(parts) > 2 else ""
+```
+【F:services/gpt.py†L307-L318】
