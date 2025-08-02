@@ -10,9 +10,8 @@ import logging
 import re
 import unicodedata
 import asyncio
-import httpx
-
 from config import settings
+from utils.http_client import get_http_client
 from utils.cache_manager import lastfm_cache, CACHE_TTLS
 from utils.integration_watchdog import record_failure, record_success
 
@@ -51,18 +50,17 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
         return cached
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://ws.audioscrobbler.com/2.0/",
-                params={
-                    "method": "track.getTopTags",
-                    "api_key": settings.lastfm_api_key,
-                    "artist": artist,
-                    "track": title,
-                    "format": "json",
-                },
-                timeout=settings.http_timeout_short,
-            )
+        client = get_http_client(short=True)
+        response = await client.get(
+            "https://ws.audioscrobbler.com/2.0/",
+            params={
+                "method": "track.getTopTags",
+                "api_key": settings.lastfm_api_key,
+                "artist": artist,
+                "track": title,
+                "format": "json",
+            },
+        )
         response.raise_for_status()
         record_success("lastfm")
         data = response.json()
@@ -97,18 +95,17 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
         lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
         return None
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://ws.audioscrobbler.com/2.0/",
-                params={
-                    "method": "track.getInfo",
-                    "api_key": settings.lastfm_api_key,
-                    "artist": artist,
-                    "track": title,
-                    "format": "json",
-                },
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        response = await client.get(
+            "https://ws.audioscrobbler.com/2.0/",
+            params={
+                "method": "track.getInfo",
+                "api_key": settings.lastfm_api_key,
+                "artist": artist,
+                "track": title,
+                "format": "json",
+            },
+        )
         response.raise_for_status()
         record_success("lastfm")
         data = response.json()
