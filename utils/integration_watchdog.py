@@ -3,9 +3,10 @@
 from collections import defaultdict
 import logging
 
+from config import settings
+
 logger = logging.getLogger("playlist-pilot")
 
-_FAILURE_THRESHOLD = 3
 _failure_counts: defaultdict[str, int] = defaultdict(int)
 
 
@@ -20,7 +21,7 @@ def record_failure(service: str) -> None:
     _failure_counts[service] += 1
     count = _failure_counts[service]
     logger.error("[watchdog] %s failure #%d", service, count)
-    if count >= _FAILURE_THRESHOLD:
+    if count >= settings.integration_failure_limit:
         logger.warning("⚠️ %s integration repeatedly failing (%d)", service, count)
 
 

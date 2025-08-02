@@ -34,6 +34,7 @@ class SettingsForm(AppSettings):
         lyrics_weight: float = Form(1.5),
         bpm_weight: float = Form(1.0),
         tags_weight: float = Form(0.7),
+        integration_failure_limit: int = Form(3),
     ) -> "SettingsForm":
         """Create a SettingsForm instance from submitted form data."""
 
@@ -76,4 +77,5 @@ class SettingsForm(AppSettings):
             lyrics_weight=lyrics_weight,
             bpm_weight=bpm_weight,
             tags_weight=tags_weight,
+            integration_failure_limit=integration_failure_limit,
         )
