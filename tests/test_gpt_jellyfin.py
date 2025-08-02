@@ -266,3 +266,34 @@ def test_format_removal_suggestions_by_style():
             "item_id": "x",
         },
     ]
+
+
+def test_extract_remaining_handles_dashes():
+    """_extract_remaining should ignore dashes inside titles or artists."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+    extract = gpt_mod._extract_remaining  # pylint: disable=protected-access
+
+    text = "Rock - Remix - Artist - extra - notes"
+    assert extract(text, "Rock - Remix", "Artist") == "extra - notes"
+
+    text = "Song - DJ - Mix - explanation"
+    assert extract(text, "Song", "DJ - Mix") == "explanation"

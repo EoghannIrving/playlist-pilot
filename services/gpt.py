@@ -314,8 +314,8 @@ def _extract_remaining(text: str, title: str, artist: str) -> str:
         return normalized[len(dash_pattern) :].lstrip(" -")
     if lower_norm.startswith(by_pattern.lower()):
         return normalized[len(by_pattern) :].lstrip(" -")
-    parts = [p.strip() for p in normalized.split(" - ")]
-    return " - ".join(parts[2:]).strip()
+    parts = [p.strip() for p in normalized.split(" - ", 2)]
+    return parts[2].strip() if len(parts) > 2 else ""
 
 
 def format_removal_suggestions(
