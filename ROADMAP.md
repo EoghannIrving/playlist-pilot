@@ -32,6 +32,8 @@ Below is an updated high-level roadmap for Playlist Pilot reflecting the new inf
    - Optimize caching and asynchronous calls, and improve containerization for larger libraries.
 3. **Download Support (Future)**
    - Since there is currently no MeTube integration and yt-dlp is only used for finding links, evaluate if/when actual downloading should be introduced.
+4. **Integration Watchdog Visibility**
+   - Surface external service failure counts in the UI and allow configuring the watchdog threshold.
 
 ## Phase 4 – API Expansion & Future Explorations
 1. **API Expansion**
