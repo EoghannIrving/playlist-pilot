@@ -86,6 +86,25 @@ from utils.helpers import (
     get_log_excerpt,
 )
 from api.forms import SettingsForm
+from api.schemas import (
+    HealthResponse,
+    LastfmTestRequest,
+    LastfmTestResponse,
+    JellyfinTestRequest,
+    JellyfinTestResponse,
+    OpenAITestRequest,
+    OpenAITestResponse,
+    GetSongBPMTestRequest,
+    GetSongBPMTestResponse,
+    VerifyEntryRequest,
+    VerifyEntryResponse,
+    TagsResponse,
+    OrderSuggestionResponse,
+    ExportPlaylistResponse,
+    AnalysisExportRequest,
+    ExportTrackMetadataRequest,
+    ExportTrackMetadataResponse,
+)
 
 
 logger = logging.getLogger("playlist-pilot")
@@ -98,12 +117,12 @@ router = APIRouter()
 # ROUTES
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, tags=["UI"])
 async def index(request: Request):
-    """
-    Render the homepage with a list of audio playlists.
-    Uses cached data if available.
-    """
+    """Render the homepage showing available audio playlists.
+
+    Redirects to the settings page when configuration is incomplete and uses
+    cached playlists where possible to reduce load on the Jellyfin server."""
     try:
         settings.validate_settings()
     except ValueError:
@@ -125,9 +144,13 @@ async def index(request: Request):
     )
 
 
-@router.post("/compare", response_class=HTMLResponse)
+@router.post("/compare", response_class=HTMLResponse, tags=["Comparison"])
 async def compare_playlists_form(request: Request):  # pylint: disable=too-many-locals
-    """Compare the overlap between two playlists (GPT or Jellyfin)."""
+    """Compare the overlap between two playlists (GPT or Jellyfin).
+
+    The body of the request is parsed as a standard HTML form where each
+    playlist is identified by its source and id. The response is an HTML page
+    summarising shared and unique tracks."""
     history = load_sorted_history(settings.jellyfin_user_id)
     pf_data = await fetch_audio_playlists()
     all_playlists = pf_data["playlists"]
@@ -267,9 +290,10 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
     )
 
 
-@router.get("/compare", response_class=HTMLResponse)
+@router.get("/compare", response_class=HTMLResponse, tags=["Comparison"])
 async def compare_ui(request: Request):
-    """Render the playlist comparison form."""
+    """Render the playlist comparison form where users select playlists to
+    compare."""
     history = load_sorted_history(settings.jellyfin_user_id)
     pf_data = await fetch_audio_playlists()
     all_playlists = pf_data["playlists"]
@@ -285,11 +309,11 @@ async def compare_ui(request: Request):
     )
 
 
-@router.get("/history", response_class=HTMLResponse)
+@router.get("/history", response_class=HTMLResponse, tags=["History"])
 async def history_page(
     request: Request, sort: str = Query("recent"), deleted: int = Query(0)
 ):
-    """Display the user's GPT history with optional sorting."""
+    """Display the user's GPT history with optional sorting and status flags."""
     history = load_sorted_history(settings.jellyfin_user_id)
 
     if sort == "recent":
@@ -314,11 +338,9 @@ async def history_page(
     )
 
 
-@router.post("/history/delete", response_class=HTMLResponse)
+@router.post("/history/delete", response_class=HTMLResponse, tags=["History"])
 async def delete_history(request: Request):
-    """
-    Delete a playlist entry from the user's history.
-    """
+    """Delete a playlist entry from the user's history."""
     form = await request.form()
     raw_id = form.get("entry_id")
     entry_id = raw_id if isinstance(raw_id, str) else ""
@@ -326,19 +348,15 @@ async def delete_history(request: Request):
     return RedirectResponse(url="/history", status_code=303)
 
 
-@router.get("/health", response_class=JSONResponse)
+@router.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
-    """
-    Simple endpoint for liveness monitoring.
-    """
+    """Simple endpoint for container liveness monitoring."""
     return {"status": "ok"}
 
 
-@router.get("/settings", response_class=HTMLResponse)
+@router.get("/settings", response_class=HTMLResponse, tags=["Settings"])
 async def get_settings(request: Request):
-    """
-    Display current configuration and available Jellyfin users.
-    """
+    """Display current configuration and available Jellyfin users."""
     try:
         settings.validate_settings()
         validation_message = None
@@ -364,14 +382,12 @@ async def get_settings(request: Request):
     )
 
 
-@router.post("/settings", response_class=HTMLResponse)
+@router.post("/settings", response_class=HTMLResponse, tags=["Settings"])
 async def update_settings(
     request: Request,
     form_data: SettingsForm = Depends(SettingsForm.as_form),
 ):
-    """
-    Update application configuration settings from form input.
-    """
+    """Update application configuration settings from form input."""
     settings.jellyfin_url = form_data.jellyfin_url
     settings.jellyfin_api_key = form_data.jellyfin_api_key
     settings.jellyfin_user_id = form_data.jellyfin_user_id
@@ -428,11 +444,10 @@ async def update_settings(
     )
 
 
-@router.post("/api/test/lastfm")
-async def test_lastfm(request: Request):
-    """Validate a Last.fm API key by performing a simple search."""
-    data = await request.json()
-    key = data.get("key", "").strip()
+@router.post("/api/test/lastfm", response_model=LastfmTestResponse, tags=["Testing"])
+async def test_lastfm(payload: LastfmTestRequest) -> LastfmTestResponse:
+    """Validate a Last.fm API key by performing a simple artist search."""
+    key = payload.key.strip()
 
     try:
         async with httpx.AsyncClient() as client:
@@ -447,29 +462,26 @@ async def test_lastfm(request: Request):
             )
 
         json_data = r.json()
-        return JSONResponse(
-            {
-                "success": "error" not in json_data,
-                "status": r.status_code,
-                "body": json_data,
-            }
+        return LastfmTestResponse(
+            success="error" not in json_data,
+            status=r.status_code,
+            body=json_data,
         )
     except httpx.HTTPError as exc:
         logger.error("HTTP error during Last.fm API test: %s", str(exc))
-        return JSONResponse(
-            {
-                "success": False,
-                "error": "An internal error occurred while testing the Last.fm API.",
-            }
+        return LastfmTestResponse(
+            success=False,
+            error="An internal error occurred while testing the Last.fm API.",
         )
 
 
-@router.post("/api/test/jellyfin")
-async def test_jellyfin(request: Request):
+@router.post(
+    "/api/test/jellyfin", response_model=JellyfinTestResponse, tags=["Testing"]
+)
+async def test_jellyfin(payload: JellyfinTestRequest) -> JellyfinTestResponse:
     """Verify the provided Jellyfin URL and API key."""
-    data = await request.json()
-    url = data.get("url", "").rstrip("/")
-    key = data.get("key", "")
+    url = payload.url.rstrip("/")
+    key = payload.key
 
     try:
         headers = {
@@ -483,24 +495,19 @@ async def test_jellyfin(request: Request):
 
         json_data = r.json()
         valid = r.status_code == 200 and any(k.lower() == "version" for k in json_data)
-        return JSONResponse(
-            {"success": valid, "status": r.status_code, "data": json_data}
-        )
+        return JellyfinTestResponse(success=valid, status=r.status_code, data=json_data)
     except httpx.HTTPError as exc:
         logger.error("HTTP error during Jellyfin API test: %s", str(exc))
-        return JSONResponse(
-            {
-                "success": False,
-                "error": "An internal error occurred while testing the Jellyfin API.",
-            }
+        return JellyfinTestResponse(
+            success=False,
+            error="An internal error occurred while testing the Jellyfin API.",
         )
 
 
-@router.post("/api/test/openai")
-async def test_openai(request: Request):
-    """Check if the OpenAI API key is valid by listing models."""
-    data = await request.json()
-    key = data.get("key")
+@router.post("/api/test/openai", response_model=OpenAITestResponse, tags=["Testing"])
+async def test_openai(payload: OpenAITestRequest) -> OpenAITestResponse:
+    """Check if the OpenAI API key is valid by listing available models."""
+    key = payload.key
     try:
 
         def _list_models():
@@ -509,22 +516,23 @@ async def test_openai(request: Request):
 
         models = await asyncio.to_thread(_list_models)
         valid = any(m.id.startswith("gpt") for m in models.data)
-        return JSONResponse({"success": valid})
+        return OpenAITestResponse(success=valid)
     except openai.OpenAIError as exc:
         logger.error("OpenAI test error: %s", str(exc))
-        return JSONResponse(
-            {
-                "success": False,
-                "error": "An internal error has occurred. Please try again later.",
-            }
+        return OpenAITestResponse(
+            success=False,
+            error="An internal error has occurred. Please try again later.",
         )
 
 
-@router.post("/api/test/getsongbpm")
-async def test_getsongbpm(request: Request):
+@router.post(
+    "/api/test/getsongbpm",
+    response_model=GetSongBPMTestResponse,
+    tags=["Testing"],
+)
+async def test_getsongbpm(payload: GetSongBPMTestRequest) -> GetSongBPMTestResponse:
     """Check if the GetSongBPM API key is valid by performing a sample query."""
-    data = await request.json()
-    key = data.get("key", "")
+    key = payload.key
     lookup = quote_plus("song:creep artist:radiohead")
     url = f"{settings.getsongbpm_base_url}?api_key={key}&type=both&lookup={lookup}"
     try:
@@ -542,57 +550,50 @@ async def test_getsongbpm(request: Request):
             json_data = r.json()
         except ValueError as exc:  # json.JSONDecodeError inherits from ValueError
             logger.error("JSON decode error during GetSongBPM API test: %s", str(exc))
-            return JSONResponse(
-                {
-                    "success": False,
-                    "status": r.status_code,
-                    "error": "Invalid JSON response from GetSongBPM.",
-                }
+            return GetSongBPMTestResponse(
+                success=False,
+                status=r.status_code,
+                error="Invalid JSON response from GetSongBPM.",
             )
         valid = r.status_code == 200 and "search" in json_data
-        return JSONResponse(
-            {"success": valid, "status": r.status_code, "data": json_data}
+        return GetSongBPMTestResponse(
+            success=valid, status=r.status_code, data=json_data
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error("HTTP error during GetSongBPM API test: %s", str(exc))
-        return JSONResponse(
-            {
-                "success": False,
-                "error": "An internal error occurred while testing the GetSongBPM API.",
-            }
+        return GetSongBPMTestResponse(
+            success=False,
+            error="An internal error occurred while testing the GetSongBPM API.",
         )
 
 
-@router.post("/api/verify-entry")
-async def verify_playlist_entry(request: Request):
+@router.post(
+    "/api/verify-entry",
+    response_model=VerifyEntryResponse,
+    tags=["Jellyfin"],
+)
+async def verify_playlist_entry(payload: VerifyEntryRequest) -> VerifyEntryResponse:
     """Confirm that a playlist contains the specified entry ID."""
-    data = await request.json()
-    playlist_id = data.get("playlist_id")
-    entry_id = data.get("entry_id")
+    playlist_id = payload.playlist_id
+    entry_id = payload.entry_id
 
     if not playlist_id or not entry_id:
-        return JSONResponse(
-            {
-                "success": False,
-                "error": "playlist_id and entry_id are required",
-            },
-            status_code=400,
+        return VerifyEntryResponse(
+            success=False, error="playlist_id and entry_id are required"
         )
 
     tracks = await fetch_tracks_for_playlist_id(playlist_id)
     match = next((t for t in tracks if t.get("PlaylistItemId") == entry_id), None)
 
     if match:
-        return JSONResponse({"success": True, "track": match})
+        return VerifyEntryResponse(success=True, track=match)
 
-    return JSONResponse(
-        {"success": False, "error": "Entry not found in playlist"}, status_code=404
-    )
+    return VerifyEntryResponse(success=False, error="Entry not found in playlist")
 
 
-@router.get("/analyze", response_class=HTMLResponse)
+@router.get("/analyze", response_class=HTMLResponse, tags=["Analysis"])
 async def show_analysis_page(request: Request):
-    """Display the playlist analysis form."""
+    """Display the playlist analysis form where users can choose a source."""
     user_id = settings.jellyfin_user_id
     playlists_data = await get_cached_playlists(user_id)
     error_message = playlists_data.get("error")
@@ -609,7 +610,7 @@ async def show_analysis_page(request: Request):
     )
 
 
-@router.post("/analyze/result", response_class=HTMLResponse)
+@router.post("/analyze/result", response_class=HTMLResponse, tags=["Analysis"])
 async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     request: Request, source_type: str = Form(...), playlist_id: str = Form(...)
 ):
@@ -699,17 +700,18 @@ async def analyze_selected_playlist(  # pylint: disable=too-many-locals
     )
 
 
-@router.get("/test-lastfm-tags")
-async def debug_lastfm_tags(title: str, artist: str):
+@router.get("/test-lastfm-tags", response_model=TagsResponse, tags=["Analysis"])
+async def debug_lastfm_tags(title: str, artist: str) -> TagsResponse:
     """Return tags for a given track from Last.fm for debugging."""
     tags = await get_lastfm_tags(title, artist)
-    return {"tags": tags}
+    return TagsResponse(tags=tags)
 
 
 # pylint: disable=too-many-locals,too-many-statements
-@router.post("/suggest-playlist")
+@router.post("/suggest-playlist", tags=["Suggestions"])
 async def suggest_from_analyzed(request: Request):
-    """Generate playlist suggestions from the analyzed tracks."""
+    """Generate playlist suggestions from the analyzed tracks returned from
+    the analysis workflow."""
     tracks, playlist_name, text_summary = await parse_suggest_request(request)
 
     start = perf_counter()
@@ -755,7 +757,11 @@ async def suggest_from_analyzed(request: Request):
     )
 
 
-@router.post("/suggest-order")
+@router.post(
+    "/suggest-order",
+    response_model=OrderSuggestionResponse,
+    tags=["Suggestions"],
+)
 async def suggest_order_from_analyzed(request: Request):
     """Return a recommended track order from GPT."""
     tracks, playlist_name, text_summary = await parse_suggest_request(request)
@@ -763,7 +769,7 @@ async def suggest_order_from_analyzed(request: Request):
     if request.headers.get(
         "x-requested-with"
     ) == "XMLHttpRequest" or "application/json" in request.headers.get("accept", ""):
-        return JSONResponse({"ordered_tracks": ordered})
+        return OrderSuggestionResponse(ordered_tracks=ordered)
     return templates.TemplateResponse(
         "order_results.html",
         {
@@ -774,7 +780,7 @@ async def suggest_order_from_analyzed(request: Request):
     )
 
 
-@router.get("/history/export")
+@router.get("/history/export", tags=["History"])
 async def export_history_m3u(label: str = Query(...)):
     """Export a stored GPT playlist from history as an M3U file."""
     user_id = settings.jellyfin_user_id
@@ -802,8 +808,14 @@ async def export_history_m3u(label: str = Query(...)):
     )
 
 
-@router.post("/export/jellyfin")
-async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
+@router.post(
+    "/export/jellyfin",
+    response_model=ExportPlaylistResponse,
+    tags=["Exports"],
+)
+async def export_playlist_to_jellyfin(
+    payload: ExportPlaylistRequest,
+) -> ExportPlaylistResponse:
     """Create a new Jellyfin playlist populated with the given tracks."""
     logger.info(
         "🚀 Export playlist request received: %s with %d tracks",
@@ -836,10 +848,10 @@ async def export_playlist_to_jellyfin(payload: ExportPlaylistRequest):
             status_code=500, detail="Failed to create Jellyfin playlist."
         )
 
-    return {"status": "success", "playlist_id": playlist_id}
+    return ExportPlaylistResponse(status="success", playlist_id=playlist_id)
 
 
-@router.post("/import_m3u")
+@router.post("/import_m3u", tags=["Import"])
 async def import_m3u_file(m3u_file: UploadFile = File(...)):
     """Import an uploaded M3U file into the user's history."""
     if not m3u_file.filename or not m3u_file.filename.lower().endswith(".m3u"):
@@ -859,20 +871,23 @@ async def import_m3u_file(m3u_file: UploadFile = File(...)):
     return RedirectResponse(url="/history", status_code=303)
 
 
-@router.post("/analyze/export-m3u")
-async def export_m3u(request: Request):
+@router.post("/analyze/export-m3u", tags=["Exports"])
+async def export_m3u(payload: "AnalysisExportRequest"):
     """Generate an M3U file from analysis results for download."""
-    payload = await request.json()
-    name = payload.get("name", "analysis_export")
-    tracks = payload.get("tracks", [])
+    if hasattr(payload, "json"):
+        data = await payload.json()
+        model = globals().get("AnalysisExportRequest")
+        payload = model(**data) if model else data
+    name = getattr(payload, "name", "analysis_export")
+    tracks = getattr(payload, "tracks", [])
 
     if not tracks:
         raise HTTPException(status_code=400, detail="No tracks provided")
 
     lines = ["#EXTM3U"]
     for track in tracks:
-        artist = track.get("artist", "")
-        title = track.get("title", "")
+        artist = track.artist
+        title = track.title
         path = await resolve_jellyfin_path(
             title,
             artist,
@@ -895,46 +910,50 @@ async def export_m3u(request: Request):
     )
 
 
-@router.post("/export/track-metadata")
-async def export_track_metadata(request: Request):  # pylint: disable=too-many-locals
+@router.post(
+    "/export/track-metadata",
+    response_model=ExportTrackMetadataResponse,
+    tags=["Metadata"],
+)
+async def export_track_metadata(
+    payload: ExportTrackMetadataRequest,
+) -> ExportTrackMetadataResponse:  # pylint: disable=too-many-locals
     """Write enriched metadata for a track back to Jellyfin."""
 
-    data = await request.json()
-    track = data.get("track")
-    force_album_overwrite = data.get("force_album_overwrite", False)
-    skip_album = data.get("skip_album", False)
+    track = payload.track
+    force_album_overwrite = payload.force_album_overwrite
+    skip_album = payload.skip_album
     if not track:
-        return JSONResponse({"error": "No track data provided."}, status_code=400)
+        return ExportTrackMetadataResponse(error="No track data provided.")
 
-    title = track.get("title")
-    artist = track.get("artist")
+    title = track.title
+    artist = track.artist
     existing_item = await jellyfin.fetch_jellyfin_track_metadata(title, artist)
     if not existing_item or not existing_item.get("Id"):
-        return JSONResponse(
-            {"error": "Could not resolve Jellyfin ItemId for track."},
-            status_code=404,
+        return ExportTrackMetadataResponse(
+            error="Could not resolve Jellyfin ItemId for track."
         )
 
     item_id = existing_item["Id"]
     full_item = await jellyfin.get_full_item(item_id)
     if not full_item:
-        return JSONResponse(
-            {"error": "Could not retrieve full item metadata."}, status_code=500
+        return ExportTrackMetadataResponse(
+            error="Could not retrieve full item metadata."
         )
 
     existing_genres = full_item.get("Genres", [])
     existing_tags = full_item.get("Tags", [])
     existing_album = full_item.get("Album", "")
-    incoming_album = track.get("album", "")
+    incoming_album = track.album or ""
 
-    selected_genre = track.get("genre")
+    selected_genre = track.genre
     merged_genres = list(set(existing_genres))
     if selected_genre and selected_genre not in merged_genres:
         merged_genres.append(selected_genre)
 
     new_tags = {
-        f"mood:{track.get('mood', '').lower()}" if track.get("mood") else None,
-        f"tempo:{track.get('tempo', '')}" if track.get("tempo") else None,
+        f"mood:{(track.mood or '').lower()}" if track.mood else None,
+        f"tempo:{track.tempo}" if track.tempo is not None else None,
     }
     merged_tags = list(set(existing_tags).union(filter(None, new_tags)))
 
@@ -946,14 +965,12 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
             if force_album_overwrite:
                 album_to_use = incoming_album
             else:
-                return JSONResponse(
-                    {
-                        "action": "confirm_overwrite_album",
-                        "current_album": existing_album,
-                        "suggested_album": incoming_album,
-                    },
-                    status_code=409,
+                response = ExportTrackMetadataResponse(
+                    action="confirm_overwrite_album",
+                    current_album=existing_album,
+                    suggested_album=incoming_album,
                 )
+                return JSONResponse(response.dict(), status_code=409)
 
     # Apply updates to full item
     full_item["Genres"] = merged_genres
@@ -963,10 +980,8 @@ async def export_track_metadata(request: Request):  # pylint: disable=too-many-l
     success = await jellyfin.update_item_metadata(item_id, full_item)
 
     if not success:
-        return JSONResponse(
-            {"error": "Failed to update Jellyfin metadata."}, status_code=500
-        )
+        return ExportTrackMetadataResponse(error="Failed to update Jellyfin metadata.")
 
-    return JSONResponse(
-        {"message": f"Metadata for track '{title}' exported to Jellyfin."}
+    return ExportTrackMetadataResponse(
+        message=f"Metadata for track '{title}' exported to Jellyfin."
     )
