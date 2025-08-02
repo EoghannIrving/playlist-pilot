@@ -1,32 +1,13 @@
 # TODO
 
-This file outlines upcoming tasks based on the current roadmap and list of outstanding bugs.
+This file outlines upcoming tasks based on the current roadmap and outstanding bugs.
 
 ## Bug Fixes
-- [X] **46. Album overwrite check triggers unnecessarily** – fixed; overwrite now occurs automatically when no existing album is present.
-- [X] **47. `read_m3u` fails on non‑UTF‑8 files** – add encoding fallback when parsing playlists.
-- [X] **38. Template directory bound to current working directory** – use an absolute templates path.
-- [X] **45. `lyrics_enabled` default disabled in settings form** – align the form default with `AppSettings`.
-- [X] **44. Search misses tracks with smart quotes** – normalize quotes in search comparisons.
-- [ ] **39. Library scan records tracks with missing metadata** – skip items lacking name or artist.
-- [ ] **31. `strip_lrc_timecodes` removes bracketed lyrics** – preserve `[Chorus]` style annotations.
-- [ ] **34. OpenAI test route blocks the event loop** – make the request asynchronous.
-- [X] **51. GPT prompt cache ignores model choice** – include the model name in the cache key.
-- [X] **52. `get_playlist_id_by_name` fetches all playlists** – query Jellyfin for a single playlist instead.
-- [X] **33. Tag extraction is case-sensitive** – support capitalized prefixes.
-- [ ] **25. `duration_human` filter rejects numeric strings** – accept numeric strings or floats.
-- [ ] **28. Debug route returns coroutine object** – await `get_lastfm_tags` in the debug route.
-- [ ] **48. `parse_gpt_line` hides malformed suggestions** – raise an error or log invalid lines.
-- [ ] **49. `build_search_query` splits on every dash** – only split the first dash between artist and title.
-- [ ] **50. `parse_track_text` drops data after second dash** – keep additional segments when present.
-- [ ] **53. Filename metadata inference misreads complex names** – improve parsing of dashed file names.
 - [ ] **54. Integration watchdog threshold is hard-coded** – make the failure limit configurable and surface counts in the UI.
 
 ## Roadmap
 ### Phase 2 – Advanced Analysis & Playlist Management
-- [X] Surface mood/confidence scores and highlight outliers.
 - [ ] Add playlist management tools for renaming and reordering.
-- [X] Refine history views and settings editing in the UI.
 
 ### Phase 3 – Cross-Service Integration & Scaling
 - [ ] Experiment with metadata/play link lookups from Spotify or Apple Music.
