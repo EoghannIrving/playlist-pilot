@@ -7,10 +7,9 @@ import re
 from typing import Any
 from urllib.parse import quote_plus
 
-import httpx
-
 from config import settings
 from utils.cache_manager import jellyfin_track_cache, CACHE_TTLS
+from utils.http_client import get_http_client
 from utils.integration_watchdog import record_failure, record_success
 
 logger = logging.getLogger("playlist-pilot")
@@ -26,12 +25,11 @@ async def fetch_jellyfin_users():
     try:
         url = f"{settings.jellyfin_url.rstrip('/')}/Users"
         headers = {"X-Emby-Token": settings.jellyfin_api_key}
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                url,
-                headers=headers,
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        resp = await client.get(
+            url,
+            headers=headers,
+        )
         resp.raise_for_status()
         record_success("jellyfin")
         return {u["Name"]: u["Id"] for u in resp.json()}
@@ -54,18 +52,17 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
         return bool(cached)
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{settings.jellyfin_url}/Items",
-                params={
-                    "IncludeItemTypes": "Audio",
-                    "Recursive": "true",
-                    "SearchTerm": title_cleaned,
-                    "api_key": settings.jellyfin_api_key,
-                    "userId": settings.jellyfin_user_id,
-                },
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        response = await client.get(
+            f"{settings.jellyfin_url}/Items",
+            params={
+                "IncludeItemTypes": "Audio",
+                "Recursive": "true",
+                "SearchTerm": title_cleaned,
+                "api_key": settings.jellyfin_api_key,
+                "userId": settings.jellyfin_user_id,
+            },
+        )
         response.raise_for_status()
         record_success("jellyfin")
         data = response.json()
@@ -108,8 +105,8 @@ async def jf_get(path, **params):
         query = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
         url += f"&{query}"
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=settings.http_timeout_long)
+        client = get_http_client()
+        resp = await client.get(url)
         resp.raise_for_status()
         record_success("jellyfin")
         return resp.json()
@@ -141,12 +138,11 @@ async def fetch_tracks_for_playlist_id(
         params["Limit"] = limit
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                url,
-                params=params,
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        response = await client.get(
+            url,
+            params=params,
+        )
         response.raise_for_status()
         record_success("jellyfin")
         data = response.json()
@@ -176,12 +172,11 @@ async def fetch_lyrics_for_item(item_id: str) -> str | None:
     url = f"{settings.jellyfin_url}/Items/{item_id}/Lyrics"
     params = {"api_key": settings.jellyfin_api_key}
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                url,
-                params=params,
-                timeout=settings.http_timeout_short,
-            )
+        client = get_http_client(short=True)
+        response = await client.get(
+            url,
+            params=params,
+        )
         if response.status_code == 200 and response.text.strip():
             record_success("jellyfin")
             logger.info("Fetched raw lyrics JSON from Jellyfin for item %s", item_id)
@@ -257,18 +252,17 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
     title_cleaned = normalize_search_term(title)
     artist_cleaned = normalize_search_term(artist)
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{settings.jellyfin_url}/Items",
-                params={
-                    "IncludeItemTypes": "Audio",
-                    "Recursive": "true",
-                    "SearchTerm": title_cleaned,
-                    "api_key": settings.jellyfin_api_key,
-                    "userId": settings.jellyfin_user_id,
-                },
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        response = await client.get(
+            f"{settings.jellyfin_url}/Items",
+            params={
+                "IncludeItemTypes": "Audio",
+                "Recursive": "true",
+                "SearchTerm": title_cleaned,
+                "api_key": settings.jellyfin_api_key,
+                "userId": settings.jellyfin_user_id,
+            },
+        )
         response.raise_for_status()
         record_success("jellyfin")
         data = response.json()
@@ -326,39 +320,38 @@ async def resolve_jellyfin_path(
     logger.debug("[resolve_jellyfin_path] API URL: %s", url)
     logger.debug("[resolve_jellyfin_path] Params: %s", params)
 
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(
-                url,
-                headers=headers,
-                params=params,
-                timeout=settings.http_timeout_long,
-            )
-            resp.raise_for_status()
-            record_success("jellyfin")
+    client = get_http_client()
+    try:
+        resp = await client.get(
+            url,
+            headers=headers,
+            params=params,
+        )
+        resp.raise_for_status()
+        record_success("jellyfin")
 
-            data = resp.json()
-            logger.debug("[resolve_jellyfin_path] Response JSON: %s", data)
+        data = resp.json()
+        logger.debug("[resolve_jellyfin_path] Response JSON: %s", data)
 
-            if "Items" in data and len(data["Items"]) > 0:
-                path = data["Items"][0].get("Path")
-                logger.debug("[resolve_jellyfin_path] Resolved path: %s", path)
-                return path
+        if "Items" in data and len(data["Items"]) > 0:
+            path = data["Items"][0].get("Path")
+            logger.debug("[resolve_jellyfin_path] Resolved path: %s", path)
+            return path
 
-            logger.debug(
-                "[resolve_jellyfin_path] No items found for Artist='%s', Title='%s'",
-                artist,
-                title,
-            )
+        logger.debug(
+            "[resolve_jellyfin_path] No items found for Artist='%s', Title='%s'",
+            artist,
+            title,
+        )
 
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            record_failure("jellyfin")
-            logger.warning(
-                "[resolve_jellyfin_path] Error during API call for '%s - %s': %s",
-                artist,
-                title,
-                exc,
-            )
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        record_failure("jellyfin")
+        logger.warning(
+            "[resolve_jellyfin_path] Error during API call for '%s - %s': %s",
+            artist,
+            title,
+            exc,
+        )
 
     return None
 
@@ -394,13 +387,12 @@ async def create_jellyfin_playlist(
     )
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url,
-                headers=headers,
-                json=payload,
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        response = await client.post(
+            url,
+            headers=headers,
+            json=payload,
+        )
         response.raise_for_status()
         record_success("jellyfin")
         playlist_id = response.json().get("Id")
@@ -418,12 +410,11 @@ async def get_full_item(item_id: str) -> dict | None:
     url = f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items/{item_id}"
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                url,
-                headers=headers,
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        resp = await client.get(
+            url,
+            headers=headers,
+        )
         resp.raise_for_status()
         record_success("jellyfin")
         return resp.json()
@@ -439,13 +430,12 @@ async def update_item_metadata(item_id: str, full_item: dict) -> bool:
     headers = {"X-Emby-Token": settings.jellyfin_api_key}
     logger.info("Updating Item Metadata - Url:%s", url)
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                url,
-                headers=headers,
-                json=full_item,
-                timeout=settings.http_timeout_long,
-            )
+        client = get_http_client()
+        resp = await client.post(
+            url,
+            headers=headers,
+            json=full_item,
+        )
         resp.raise_for_status()
         record_success("jellyfin")
         logger.info("✅ Successfully updated Jellyfin item %s", item_id)
