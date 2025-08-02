@@ -148,6 +148,10 @@ def test_parse_gpt_line():
     assert title == "Another Song"
     assert artist == "Some Artist"
 
+    title, artist = parse_gpt_line("Em Dash Song — Em Dash Artist - Reason")
+    assert title == "Em Dash Song"
+    assert artist == "Em Dash Artist"
+
     with pytest.raises(ValueError):
         parse_gpt_line("Malformed line")
 

@@ -189,7 +189,7 @@ def parse_gpt_line(line: str) -> tuple[str, str]:
     ``ValueError`` is raised.
     """
 
-    line = line.replace("\u2013", "-").strip()  # normalize en dash
+    line = re.sub(r"[\u2013\u2014]", "-", line).strip()  # normalize en/em dashes
 
     # Attempt to parse the common "Song - Artist" style first
     parts = [p.strip() for p in line.split(" - ")]

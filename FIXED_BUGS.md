@@ -749,3 +749,10 @@ def parse_track_text(text: str) -> tuple[str, str]:
     return duration
 ```
 【F:core/playlist.py†L291-L300】
+
+## 57. `parse_gpt_line` ignores em dashes
+*Fixed.* The parser now normalizes both en and em dashes so lines using an em dash parse correctly.
+```python
+    line = re.sub(r"[\u2013\u2014]", "-", line).strip()  # normalize en/em dashes
+```
+【F:services/gpt.py†L183-L205】
