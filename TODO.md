@@ -4,15 +4,15 @@ This file outlines upcoming tasks based on the current roadmap and list of outst
 
 ## Bug Fixes
 - [X] **46. Album overwrite check triggers unnecessarily** – fixed; overwrite now occurs automatically when no existing album is present.
-- [ ] **47. `read_m3u` fails on non‑UTF‑8 files** – add encoding fallback when parsing playlists.
-- [ ] **38. Template directory bound to current working directory** – use an absolute templates path.
-- [ ] **45. `lyrics_enabled` default disabled in settings form** – align the form default with `AppSettings`.
+- [X] **47. `read_m3u` fails on non‑UTF‑8 files** – add encoding fallback when parsing playlists.
+- [X] **38. Template directory bound to current working directory** – use an absolute templates path.
+- [X] **45. `lyrics_enabled` default disabled in settings form** – align the form default with `AppSettings`.
 - [X] **44. Search misses tracks with smart quotes** – normalize quotes in search comparisons.
 - [ ] **39. Library scan records tracks with missing metadata** – skip items lacking name or artist.
 - [ ] **31. `strip_lrc_timecodes` removes bracketed lyrics** – preserve `[Chorus]` style annotations.
 - [ ] **34. OpenAI test route blocks the event loop** – make the request asynchronous.
-- [ ] **51. GPT prompt cache ignores model choice** – include the model name in the cache key.
-- [ ] **52. `get_playlist_id_by_name` fetches all playlists** – query Jellyfin for a single playlist instead.
+- [X] **51. GPT prompt cache ignores model choice** – include the model name in the cache key.
+- [X] **52. `get_playlist_id_by_name` fetches all playlists** – query Jellyfin for a single playlist instead.
 - [X] **33. Tag extraction is case-sensitive** – support capitalized prefixes.
 - [ ] **25. `duration_human` filter rejects numeric strings** – accept numeric strings or floats.
 - [ ] **28. Debug route returns coroutine object** – await `get_lastfm_tags` in the debug route.
@@ -20,6 +20,7 @@ This file outlines upcoming tasks based on the current roadmap and list of outst
 - [ ] **49. `build_search_query` splits on every dash** – only split the first dash between artist and title.
 - [ ] **50. `parse_track_text` drops data after second dash** – keep additional segments when present.
 - [ ] **53. Filename metadata inference misreads complex names** – improve parsing of dashed file names.
+- [ ] **54. Integration watchdog threshold is hard-coded** – make the failure limit configurable and surface counts in the UI.
 
 ## Roadmap
 ### Phase 2 – Advanced Analysis & Playlist Management
@@ -31,6 +32,7 @@ This file outlines upcoming tasks based on the current roadmap and list of outst
 - [ ] Experiment with metadata/play link lookups from Spotify or Apple Music.
 - [ ] Optimize caching and async calls; enhance containerization.
 - [ ] Evaluate if/when real downloading support should be added.
+- [ ] Surface integration watchdog metrics in the UI and make the failure threshold configurable.
 
 ### Phase 4 – API Expansion & Future Explorations
 - [ ] Expand FastAPI endpoints into a fully documented API.

@@ -16,9 +16,10 @@ See [Docs/architecture.md](Docs/architecture.md) for a high level overview of th
 - **Toggle for lyrics processing** if you want to disable GPT lyric analysis.
 - **Customizable weights** for lyrics, BPM and tag matching to fine tune
   playlist mood detection.
-- **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin. Not sure if you like the suggested song, then watch the video!
+- **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin, with duration filtering, VEVO prioritization and cached search results.
 - **Import/export** `.m3u` files and create playlists directly in Jellyfin.
 - **Track metadata export** back to Jellyfin (genre, mood tags, album, etc.), helping to standardize your metadata.
+- **Combined popularity scoring** blends Last.fm listener data with Jellyfin play counts to highlight mainstream and obscure tracks alike.
 - **History management** with the ability to view and delete past GPT suggestions.
 - **DiskCache based caching** for GPT prompts, Jellyfin queries, Last.fm lookups and more. Agressively caches for both speed and to reduce API costs.
 - **Integration monitoring** with a simple watchdog that logs repeated Jellyfin and Last.fm failures.
