@@ -764,3 +764,12 @@ def parse_track_text(text: str) -> tuple[str, str]:
     return parts[2].strip() if len(parts) > 2 else ""
 ```
 【F:services/gpt.py†L307-L318】
+
+## 59. Tests could not import project modules
+*Fixed.* Added a `conftest.py` that ensures the repository root is on `sys.path`, allowing the test suite to import local packages.
+```python
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+```
+【F:tests/conftest.py†L4-L9】
