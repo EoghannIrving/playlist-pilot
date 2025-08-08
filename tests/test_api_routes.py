@@ -73,7 +73,9 @@ def _extract_import_m3u_file():
     )
     func.decorator_list = []
     func.args.defaults = []
-    func.args.args[0].annotation = None
+    func.args.kw_defaults = []
+    for arg in func.args.args[:2]:
+        arg.annotation = None
     func.returns = None
     module = ast.Module(body=[func], type_ignores=[])
     ns = {
@@ -106,9 +108,13 @@ def test_export_m3u_no_tracks():
 
 def test_import_m3u_file_invalid_extension(tmp_path):
     """Invalid file extensions should result in ``HTTPException``."""
-    dummy = UploadFile(tmp_path / "test.txt", filename="test.txt")
+    dummy_file = UploadFile(tmp_path / "test.txt", filename="test.txt")
+    dummy_req = types.SimpleNamespace(headers={})
+    dummy_payload = types.SimpleNamespace(m3u_file=dummy_file)
     import_m3u = _extract_import_m3u_file()
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.get_event_loop().run_until_complete(import_m3u(dummy))
+        asyncio.get_event_loop().run_until_complete(
+            import_m3u(dummy_req, dummy_payload)
+        )
     assert exc.value.status_code == 400

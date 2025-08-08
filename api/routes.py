@@ -106,6 +106,10 @@ from api.schemas import (  # pylint: disable=unused-import
     AnalysisExportRequest,  # pylint: disable=unused-import
     ExportTrackMetadataRequest,
     ExportTrackMetadataResponse,
+    SuggestFromAnalyzedRequest,
+    SuggestFromAnalyzedResponse,
+    ImportM3URequest,
+    ImportM3UResponse,
 )
 
 
@@ -716,11 +720,22 @@ async def debug_lastfm_tags(title: str, artist: str) -> TagsResponse:
 
 
 # pylint: disable=too-many-locals,too-many-statements
-@router.post("/suggest-playlist", tags=["Suggestions"])
-async def suggest_from_analyzed(request: Request):
-    """Generate playlist suggestions from the analyzed tracks returned from
-    the analysis workflow."""
-    tracks, playlist_name, text_summary = await parse_suggest_request(request)
+@router.post(
+    "/suggest-playlist",
+    response_model=SuggestFromAnalyzedResponse,
+    tags=["Suggestions"],
+)
+async def suggest_from_analyzed(
+    payload: SuggestFromAnalyzedRequest, request: Request
+) -> SuggestFromAnalyzedResponse | HTMLResponse:
+    """Generate playlist suggestions from analyzed tracks.
+
+    Returns an HTML page for standard requests or a JSON payload when the
+    ``Accept`` header includes ``application/json``."""
+
+    tracks = [t.dict() for t in payload.tracks]
+    playlist_name = payload.playlist_name
+    text_summary = payload.text_summary or ""
 
     start = perf_counter()
     summary = summarize_tracks(tracks)
@@ -747,6 +762,19 @@ async def suggest_from_analyzed(request: Request):
     start = perf_counter()
     m3u_path = persist_history_and_m3u(parsed_suggestions, playlist_name)
     logger.debug("\u23f1\ufe0f History save: %.2fs", perf_counter() - start)
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest" or (
+        "application/json" in request.headers.get("accept", "")
+    ):
+        track_refs = [
+            TrackRef(title=s["title"], artist=s["artist"]) for s in parsed_suggestions
+        ]
+        return SuggestFromAnalyzedResponse(
+            suggestions=track_refs,
+            download_link=f"/download/{m3u_path.name}",
+            count=suggestion_count,
+            playlist_name=playlist_name,
+        )
 
     return templates.TemplateResponse(
         "results.html",
@@ -862,9 +890,25 @@ async def export_playlist_to_jellyfin(
     return ExportPlaylistResponse(status="success", playlist_id=playlist_id)
 
 
-@router.post("/import_m3u", tags=["Import"])
-async def import_m3u_file(m3u_file: UploadFile = File(...)):
+def parse_import_m3u(
+    m3u_file: UploadFile = File(...),
+) -> ImportM3URequest:
+    """Parse an ``ImportM3URequest`` from the uploaded file."""
+
+    return ImportM3URequest(m3u_file=m3u_file)
+
+
+@router.post(
+    "/import_m3u",
+    response_model=ImportM3UResponse,
+    tags=["Import"],
+)
+async def import_m3u_file(
+    request: Request, payload: ImportM3URequest = Depends(parse_import_m3u)
+) -> ImportM3UResponse | RedirectResponse:
     """Import an uploaded M3U file into the user's history."""
+
+    m3u_file = payload.m3u_file
     if not m3u_file.filename or not m3u_file.filename.lower().endswith(".m3u"):
         raise HTTPException(status_code=400, detail="Only .m3u files are supported")
 
@@ -878,6 +922,11 @@ async def import_m3u_file(m3u_file: UploadFile = File(...)):
         await import_m3u_as_history_entry(temp_path)
     finally:
         cleanup_temp_file(Path(temp_path))
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest" or (
+        "application/json" in request.headers.get("accept", "")
+    ):
+        return ImportM3UResponse(message="Import successful")
 
     return RedirectResponse(url="/history", status_code=303)
 
