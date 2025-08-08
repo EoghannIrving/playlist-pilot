@@ -4,22 +4,22 @@ import asyncio
 import respx
 
 from config import settings
-from services import apple_music
+from services import applemusic
 
 
 def test_get_developer_token(monkeypatch):
     """Apple Music token retrieval caches tokens."""
     monkeypatch.setitem(settings.__dict__, "apple_client_id", "id")
     monkeypatch.setitem(settings.__dict__, "apple_client_secret", "secret")
-    apple_music._access_token = None
+    applemusic._access_token = None
 
     async def main():
         with respx.mock(assert_all_called=True) as mock:
             mock.post("https://apple.music.com/api/token").respond(
                 200, json={"access_token": "token"}
             )
-            token1 = await apple_music._get_developer_token()
-            token2 = await apple_music._get_developer_token()
+            token1 = await applemusic._get_developer_token()
+            token2 = await applemusic._get_developer_token()
             assert token1 == token2 == "token"
             assert mock.calls.call_count == 1
 
@@ -27,13 +27,13 @@ def test_get_developer_token(monkeypatch):
     asyncio.set_event_loop(asyncio.new_event_loop())
 
 
-def test_fetch_apple_music_metadata(monkeypatch):
+def test_fetch_applemusic_metadata(monkeypatch):
     """Apple Music metadata is parsed correctly."""
 
     async def fake_token():  # pylint: disable=unused-argument
         return "token"
 
-    monkeypatch.setattr(apple_music, "_get_developer_token", fake_token)
+    monkeypatch.setattr(applemusic, "_get_developer_token", fake_token)
 
     async def main():
         with respx.mock(assert_all_called=True) as mock:
@@ -55,7 +55,7 @@ def test_fetch_apple_music_metadata(monkeypatch):
                     }
                 },
             )
-            metadata = await apple_music.fetch_apple_music_metadata("Song", "Artist")
+            metadata = await applemusic.fetch_applemusic_metadata("Song", "Artist")
             assert metadata == {
                 "album": "Album",
                 "year": "2020",

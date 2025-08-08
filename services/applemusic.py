@@ -41,7 +41,7 @@ async def _get_developer_token() -> str | None:
         return None
 
 
-async def fetch_apple_music_metadata(title: str, artist: str) -> dict[str, Any] | None:
+async def fetch_applemusic_metadata(title: str, artist: str) -> dict[str, Any] | None:
     """Search Apple Music for basic metadata about a track."""
     token = await _get_developer_token()
     if not token:

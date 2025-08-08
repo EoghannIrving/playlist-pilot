@@ -73,6 +73,10 @@ async def update_settings(
     settings.jellyfin_user_id = form_data.jellyfin_user_id
     settings.openai_api_key = form_data.openai_api_key
     settings.lastfm_api_key = form_data.lastfm_api_key
+    settings.spotify_client_id = form_data.spotify_client_id
+    settings.spotify_client_secret = form_data.spotify_client_secret
+    settings.apple_client_id = form_data.apple_client_id
+    settings.apple_client_secret = form_data.apple_client_secret
     settings.model = form_data.model
     models = await fetch_openai_models(settings.openai_api_key)
     settings.getsongbpm_api_key = form_data.getsongbpm_api_key

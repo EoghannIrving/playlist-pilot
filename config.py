@@ -57,6 +57,8 @@ class AppSettings(BaseModel):
     lastfm_api_key: str = ""
     spotify_client_id: str = ""
     spotify_client_secret: str = ""
+    apple_client_id: str = ""
+    apple_client_secret: str = ""
     model: str = "gpt-4o-mini"
     getsongbpm_api_key: str = ""
     global_min_lfm: int = 10_000
