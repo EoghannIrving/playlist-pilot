@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from api.schemas import HealthResponse, IntegrationFailuresResponse
 from utils.integration_watchdog import get_failure_counts
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1")
 
 
 @router.get("/health", response_model=HealthResponse, tags=["System"])
@@ -15,10 +15,13 @@ async def health_check():
 
 
 @router.get(
-    "/api/integration-failures",
+    "/integration-failures",
     response_model=IntegrationFailuresResponse,
     tags=["Monitoring"],
 )
 async def integration_failures() -> IntegrationFailuresResponse:
     """Return current integration failure counters."""
     return IntegrationFailuresResponse(failures=get_failure_counts())
+
+
+__all__ = ["router"]
