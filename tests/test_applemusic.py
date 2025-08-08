@@ -1,5 +1,7 @@
 """Unit tests for the Apple Music service module."""
 
+# pylint: disable=protected-access, duplicate-code
+
 import asyncio
 import respx
 
@@ -33,11 +35,15 @@ def test_fetch_applemusic_metadata(monkeypatch):
     async def fake_token():  # pylint: disable=unused-argument
         return "token"
 
+    applemusic.apple_music_cache.clear()
     monkeypatch.setattr(applemusic, "_get_developer_token", fake_token)
 
     async def main():
         with respx.mock(assert_all_called=True) as mock:
-            mock.get("https://api.music.apple.com/v1/catalog/us/search").respond(
+            mock.get(
+                "https://api.music.apple.com/v1/catalog/us/search",
+                params={"term": "Song Artist", "types": "songs", "limit": 1},
+            ).respond(
                 200,
                 json={
                     "results": {

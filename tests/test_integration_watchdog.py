@@ -1,6 +1,9 @@
+"""Tests for the integration watchdog utilities."""
+
+# pylint: disable=protected-access, duplicate-code
+
 import ast
 import logging
-import asyncio
 from pathlib import Path
 
 from fastapi import FastAPI, APIRouter
@@ -51,7 +54,9 @@ def _extract_integration_failures():
         "IntegrationFailuresResponse": IntegrationFailuresResponse,
         "get_failure_counts": watchdog.get_failure_counts,
     }
-    exec(compile(module, filename="<monitor>", mode="exec"), ns)
+    exec(
+        compile(module, filename="<monitor>", mode="exec"), ns
+    )  # pylint: disable=exec-used
     return ns["integration_failures"]
 
 
