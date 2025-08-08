@@ -37,6 +37,7 @@ from services.jellyfin import (
 )
 from services.metube import get_youtube_url_single
 from services.lastfm import enrich_with_lastfm
+from services.spotify import fetch_spotify_metadata
 from utils.cache_manager import library_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
@@ -326,6 +327,22 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     """Enrich a track with Last.fm, BPM, mood and other metadata."""
     parsed = _ensure_track(parsed)
     lastfm = await _get_lastfm_data(parsed.title, parsed.artist)
+
+    if (
+        (not parsed.album or not parsed.year or not parsed.RunTimeTicks)
+        and settings.spotify_client_id
+        and settings.spotify_client_secret
+    ):
+        spotify_meta = await fetch_spotify_metadata(parsed.title, parsed.artist) or {}
+        if not parsed.album:
+            parsed.album = spotify_meta.get("album", "")
+        if not parsed.year:
+            parsed.year = spotify_meta.get("year", "")
+        if not parsed.RunTimeTicks:
+            duration_ms = spotify_meta.get("duration_ms")
+            if duration_ms:
+                parsed.RunTimeTicks = int(duration_ms * 10_000)
+
     genre = _select_genre(parsed.Genres or [], lastfm["tags"])
     bpm_data = await _fetch_bpm_data(parsed.artist, parsed.title)
     bpm = bpm_data.get("bpm") or parsed.tempo
@@ -335,6 +352,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     mood, confidence = await _classify_mood(parsed, lastfm["tags"], bpm_data)
 
     base_data = parsed.dict(exclude={"tempo", "jellyfin_play_count", "album"})
+    album = lastfm["album"] or parsed.album
 
     return EnrichedTrack(
         **base_data,
@@ -347,7 +365,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         popularity=lastfm["listeners"],
         jellyfin_play_count=parsed.jellyfin_play_count,
         year_flag=year_flag,
-        album=lastfm["album"],
+        album=album,
         FinalYear=final_year,
     )
 
