@@ -4,6 +4,8 @@ import logging
 from urllib.parse import quote_plus
 from typing import Optional, Dict
 
+import json
+import requests
 import cloudscraper
 
 from utils.cache_manager import bpm_cache, CACHE_TTLS
@@ -35,7 +37,11 @@ def get_bpm_from_getsongbpm(
             .json()
         )
         logger.debug("GetSongBPM response: %s", data)
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except (
+        cloudscraper.exceptions.CloudflareException,
+        requests.RequestException,
+        json.JSONDecodeError,
+    ) as exc:
         logger.warning("GetSongBPM API error: %s", exc)
         return None
 

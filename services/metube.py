@@ -97,6 +97,6 @@ async def get_youtube_url_single(search_line: str) -> tuple[str, str | None]:
         logger.debug("Returning fallback search URL: %s", url)
         return search_line, url
 
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except yt_dlp.utils.YoutubeDLError as exc:
         logger.error("Error getting YouTube URL for %s: %s", search_line, exc)
         return search_line, None

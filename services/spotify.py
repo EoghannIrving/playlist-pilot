@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import json
 from typing import Any
+
+import httpx
 
 from config import settings
 from utils.http_client import get_http_client
@@ -31,7 +34,7 @@ async def _get_access_token() -> str | None:
         resp.raise_for_status()
         _access_token = resp.json().get("access_token")
         return _access_token
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except (httpx.HTTPError, json.JSONDecodeError) as exc:
         logger.warning("Spotify token fetch failed: %s", exc)
         return None
 
@@ -58,6 +61,6 @@ async def fetch_spotify_metadata(title: str, artist: str) -> dict[str, Any] | No
             "year": track.get("album", {}).get("release_date", "")[:4],
             "duration_ms": track.get("duration_ms"),
         }
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except (httpx.HTTPError, json.JSONDecodeError) as exc:
         logger.warning("Spotify lookup failed for %s - %s: %s", title, artist, exc)
         return None
