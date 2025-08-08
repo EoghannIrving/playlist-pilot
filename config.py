@@ -44,6 +44,10 @@ class AppSettings(BaseModel):
         jellyfin_user_id (str): User ID to fetch personalized data.
         openai_api_key (str): API key for OpenAI.
         lastfm_api_key (str): Optional key for Last.fm integration.
+        spotify_client_id (str): Client ID for Spotify integration.
+        spotify_client_secret (str): Client secret for Spotify integration.
+        apple_client_id (str): Client ID for Apple Music integration.
+        apple_client_secret (str): Client secret for Apple Music integration.
         model (str): GPT model to use (default is 'gpt-4o-mini').
         lyrics_enabled (bool): Toggle for lyrics-based mood analysis.
         integration_failure_limit (int): Consecutive integration failures
@@ -143,6 +147,10 @@ class AppSettings(BaseModel):
             missing.append("Jellyfin User ID")
         if not self.openai_api_key.strip():
             missing.append("OpenAI API Key")
+        if self.apple_client_id.strip() and not self.apple_client_secret.strip():
+            missing.append("Apple Client Secret")
+        if self.apple_client_secret.strip() and not self.apple_client_id.strip():
+            missing.append("Apple Client ID")
         if missing:
             raise ValueError(f"Missing required settings: {', '.join(missing)}")
 
