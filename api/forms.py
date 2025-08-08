@@ -2,7 +2,10 @@
 
 import json
 from json import JSONDecodeError
+
 from fastapi import Form, HTTPException
+from pydantic import BaseModel
+
 from config import AppSettings
 
 
@@ -83,3 +86,56 @@ class SettingsForm(AppSettings):
             tags_weight=tags_weight,
             integration_failure_limit=integration_failure_limit,
         )
+
+
+class ComparePlaylistsRequest(BaseModel):
+    """Form model for comparing two playlists."""
+
+    source1_type: str
+    source1_id: str
+    source2_type: str
+    source2_id: str
+
+    @classmethod
+    def as_form(
+        cls,
+        source1_type: str = Form(...),
+        source1_id: str = Form(...),
+        source2_type: str = Form(...),
+        source2_id: str = Form(...),
+    ) -> "ComparePlaylistsRequest":
+        """Create instance from submitted comparison form data."""
+
+        return cls(
+            source1_type=source1_type,
+            source1_id=source1_id,
+            source2_type=source2_type,
+            source2_id=source2_id,
+        )
+
+
+class HistoryDeleteRequest(BaseModel):
+    """Form model for deleting a history entry."""
+
+    entry_id: str
+
+    @classmethod
+    def as_form(cls, entry_id: str = Form(...)) -> "HistoryDeleteRequest":
+        """Create instance from history delete form data."""
+
+        return cls(entry_id=entry_id)
+
+
+class AnalyzePlaylistRequest(BaseModel):
+    """Form model for analyzing a selected playlist."""
+
+    source_type: str
+    playlist_id: str
+
+    @classmethod
+    def as_form(
+        cls, source_type: str = Form(...), playlist_id: str = Form(...)
+    ) -> "AnalyzePlaylistRequest":
+        """Create instance from analysis selection form data."""
+
+        return cls(source_type=source_type, playlist_id=playlist_id)

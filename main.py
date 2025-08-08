@@ -20,13 +20,34 @@ Modules used:
 import logging
 from logging.handlers import RotatingFileHandler
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from api.routes import router
 from config import settings
 from core.constants import BASE_DIR, LOG_FILE
 from utils.http_client import aclose_http_clients
+
+API_VERSION = "1.0.0"
+
+tags_metadata = [
+    {"name": "UI", "description": "User-facing HTML pages."},
+    {"name": "Comparison", "description": "Compare playlists from various sources."},
+    {"name": "History", "description": "Access and manage analysis history."},
+    {"name": "Analysis", "description": "Analyze playlists and tracks."},
+    {"name": "Exports", "description": "Export playlists or analysis results."},
+    {
+        "name": "Suggestions",
+        "description": "Generate playlist or ordering suggestions.",
+    },
+    {"name": "Metadata", "description": "Read or write track metadata."},
+    {"name": "Import", "description": "Import playlists or track lists."},
+    {"name": "Settings", "description": "Configure application options."},
+    {"name": "Testing", "description": "Endpoints used for integration testing."},
+    {"name": "Monitoring", "description": "Monitoring and health check routes."},
+    {"name": "System", "description": "System-level endpoints."},
+    {"name": "Jellyfin", "description": "Jellyfin-specific validation endpoints."},
+]
 
 
 # ─────────────────────────────────────────────────────────────
@@ -53,7 +74,23 @@ except ValueError as e:
 
 # ─────────────────────────────────────────────────────────────
 # FastAPI App Setup
-app = FastAPI(title="Playlist Pilot")
+app = FastAPI(
+    title="Playlist Pilot",
+    version=API_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_tags=tags_metadata,
+)
+
+
+@app.middleware("http")
+async def add_version_header(request: Request, call_next):
+    """Attach semantic version information to all responses."""
+    response = await call_next(request)
+    response.headers["X-API-Version"] = API_VERSION
+    return response
+
+
 # Include all route handlers
 app.include_router(router)
 # Serve static files (CSS, JS, etc.)
