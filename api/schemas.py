@@ -90,10 +90,17 @@ class TagsResponse(BaseModel):
     tags: List[str]
 
 
+class TrackRef(BaseModel):
+    """Reference to a track by title and artist."""
+
+    artist: str
+    title: str
+
+
 class OrderSuggestionResponse(BaseModel):
     """Response model for GPT ordering suggestions."""
 
-    ordered_tracks: List[str]
+    ordered_tracks: List[TrackRef]
 
 
 class ExportPlaylistResponse(BaseModel):
@@ -101,13 +108,6 @@ class ExportPlaylistResponse(BaseModel):
 
     status: str
     playlist_id: str
-
-
-class TrackRef(BaseModel):
-    """Reference to a track by title and artist."""
-
-    artist: str
-    title: str
 
 
 class AnalysisExportRequest(BaseModel):

@@ -87,7 +87,7 @@ from utils.helpers import (
 )
 from utils.integration_watchdog import get_failure_counts
 from api.forms import SettingsForm
-from api.schemas import (
+from api.schemas import (  # pylint: disable=unused-import
     HealthResponse,
     LastfmTestRequest,
     LastfmTestResponse,
@@ -101,8 +101,9 @@ from api.schemas import (
     VerifyEntryResponse,
     TagsResponse,
     OrderSuggestionResponse,
+    TrackRef,
     ExportPlaylistResponse,
-    AnalysisExportRequest,
+    AnalysisExportRequest,  # pylint: disable=unused-import
     ExportTrackMetadataRequest,
     ExportTrackMetadataResponse,
 )
@@ -772,16 +773,19 @@ async def suggest_from_analyzed(request: Request):
 async def suggest_order_from_analyzed(request: Request):
     """Return a recommended track order from GPT."""
     tracks, playlist_name, text_summary = await parse_suggest_request(request)
-    ordered = await fetch_order_suggestions(tracks, text_summary)
+    ordered_dicts = await fetch_order_suggestions(tracks, text_summary)
+    ordered_tracks = [
+        TrackRef(title=o["title"], artist=o["artist"]) for o in ordered_dicts
+    ]
     if request.headers.get(
         "x-requested-with"
     ) == "XMLHttpRequest" or "application/json" in request.headers.get("accept", ""):
-        return OrderSuggestionResponse(ordered_tracks=ordered)
+        return OrderSuggestionResponse(ordered_tracks=ordered_tracks)
     return templates.TemplateResponse(
         "order_results.html",
         {
             "request": request,
-            "ordered_tracks": ordered,
+            "ordered_tracks": ordered_tracks,
             "playlist_name": playlist_name,
         },
     )
@@ -879,14 +883,13 @@ async def import_m3u_file(m3u_file: UploadFile = File(...)):
 
 
 @router.post("/analyze/export-m3u", tags=["Exports"])
-async def export_m3u(payload: "AnalysisExportRequest"):
+async def export_m3u(payload: Request):
     """Generate an M3U file from analysis results for download."""
-    if hasattr(payload, "json"):
-        data = await payload.json()
-        model = globals().get("AnalysisExportRequest")
-        payload = model(**data) if model else data
-    name = getattr(payload, "name", "analysis_export")
-    tracks = getattr(payload, "tracks", [])
+    data = await payload.json()
+    model = globals().get("AnalysisExportRequest")
+    payload_data = model(**data) if model else data
+    name = getattr(payload_data, "name", "analysis_export")
+    tracks = getattr(payload_data, "tracks", [])
 
     if not tracks:
         raise HTTPException(status_code=400, detail="No tracks provided")
@@ -924,7 +927,7 @@ async def export_m3u(payload: "AnalysisExportRequest"):
 )
 async def export_track_metadata(
     payload: ExportTrackMetadataRequest,
-) -> ExportTrackMetadataResponse:  # pylint: disable=too-many-locals
+) -> ExportTrackMetadataResponse | JSONResponse:  # pylint: disable=too-many-locals
     """Write enriched metadata for a track back to Jellyfin."""
 
     track = payload.track
