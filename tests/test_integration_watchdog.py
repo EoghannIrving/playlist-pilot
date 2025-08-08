@@ -2,15 +2,14 @@
 
 # pylint: disable=protected-access, duplicate-code
 
-import ast
 import logging
-from pathlib import Path
 
 from fastapi import FastAPI, APIRouter
 from fastapi.testclient import TestClient
 
 from config import settings
 from api.schemas import IntegrationFailuresResponse
+from api.routes.monitoring_routes import integration_failures
 from utils import integration_watchdog as watchdog
 
 
@@ -40,26 +39,6 @@ def test_failure_warning_respects_threshold(caplog):
     settings.integration_failure_limit = old_limit
 
 
-def _extract_integration_failures():
-    src = Path("api/routes/monitoring_routes.py").read_text(encoding="utf-8")
-    tree = ast.parse(src)
-    func = next(
-        n
-        for n in tree.body
-        if isinstance(n, ast.AsyncFunctionDef) and n.name == "integration_failures"
-    )
-    func.decorator_list = []
-    module = ast.Module(body=[func], type_ignores=[])
-    ns = {
-        "IntegrationFailuresResponse": IntegrationFailuresResponse,
-        "get_failure_counts": watchdog.get_failure_counts,
-    }
-    exec(
-        compile(module, filename="<monitor>", mode="exec"), ns
-    )  # pylint: disable=exec-used
-    return ns["integration_failures"]
-
-
 def test_integration_failures_endpoint_returns_counts():
     """The monitoring endpoint should expose current failure counts."""
     watchdog._failure_counts.clear()
@@ -67,7 +46,6 @@ def test_integration_failures_endpoint_returns_counts():
     watchdog.record_failure("b")
     watchdog.record_failure("b")
 
-    integration_failures = _extract_integration_failures()
     router = APIRouter()
     router.get("/api/integration-failures", response_model=IntegrationFailuresResponse)(
         integration_failures
