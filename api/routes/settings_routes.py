@@ -32,6 +32,7 @@ from api.schemas import (
 logger = logging.getLogger("playlist-pilot")
 
 router = APIRouter()
+api_router = APIRouter(prefix="/api/v1")
 
 
 @router.get("/settings", response_class=HTMLResponse, tags=["Settings"])
@@ -122,7 +123,7 @@ async def update_settings(
     )
 
 
-@router.post("/api/test/lastfm", response_model=LastfmTestResponse, tags=["Testing"])
+@api_router.post("/test/lastfm", response_model=LastfmTestResponse, tags=["Testing"])
 async def test_lastfm(payload: LastfmTestRequest) -> LastfmTestResponse:
     """Validate a Last.fm API key by performing a simple artist search."""
     key = payload.key.strip()
@@ -153,8 +154,8 @@ async def test_lastfm(payload: LastfmTestRequest) -> LastfmTestResponse:
         )
 
 
-@router.post(
-    "/api/test/jellyfin", response_model=JellyfinTestResponse, tags=["Testing"]
+@api_router.post(
+    "/test/jellyfin", response_model=JellyfinTestResponse, tags=["Testing"]
 )
 async def test_jellyfin(payload: JellyfinTestRequest) -> JellyfinTestResponse:
     """Verify the provided Jellyfin URL and API key."""
@@ -182,7 +183,7 @@ async def test_jellyfin(payload: JellyfinTestRequest) -> JellyfinTestResponse:
         )
 
 
-@router.post("/api/test/openai", response_model=OpenAITestResponse, tags=["Testing"])
+@api_router.post("/test/openai", response_model=OpenAITestResponse, tags=["Testing"])
 async def test_openai(payload: OpenAITestRequest) -> OpenAITestResponse:
     """Check if the OpenAI API key is valid by listing available models."""
     key = payload.key
@@ -203,8 +204,8 @@ async def test_openai(payload: OpenAITestRequest) -> OpenAITestResponse:
         )
 
 
-@router.post(
-    "/api/test/getsongbpm",
+@api_router.post(
+    "/test/getsongbpm",
     response_model=GetSongBPMTestResponse,
     tags=["Testing"],
 )
@@ -245,8 +246,8 @@ async def test_getsongbpm(payload: GetSongBPMTestRequest) -> GetSongBPMTestRespo
         )
 
 
-@router.post(
-    "/api/verify-entry",
+@api_router.post(
+    "/verify-entry",
     response_model=VerifyEntryResponse,
     tags=["Jellyfin"],
 )
@@ -267,3 +268,6 @@ async def verify_playlist_entry(payload: VerifyEntryRequest) -> VerifyEntryRespo
         return VerifyEntryResponse(success=True, track=match)
 
     return VerifyEntryResponse(success=False, error="Entry not found in playlist")
+
+
+__all__ = ["router", "api_router"]

@@ -23,7 +23,7 @@ from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import router
+from api.routes import router, api_router
 from config import settings
 from core.constants import BASE_DIR, LOG_FILE
 from utils.http_client import aclose_http_clients
@@ -93,6 +93,7 @@ async def add_version_header(request: Request, call_next):
 
 # Include all route handlers
 app.include_router(router)
+app.include_router(api_router)
 # Serve static files (CSS, JS, etc.)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
