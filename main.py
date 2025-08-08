@@ -23,7 +23,7 @@ from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import router as main_router
+from api.routes import router
 from config import settings
 from core.constants import BASE_DIR, LOG_FILE
 from utils.http_client import aclose_http_clients
@@ -55,7 +55,7 @@ except ValueError as e:
 # FastAPI App Setup
 app = FastAPI(title="Playlist Pilot")
 # Include all route handlers
-app.include_router(main_router)
+app.include_router(router)
 # Serve static files (CSS, JS, etc.)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 

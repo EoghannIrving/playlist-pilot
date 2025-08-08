@@ -13,7 +13,7 @@ from starlette.datastructures import UploadFile
 
 def _extract_health_check():
     """Load the ``health_check`` coroutine from ``api.routes`` without importing."""
-    src = Path("api/routes.py").read_text(encoding="utf-8")
+    src = Path("api/routes/monitoring_routes.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     func = next(
         n
@@ -38,7 +38,7 @@ def test_health_check():
 
 def _extract_export_m3u():
     """Return the ``export_m3u`` coroutine without side effects."""
-    src = Path("api/routes.py").read_text(encoding="utf-8")
+    src = Path("api/routes/analysis_routes.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     func = next(
         n
@@ -64,7 +64,7 @@ def _extract_export_m3u():
 
 def _extract_import_m3u_file():
     """Return ``import_m3u_file`` coroutine without importing ``api.routes``."""
-    src = Path("api/routes.py").read_text(encoding="utf-8")
+    src = Path("api/routes/analysis_routes.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     func = next(
         n
