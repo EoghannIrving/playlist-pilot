@@ -7,16 +7,7 @@ import uuid
 from pathlib import Path
 from time import perf_counter
 
-from fastapi import (
-    APIRouter,
-    Request,
-    Form,
-    Query,
-    UploadFile,
-    File,
-    HTTPException,
-    Depends,
-)
+from fastapi import APIRouter, Request, Query, UploadFile, File, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
@@ -55,13 +46,13 @@ from services.jellyfin import (
     resolve_jellyfin_path,
 )
 from services.lastfm import get_lastfm_tags
-from utils.helpers import (
-    get_cached_playlists,
-    load_sorted_history,
-    parse_suggest_request,
-    get_log_excerpt,
+from utils.helpers import get_cached_playlists, load_sorted_history, get_log_excerpt
+from api.forms import (
+    ComparePlaylistsRequest,
+    HistoryDeleteRequest,
+    AnalyzePlaylistRequest,
 )
-from api.schemas import (  # pylint: disable=unused-import
+from api.schemas import (
     TagsResponse,
     OrderSuggestionResponse,
     TrackRef,
@@ -113,22 +104,24 @@ async def index(request: Request):
 
 
 @router.post("/compare", response_class=HTMLResponse, tags=["Comparison"])
-async def compare_playlists_form(request: Request):  # pylint: disable=too-many-locals
+async def compare_playlists_form(
+    request: Request,
+    payload: ComparePlaylistsRequest = Depends(ComparePlaylistsRequest.as_form),
+):  # pylint: disable=too-many-locals
     """Compare the overlap between two playlists (GPT or Jellyfin).
 
-    The body of the request is parsed as a standard HTML form where each
-    playlist is identified by its source and id. The response is an HTML page
-    summarising shared and unique tracks."""
+    The body of the request is parsed using a ``ComparePlaylistsRequest`` where
+    each playlist is identified by its source and id. The response is an HTML
+    page summarising shared and unique tracks."""
     history = load_sorted_history(settings.jellyfin_user_id)
     pf_data = await fetch_audio_playlists()
     all_playlists = pf_data["playlists"]
     error_message = pf_data.get("error")
 
-    form = await request.form()
-    s1_type = form.get("source1_type")
-    s1_id = form.get("source1_id")
-    s2_type = form.get("source2_type")
-    s2_id = form.get("source2_id")
+    s1_type = payload.source1_type
+    s1_id = payload.source1_id
+    s2_type = payload.source2_type
+    s2_id = payload.source2_id
 
     if not all([s1_type, s1_id, s2_type, s2_id]):
         return templates.TemplateResponse(
@@ -139,12 +132,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 "playlists": all_playlists,
                 "error_message": error_message,
                 "comparison": ["⚠️ Missing playlist selection."],
-                "selected": {
-                    "source1_type": s1_type,
-                    "source1_id": s1_id,
-                    "source2_type": s2_type,
-                    "source2_id": s2_id,
-                },
+                "selected": payload.dict(),
             },
         )
 
@@ -189,12 +177,7 @@ async def compare_playlists_form(request: Request):  # pylint: disable=too-many-
                 "playlists": all_playlists,
                 "error_message": error_message,
                 "comparison": ["⚠️ One or both playlists could not be resolved."],
-                "selected": {
-                    "source1_type": s1_type,
-                    "source1_id": s1_id,
-                    "source2_type": s2_type,
-                    "source2_id": s2_id,
-                },
+                "selected": payload.dict(),
             },
         )
 
@@ -307,12 +290,11 @@ async def history_page(
 
 
 @router.post("/history/delete", response_class=HTMLResponse, tags=["History"])
-async def delete_history(request: Request):
+async def delete_history(
+    payload: HistoryDeleteRequest = Depends(HistoryDeleteRequest.as_form),
+):
     """Delete a playlist entry from the user's history."""
-    form = await request.form()
-    raw_id = form.get("entry_id")
-    entry_id = raw_id if isinstance(raw_id, str) else ""
-    delete_history_entry_by_id(settings.jellyfin_user_id, entry_id)
+    delete_history_entry_by_id(settings.jellyfin_user_id, payload.entry_id)
     return RedirectResponse(url="/history", status_code=303)
 
 
@@ -336,10 +318,13 @@ async def show_analysis_page(request: Request):
 
 
 @router.post("/analyze/result", response_class=HTMLResponse, tags=["Analysis"])
-async def analyze_selected_playlist(  # pylint: disable=too-many-locals
-    request: Request, source_type: str = Form(...), playlist_id: str = Form(...)
-):
+async def analyze_selected_playlist(
+    request: Request,
+    payload: AnalyzePlaylistRequest = Depends(AnalyzePlaylistRequest.as_form),
+):  # pylint: disable=too-many-locals
     """Analyze a selected playlist from Jellyfin or GPT history."""
+    source_type = payload.source_type
+    playlist_id = payload.playlist_id
     if source_type == "jellyfin":
         enriched = await enrich_jellyfin_playlist(playlist_id)
         name_data = await get_cached_playlists(settings.jellyfin_user_id)
@@ -511,16 +496,20 @@ async def suggest_from_analyzed(
     response_model=OrderSuggestionResponse,
     tags=["Suggestions"],
 )
-async def suggest_order_from_analyzed(request: Request):
+async def suggest_order_from_analyzed(
+    payload: SuggestFromAnalyzedRequest, request: Request
+) -> OrderSuggestionResponse | HTMLResponse:
     """Return a recommended track order from GPT."""
-    tracks, playlist_name, text_summary = await parse_suggest_request(request)
+    tracks = [t.dict() for t in payload.tracks]
+    playlist_name = payload.playlist_name
+    text_summary = payload.text_summary or ""
     ordered_dicts = await fetch_order_suggestions(tracks, text_summary)
     ordered_tracks = [
         TrackRef(title=o["title"], artist=o["artist"]) for o in ordered_dicts
     ]
-    if request.headers.get(
-        "x-requested-with"
-    ) == "XMLHttpRequest" or "application/json" in request.headers.get("accept", ""):
+    if request.headers.get("x-requested-with") == "XMLHttpRequest" or (
+        "application/json" in request.headers.get("accept", "")
+    ):
         return OrderSuggestionResponse(ordered_tracks=ordered_tracks)
     return templates.TemplateResponse(
         "order_results.html",
@@ -647,11 +636,12 @@ async def import_m3u_file(
 @router.post("/analyze/export-m3u", tags=["Exports"])
 async def export_m3u(payload: Request):
     """Generate an M3U file from analysis results for download."""
+    from api.schemas import AnalysisExportRequest
+
     data = await payload.json()
-    model = globals().get("AnalysisExportRequest")
-    payload_data = model(**data) if model else data
-    name = getattr(payload_data, "name", "analysis_export")
-    tracks = getattr(payload_data, "tracks", [])
+    model = AnalysisExportRequest.model_validate(data)
+    name = model.name
+    tracks = model.tracks
 
     if not tracks:
         raise HTTPException(status_code=400, detail="No tracks provided")
