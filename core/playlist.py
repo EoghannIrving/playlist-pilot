@@ -340,7 +340,11 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
                 duration_ms = spotify_meta.get("duration_ms")
                 if duration_ms:
                     parsed.RunTimeTicks = int(duration_ms * 10_000)
-        if settings.apple_client_id and settings.apple_client_secret:
+        if (
+            (not parsed.album or not parsed.year or not parsed.RunTimeTicks)
+            and settings.apple_client_id
+            and settings.apple_client_secret
+        ):
             apple_meta = (
                 await fetch_applemusic_metadata(parsed.title, parsed.artist) or {}
             )

@@ -7,6 +7,8 @@ Defines named persistent caches using diskcache for various subsystems:
 - lastfm_cache: Last.fm track existence flags
 - playlist_cache: Jellyfin playlists per user
 - LASTFM_POP_CACHE: listener count from Last.fm
+- spotify_cache: Spotify track metadata
+- apple_music_cache: Apple Music track metadata
 
 All caches are file-backed and located in the `cache/` directory.
 """
@@ -44,6 +46,12 @@ bpm_cache = Cache(BASE_CACHE / "bpm")
 
 # Caches results of a full Jellyfin library scan
 library_cache = Cache(BASE_CACHE / "full_library")
+
+# Cache Spotify metadata lookups
+spotify_cache = Cache(BASE_CACHE / "spotify")
+
+# Cache Apple Music metadata lookups
+apple_music_cache = Cache(BASE_CACHE / "apple_music")
 
 
 # TTL configuration (in seconds) for each named cache
