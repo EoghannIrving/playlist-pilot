@@ -100,6 +100,7 @@ from api.schemas import (  # pylint: disable=unused-import
     VerifyEntryRequest,
     VerifyEntryResponse,
     TagsResponse,
+    IntegrationFailuresResponse,
     OrderSuggestionResponse,
     TrackRef,
     ExportPlaylistResponse,
@@ -360,10 +361,14 @@ async def health_check():
     return {"status": "ok"}
 
 
-@router.get("/api/integration-failures", tags=["Monitoring"])
-async def integration_failures() -> dict[str, int]:
+@router.get(
+    "/api/integration-failures",
+    response_model=IntegrationFailuresResponse,
+    tags=["Monitoring"],
+)
+async def integration_failures() -> IntegrationFailuresResponse:
     """Return current integration failure counters."""
-    return get_failure_counts()
+    return IntegrationFailuresResponse(failures=get_failure_counts())
 
 
 @router.get("/settings", response_class=HTMLResponse, tags=["Settings"])

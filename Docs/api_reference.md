@@ -5,7 +5,6 @@ The table below summarises the main endpoints exposed by Playlist Pilot. All end
 | Method | Path | Description |
 |-------|------|-------------|
 | GET | `/` | Home page showing Jellyfin playlists and history |
-| POST | `/suggest` | Generate a playlist from manual input |
 | GET | `/analyze` | Choose a playlist for analysis |
 | POST | `/analyze/result` | Display analysis results |
 | POST | `/analyze/export-m3u` | Export analyzed tracks as M3U |
@@ -23,7 +22,10 @@ The table below summarises the main endpoints exposed by Playlist Pilot. All end
 | POST | `/settings` | Update settings |
 | POST | `/api/test/lastfm` | Verify Last.fm connectivity |
 | POST | `/api/test/jellyfin` | Verify Jellyfin connectivity |
+| POST | `/api/test/openai` | Verify OpenAI connectivity |
+| POST | `/api/test/getsongbpm` | Verify GetSongBPM connectivity |
 | POST | `/api/verify-entry` | Verify a playlist entry ID |
+| GET | `/api/integration-failures` | Current integration failure counters |
 | GET | `/health` | Simple health check |
 
 Return codes generally follow HTTP conventions: 200 for success, 4xx for invalid input and 5xx for unexpected errors.

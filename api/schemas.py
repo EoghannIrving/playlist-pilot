@@ -91,6 +91,12 @@ class TagsResponse(BaseModel):
     tags: List[str]
 
 
+class IntegrationFailuresResponse(BaseModel):
+    """Response model for integration failure counters."""
+
+    failures: Dict[str, int]
+
+
 class TrackRef(BaseModel):
     """Reference to a track by title and artist."""
 
