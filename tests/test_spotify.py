@@ -1,9 +1,12 @@
 """Tests for Spotify metadata fetching and track enrichment."""
 
+# pylint: disable=duplicate-code
+
 import asyncio
 
 from config import settings
 from core import playlist
+from services import spotify
 
 
 def test_fetch_spotify_metadata_without_credentials(monkeypatch):
@@ -11,6 +14,7 @@ def test_fetch_spotify_metadata_without_credentials(monkeypatch):
 
     monkeypatch.setattr(settings, "spotify_client_id", "")
     monkeypatch.setattr(settings, "spotify_client_secret", "")
+    spotify.spotify_cache.clear()
     result = asyncio.run(playlist.fetch_spotify_metadata("Song", "Artist"))
     assert result is None
 

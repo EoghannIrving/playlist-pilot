@@ -1,5 +1,7 @@
 """Unit tests for the Spotify service module."""
 
+# pylint: disable=protected-access, duplicate-code
+
 import asyncio
 
 import respx
@@ -34,11 +36,19 @@ def test_fetch_spotify_metadata(monkeypatch):
     async def fake_token():  # pylint: disable=unused-argument
         return "token"
 
+    spotify.spotify_cache.clear()
     monkeypatch.setattr(spotify, "_get_access_token", fake_token)
 
     async def main():
         with respx.mock(assert_all_called=True) as mock:
-            mock.get("https://api.spotify.com/v1/search").respond(
+            mock.get(
+                "https://api.spotify.com/v1/search",
+                params={
+                    "q": "track:Song artist:Artist",
+                    "type": "track",
+                    "limit": 1,
+                },
+            ).respond(
                 200,
                 json={
                     "tracks": {

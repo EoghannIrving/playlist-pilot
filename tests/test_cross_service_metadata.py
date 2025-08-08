@@ -1,3 +1,7 @@
+"""Tests for caching and metadata enrichment across services."""
+
+# pylint: disable=duplicate-code
+
 import asyncio
 import respx
 
@@ -7,14 +11,19 @@ from core import playlist
 
 
 class DummyCache(dict):
+    """Simple in-memory cache used for testing."""
+
     def get(self, key, default=None):
+        """Retrieve ``key`` from the cache."""
         return super().get(key, default)
 
-    def set(self, key, value, expire=None):
+    def set(self, key, value, expire=None):  # pylint: disable=unused-argument
+        """Store ``value`` at ``key`` ignoring expiry."""
         self[key] = value
 
 
 def test_spotify_metadata_caching(monkeypatch):
+    """Spotify metadata should be cached after first fetch."""
     monkeypatch.setattr(spotify, "spotify_cache", DummyCache())
 
     async def fake_token():
@@ -59,6 +68,7 @@ def test_spotify_metadata_caching(monkeypatch):
 
 
 def test_apple_music_metadata_caching(monkeypatch):
+    """Apple Music metadata should be cached after first fetch."""
     monkeypatch.setattr(applemusic, "apple_music_cache", DummyCache())
 
     async def fake_token():
@@ -105,13 +115,15 @@ def test_apple_music_metadata_caching(monkeypatch):
 
 
 def test_enrich_track_falls_back_to_apple_music(monkeypatch):
-    async def fake_spotify(title, artist):
+    """Enrichment should fallback to Apple Music when Spotify fails."""
+
+    async def fake_spotify(_title, _artist):
         return None
 
-    async def fake_apple(title, artist):
+    async def fake_apple(_title, _artist):
         return {"album": "Apple Album", "year": "1999", "duration_ms": 123000}
 
-    async def fake_lastfm_data(title, artist):
+    async def fake_lastfm_data(_title, _artist):
         return {"tags": [], "listeners": 0, "album": ""}
 
     monkeypatch.setattr(settings, "spotify_client_id", "id")
