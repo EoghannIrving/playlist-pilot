@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 from typing import Optional, Dict
 
 import json
-import requests
+import requests  # type: ignore[import-untyped]
 import cloudscraper
 
 from utils.cache_manager import bpm_cache, CACHE_TTLS
