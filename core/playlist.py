@@ -352,44 +352,32 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         tasks.append(asyncio.sleep(0, result={}))
 
     lastfm, bpm_data, spotify_meta, apple_meta = await asyncio.gather(*tasks)
-    spotify_meta = spotify_meta or {}
-    apple_meta = apple_meta or {}
+    meta = {**(apple_meta or {}), **(spotify_meta or {})}
 
     if need_meta:
         if not parsed.album:
-            parsed.album = spotify_meta.get("album") or apple_meta.get("album", "")
+            parsed.album = meta.get("album", "")
         if not parsed.year:
-            parsed.year = spotify_meta.get("year") or apple_meta.get("year", "")
-        if not parsed.RunTimeTicks:
-            duration_ms = spotify_meta.get("duration_ms") or apple_meta.get(
-                "duration_ms"
-            )
-            if duration_ms:
-                parsed.RunTimeTicks = int(duration_ms * 10_000)
+            parsed.year = meta.get("year", "")
+        if not parsed.RunTimeTicks and meta.get("duration_ms"):
+            parsed.RunTimeTicks = int(meta["duration_ms"] * 10_000)
 
-    genre = _select_genre(parsed.Genres or [], lastfm["tags"])
-    bpm = bpm_data.get("bpm") or parsed.tempo
-    duration_sec = _duration_from_ticks(parsed.RunTimeTicks, bpm_data)
-    final_year, year_flag = _determine_year(parsed.year or "", bpm_data.get("year"))
-    decade = infer_decade(final_year or "")
-    mood, confidence = await _classify_mood(parsed, lastfm["tags"], bpm_data)
-
-    base_data = parsed.dict(exclude={"tempo", "jellyfin_play_count", "album"})
-    album = lastfm["album"] or parsed.album
+    year_info = _determine_year(parsed.year or "", bpm_data.get("year"))
+    mood_data = await _classify_mood(parsed, lastfm["tags"], bpm_data)
 
     return EnrichedTrack(
-        **base_data,
-        genre=genre or "Unknown",
-        mood=mood,
-        mood_confidence=round(confidence, 2),
-        tempo=bpm,
-        decade=decade,
-        duration=duration_sec,
+        **parsed.dict(exclude={"tempo", "jellyfin_play_count", "album"}),
+        genre=_select_genre(parsed.Genres or [], lastfm["tags"]) or "Unknown",
+        mood=mood_data[0],
+        mood_confidence=round(mood_data[1], 2),
+        tempo=bpm_data.get("bpm") or parsed.tempo,
+        decade=infer_decade(year_info[0] or ""),
+        duration=_duration_from_ticks(parsed.RunTimeTicks, bpm_data),
         popularity=lastfm["listeners"],
         jellyfin_play_count=parsed.jellyfin_play_count,
-        year_flag=year_flag,
-        album=album,
-        FinalYear=final_year,
+        year_flag=year_info[1],
+        album=lastfm["album"] or parsed.album,
+        FinalYear=year_info[0],
     )
 
 

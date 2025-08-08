@@ -1,5 +1,7 @@
 """Apple Music integration for metadata lookup."""
 
+# pylint: disable=duplicate-code
+
 from __future__ import annotations
 
 import logging
