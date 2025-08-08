@@ -103,6 +103,13 @@ class AppSettings(BaseModel):
     tags_weight: float = 0.7
     integration_failure_limit: int = 3
 
+    def set_cache_ttls(self, new_ttls: dict[str, int]) -> None:
+        """Update cache TTLs and refresh shared TTL mapping."""
+        cache_manager = __import__("utils.cache_manager", fromlist=["CACHE_TTLS"])  # type: ignore
+        cache_manager.CACHE_TTLS.clear()
+        cache_manager.CACHE_TTLS.update(new_ttls)
+        self.cache_ttls = cache_manager.CACHE_TTLS
+
     def clear_cache(self, name: str | None = None) -> None:
         """Clear one or all disk caches.
 

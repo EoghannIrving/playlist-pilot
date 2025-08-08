@@ -54,7 +54,6 @@ spotify_cache = Cache(BASE_CACHE / "spotify")
 apple_music_cache = Cache(BASE_CACHE / "apple_music")
 
 
-# TTL configuration (in seconds) for each named cache
-# This copy is updated when settings change so other modules
-# using the dict see refreshed values.
-CACHE_TTLS = dict(settings.cache_ttls)
+# TTL configuration (in seconds) for each named cache. This dict is shared with
+# ``settings.cache_ttls`` so runtime updates propagate automatically.
+CACHE_TTLS: dict[str, int] = settings.cache_ttls

@@ -325,40 +325,38 @@ async def _classify_mood(
 async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     """Enrich a track with Last.fm, BPM, mood and other metadata."""
     parsed = _ensure_track(parsed)
-    lastfm = await _get_lastfm_data(parsed.title, parsed.artist)
 
-    if not parsed.album or not parsed.year or not parsed.RunTimeTicks:
-        if settings.spotify_client_id and settings.spotify_client_secret:
-            spotify_meta = (
-                await fetch_spotify_metadata(parsed.title, parsed.artist) or {}
+    need_meta = not parsed.album or not parsed.year or not parsed.RunTimeTicks
+    tasks = [
+        _get_lastfm_data(parsed.title, parsed.artist),
+        _fetch_bpm_data(parsed.artist, parsed.title),
+    ]
+    if need_meta and settings.spotify_client_id and settings.spotify_client_secret:
+        tasks.append(fetch_spotify_metadata(parsed.title, parsed.artist))
+    else:
+        tasks.append(asyncio.sleep(0, result=None))
+    if need_meta and settings.apple_client_id and settings.apple_client_secret:
+        tasks.append(fetch_applemusic_metadata(parsed.title, parsed.artist))
+    else:
+        tasks.append(asyncio.sleep(0, result=None))
+
+    lastfm, bpm_data, spotify_meta, apple_meta = await asyncio.gather(*tasks)
+    spotify_meta = spotify_meta or {}
+    apple_meta = apple_meta or {}
+
+    if need_meta:
+        if not parsed.album:
+            parsed.album = spotify_meta.get("album") or apple_meta.get("album", "")
+        if not parsed.year:
+            parsed.year = spotify_meta.get("year") or apple_meta.get("year", "")
+        if not parsed.RunTimeTicks:
+            duration_ms = spotify_meta.get("duration_ms") or apple_meta.get(
+                "duration_ms"
             )
-            if not parsed.album:
-                parsed.album = spotify_meta.get("album", "")
-            if not parsed.year:
-                parsed.year = spotify_meta.get("year", "")
-            if not parsed.RunTimeTicks:
-                duration_ms = spotify_meta.get("duration_ms")
-                if duration_ms:
-                    parsed.RunTimeTicks = int(duration_ms * 10_000)
-        if (
-            (not parsed.album or not parsed.year or not parsed.RunTimeTicks)
-            and settings.apple_client_id
-            and settings.apple_client_secret
-        ):
-            apple_meta = (
-                await fetch_applemusic_metadata(parsed.title, parsed.artist) or {}
-            )
-            if not parsed.album:
-                parsed.album = apple_meta.get("album", "")
-            if not parsed.year:
-                parsed.year = apple_meta.get("year", "")
-            if not parsed.RunTimeTicks:
-                duration_ms = apple_meta.get("duration_ms")
-                if duration_ms:
-                    parsed.RunTimeTicks = int(duration_ms * 10_000)
+            if duration_ms:
+                parsed.RunTimeTicks = int(duration_ms * 10_000)
 
     genre = _select_genre(parsed.Genres or [], lastfm["tags"])
-    bpm_data = await _fetch_bpm_data(parsed.artist, parsed.title)
     bpm = bpm_data.get("bpm") or parsed.tempo
     duration_sec = _duration_from_ticks(parsed.RunTimeTicks, bpm_data)
     final_year, year_flag = _determine_year(parsed.year or "", bpm_data.get("year"))
