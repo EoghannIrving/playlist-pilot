@@ -1,11 +1,14 @@
+"""Tests for Spotify metadata fetching and track enrichment."""
+
 import asyncio
-import pytest
 
 from config import settings
 from core import playlist
 
 
 def test_fetch_spotify_metadata_without_credentials(monkeypatch):
+    """Return None when Spotify credentials are absent."""
+
     monkeypatch.setattr(settings, "spotify_client_id", "")
     monkeypatch.setattr(settings, "spotify_client_secret", "")
     result = asyncio.run(playlist.fetch_spotify_metadata("Song", "Artist"))
@@ -13,6 +16,8 @@ def test_fetch_spotify_metadata_without_credentials(monkeypatch):
 
 
 def test_enrich_track_uses_spotify(monkeypatch):
+    """Ensure Spotify data is used to enrich tracks when credentials are present."""
+
     async def fake_fetch(title, artist):  # pylint: disable=unused-argument
         return {"album": "Album", "year": "2000", "duration_ms": 123000}
 
