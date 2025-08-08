@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
+from fastapi import UploadFile
 
 
 class HealthResponse(BaseModel):
@@ -101,6 +102,35 @@ class OrderSuggestionResponse(BaseModel):
     """Response model for GPT ordering suggestions."""
 
     ordered_tracks: List[TrackRef]
+
+
+class SuggestFromAnalyzedRequest(BaseModel):
+    """Request model for generating suggestions from analyzed tracks."""
+
+    tracks: List[TrackRef]
+    playlist_name: str
+    text_summary: Optional[str] = None
+
+
+class SuggestFromAnalyzedResponse(BaseModel):
+    """Response model for playlist suggestions."""
+
+    suggestions: List[TrackRef]
+    download_link: str
+    count: int
+    playlist_name: str
+
+
+class ImportM3URequest(BaseModel):
+    """Request model for importing an M3U file."""
+
+    m3u_file: UploadFile
+
+
+class ImportM3UResponse(BaseModel):
+    """Response model for M3U imports."""
+
+    message: str
 
 
 class ExportPlaylistResponse(BaseModel):
