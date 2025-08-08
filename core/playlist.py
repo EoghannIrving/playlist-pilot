@@ -14,8 +14,6 @@ import asyncio
 import logging
 import re
 
-import httpx
-
 from config import settings, get_global_min_lfm, get_global_max_lfm
 from core.analysis import (
     mood_scores_from_bpm_data,
@@ -39,6 +37,7 @@ from services.metube import get_youtube_url_single
 from services.lastfm import enrich_with_lastfm
 from services.spotify import fetch_spotify_metadata
 from utils.cache_manager import library_cache, CACHE_TTLS
+from utils.http_client import get_http_client
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -105,17 +104,16 @@ async def get_playlist_id_by_name(name: str) -> str | None:
 async def get_playlist_tracks(playlist_id: str) -> list[str]:
     """Fetch and return track titles from a Jellyfin playlist by ID."""
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
-                headers={"X-Emby-Token": settings.jellyfin_api_key},
-                params={
-                    "ParentId": playlist_id,
-                    "IncludeItemTypes": "Audio",
-                    "Recursive": "true",
-                },
-                timeout=10,
-            )
+        client = get_http_client()
+        resp = await client.get(
+            f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items",
+            headers={"X-Emby-Token": settings.jellyfin_api_key},
+            params={
+                "ParentId": playlist_id,
+                "IncludeItemTypes": "Audio",
+                "Recursive": "true",
+            },
+        )
         resp.raise_for_status()
         items = resp.json().get("Items", [])
         return [
