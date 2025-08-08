@@ -1,7 +1,5 @@
 """Tests for Jellyfin lyric helpers."""
 
-import pytest
-
 from services.jellyfin import strip_lrc_timecodes
 
 
