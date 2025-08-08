@@ -13,6 +13,7 @@ Functions included:
 import asyncio
 import logging
 import re
+from typing import Any, Coroutine, cast
 
 from config import settings, get_global_min_lfm, get_global_max_lfm
 from core.analysis import (
@@ -327,18 +328,28 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     parsed = _ensure_track(parsed)
 
     need_meta = not parsed.album or not parsed.year or not parsed.RunTimeTicks
-    tasks = [
+    tasks: list[Coroutine[Any, Any, dict[str, Any]]] = [
         _get_lastfm_data(parsed.title, parsed.artist),
         _fetch_bpm_data(parsed.artist, parsed.title),
     ]
     if need_meta and settings.spotify_client_id and settings.spotify_client_secret:
-        tasks.append(fetch_spotify_metadata(parsed.title, parsed.artist))
+        tasks.append(
+            cast(
+                Coroutine[Any, Any, dict[str, Any]],
+                fetch_spotify_metadata(parsed.title, parsed.artist),
+            )
+        )
     else:
-        tasks.append(asyncio.sleep(0, result=None))
+        tasks.append(asyncio.sleep(0, result={}))
     if need_meta and settings.apple_client_id and settings.apple_client_secret:
-        tasks.append(fetch_applemusic_metadata(parsed.title, parsed.artist))
+        tasks.append(
+            cast(
+                Coroutine[Any, Any, dict[str, Any]],
+                fetch_applemusic_metadata(parsed.title, parsed.artist),
+            )
+        )
     else:
-        tasks.append(asyncio.sleep(0, result=None))
+        tasks.append(asyncio.sleep(0, result={}))
 
     lastfm, bpm_data, spotify_meta, apple_meta = await asyncio.gather(*tasks)
     spotify_meta = spotify_meta or {}
