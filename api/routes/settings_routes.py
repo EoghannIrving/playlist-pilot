@@ -98,6 +98,7 @@ async def update_settings(
     settings.lyrics_weight = form_data.lyrics_weight
     settings.bpm_weight = form_data.bpm_weight
     settings.tags_weight = form_data.tags_weight
+    settings.integration_failure_limit = form_data.integration_failure_limit
 
     try:
         settings.validate_settings()

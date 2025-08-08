@@ -37,6 +37,11 @@
     </div>
   {% endif %}
 
+  <div id="integration-failure-wrapper" class="mb-6 p-4 border border-gray-200 dark:border-gray-600 rounded">
+    <h2 class="text-lg font-semibold mb-2">Integration Failures</h2>
+    <ul id="integration-failure-list" class="list-disc pl-5 text-sm text-gray-700 dark:text-gray-300"></ul>
+  </div>
+
   <form method="post" class="space-y-6 bg-white dark:bg-gray-700 p-6 rounded shadow flex flex-col gap-4 w-full">
 
     <div class="grid gap-6 md:grid-cols-2 w-full">
@@ -235,6 +240,15 @@
             <small class="text-gray-300">Relative weight given to tag matches.</small>
           </div>
         </div>
+
+        <h3 class="text-lg font-semibold">Monitoring</h3>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label for="INTEGRATION_FAILURE_LIMIT" class="block font-semibold">Integration Failure Threshold</label>
+            <input type="number" id="INTEGRATION_FAILURE_LIMIT" name="integration_failure_limit" value="{{ settings.integration_failure_limit }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+            <small class="text-gray-300">Consecutive failures before warnings are logged.</small>
+          </div>
+        </div>
       </div>
     </details>
 
@@ -251,6 +265,38 @@
   {% endif %}
 
   <script>
+    const failureLimit = {{ settings.integration_failure_limit }};
+    fetch("/api/integration-failures")
+      .then(res => res.json())
+      .then(data => {
+        const list = document.getElementById("integration-failure-list");
+        if (!list) return;
+        const entries = Object.entries(data.failures || {});
+        if (entries.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "No failures recorded";
+          list.appendChild(li);
+          return;
+        }
+        entries.forEach(([service, count]) => {
+          const li = document.createElement("li");
+          li.textContent = `${service}: ${count}`;
+          if (count >= failureLimit) {
+            li.className = "text-red-600 font-semibold";
+          }
+          list.appendChild(li);
+        });
+      })
+      .catch(() => {
+        const list = document.getElementById("integration-failure-list");
+        if (list) {
+          const li = document.createElement("li");
+          li.textContent = "Failed to load failure counts";
+          li.className = "text-red-600";
+          list.appendChild(li);
+        }
+      });
+
     window.updateStatus = function(id, result, message) {
       const el = document.getElementById(id);
       if (!el) return;
