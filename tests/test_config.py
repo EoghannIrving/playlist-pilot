@@ -88,6 +88,15 @@ def test_clear_all_caches(monkeypatch):
     assert all(c.cleared for c in caches)
 
 
+def test_set_cache_ttls_updates_shared_dict(monkeypatch):
+    """Updating cache TTLs should refresh the global TTL mapping."""
+    cache_stub = _setup_cache_stub(monkeypatch)
+    s = config.AppSettings()
+    s.set_cache_ttls({"prompt": 42})
+    assert cache_stub.CACHE_TTLS == {"prompt": 42}
+    assert s.cache_ttls is cache_stub.CACHE_TTLS
+
+
 def test_save_and_load_persists_apple_credentials(tmp_path, monkeypatch):
     """Apple Music credentials should be stored and reloaded."""
 

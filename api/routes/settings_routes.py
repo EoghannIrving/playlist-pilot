@@ -82,14 +82,7 @@ async def update_settings(
     settings.getsongbpm_api_key = form_data.getsongbpm_api_key
     settings.global_min_lfm = form_data.global_min_lfm
     settings.global_max_lfm = form_data.global_max_lfm
-    settings.cache_ttls = form_data.cache_ttls
-    # Update shared cache TTLs in-place so other modules
-    # that imported the dictionary see the new values
-    # Import lazily to avoid a circular dependency
-    from utils import cache_manager  # pylint: disable=import-outside-toplevel
-
-    cache_manager.CACHE_TTLS.clear()
-    cache_manager.CACHE_TTLS.update(settings.cache_ttls)
+    settings.set_cache_ttls(form_data.cache_ttls)
     settings.getsongbpm_base_url = form_data.getsongbpm_base_url
     settings.getsongbpm_headers = form_data.getsongbpm_headers
     settings.http_timeout_short = form_data.http_timeout_short
