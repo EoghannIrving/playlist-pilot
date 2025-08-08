@@ -636,8 +636,6 @@ async def import_m3u_file(
 @router.post("/analyze/export-m3u", tags=["Exports"])
 async def export_m3u(payload: Request):
     """Generate an M3U file from analysis results for download."""
-    from api.schemas import AnalysisExportRequest
-
     data = await payload.json()
     model = AnalysisExportRequest.model_validate(data)
     name = model.name
