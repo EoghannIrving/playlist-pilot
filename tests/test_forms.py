@@ -43,3 +43,12 @@ def test_as_form_lyrics_enabled_default():
 
     assert isinstance(param.default, Form)
     assert param.default.default is True
+
+
+def test_integration_failure_limit_default():
+    """integration_failure_limit should have a default of 3."""
+    sig = inspect.signature(SettingsForm.as_form)
+    param = sig.parameters["integration_failure_limit"]
+
+    assert isinstance(param.default, Form)
+    assert param.default.default == 3
