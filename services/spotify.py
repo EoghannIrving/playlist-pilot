@@ -10,6 +10,7 @@ import httpx
 
 from config import settings
 from utils.http_client import get_http_client
+from utils.cache_manager import spotify_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -41,6 +42,11 @@ async def _get_access_token() -> str | None:
 
 async def fetch_spotify_metadata(title: str, artist: str) -> dict[str, Any] | None:
     """Search Spotify for basic metadata about a track."""
+    cache_key = f"{title}|{artist}"
+    cached = spotify_cache.get(cache_key)
+    if cached is not None:
+        logger.info("Spotify cache hit for %s - %s", title, artist)
+        return cached
     token = await _get_access_token()
     if not token:
         return None
@@ -56,11 +62,13 @@ async def fetch_spotify_metadata(title: str, artist: str) -> dict[str, Any] | No
         if not items:
             return None
         track = items[0]
-        return {
+        result = {
             "album": track.get("album", {}).get("name"),
             "year": track.get("album", {}).get("release_date", "")[:4],
             "duration_ms": track.get("duration_ms"),
         }
+        spotify_cache.set(cache_key, result, expire=CACHE_TTLS["spotify"])
+        return result
     except (httpx.HTTPError, json.JSONDecodeError) as exc:
         logger.warning("Spotify lookup failed for %s - %s: %s", title, artist, exc)
         return None

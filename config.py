@@ -76,6 +76,8 @@ class AppSettings(BaseModel):
         "bpm": 60 * 60 * 24 * 30,
         "jellyfin_tracks": 60 * 60 * 24,
         "full_library": 60 * 60 * 24,
+        "spotify": 60 * 60 * 24,
+        "apple_music": 60 * 60 * 24,
     }
     getsongbpm_base_url: str = "https://api.getsongbpm.com/search/"
     getsongbpm_headers: dict[str, str] = {

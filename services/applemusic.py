@@ -10,6 +10,7 @@ import httpx
 
 from config import settings
 from utils.http_client import get_http_client
+from utils.cache_manager import apple_music_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -43,6 +44,11 @@ async def _get_developer_token() -> str | None:
 
 async def fetch_applemusic_metadata(title: str, artist: str) -> dict[str, Any] | None:
     """Search Apple Music for basic metadata about a track."""
+    cache_key = f"{title}|{artist}"
+    cached = apple_music_cache.get(cache_key)
+    if cached is not None:
+        logger.info("Apple Music cache hit for %s - %s", title, artist)
+        return cached
     token = await _get_developer_token()
     if not token:
         return None
@@ -58,11 +64,13 @@ async def fetch_applemusic_metadata(title: str, artist: str) -> dict[str, Any] |
         if not items:
             return None
         track = items[0].get("attributes", {})
-        return {
+        result = {
             "album": track.get("albumName"),
             "year": track.get("releaseDate", "")[:4],
             "duration_ms": track.get("durationInMillis"),
         }
+        apple_music_cache.set(cache_key, result, expire=CACHE_TTLS["apple_music"])
+        return result
     except (httpx.HTTPError, json.JSONDecodeError) as exc:
         logger.warning("Apple Music lookup failed for %s - %s: %s", title, artist, exc)
         return None
