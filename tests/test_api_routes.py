@@ -9,6 +9,7 @@ import types
 import pytest
 from fastapi import HTTPException
 from starlette.datastructures import UploadFile
+from api.schemas import AnalysisExportRequest
 
 
 def _extract_health_check():
@@ -57,6 +58,7 @@ def _extract_export_m3u():
         "tempfile": __import__("tempfile"),
         "Path": Path,
         "Request": object,
+        "AnalysisExportRequest": AnalysisExportRequest,
     }
     exec(compile(module, filename="<export_m3u>", mode="exec"), ns)
     return ns["export_m3u"]
