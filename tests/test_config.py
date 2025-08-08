@@ -3,6 +3,7 @@
 import sys
 import types
 
+import pytest
 import config
 
 # pylint: disable=no-member,too-few-public-methods
@@ -85,3 +86,42 @@ def test_clear_all_caches(monkeypatch):
         cache_stub.library_cache,
     ]
     assert all(c.cleared for c in caches)
+
+
+def test_save_and_load_persists_apple_credentials(tmp_path, monkeypatch):
+    """Apple Music credentials should be stored and reloaded."""
+
+    settings_file = tmp_path / "settings.json"
+    monkeypatch.setattr(config, "SETTINGS_FILE", settings_file)
+    to_save = config.AppSettings(apple_client_id="abc", apple_client_secret="xyz")
+
+    config.save_settings(to_save)
+    loaded = config.load_settings()
+
+    assert loaded.apple_client_id == "abc"
+    assert loaded.apple_client_secret == "xyz"
+
+
+@pytest.mark.parametrize(
+    "apple_client_id, apple_client_secret, missing",
+    [
+        ("id", "", "Apple Client Secret"),
+        ("", "secret", "Apple Client ID"),
+    ],
+)
+def test_validate_settings_requires_both_apple_fields(
+    apple_client_id, apple_client_secret, missing
+):
+    """Validation should require both Apple fields when one is set."""
+
+    s = config.AppSettings(
+        jellyfin_url="u",
+        jellyfin_api_key="k",
+        jellyfin_user_id="id",
+        openai_api_key="o",
+        apple_client_id=apple_client_id,
+        apple_client_secret=apple_client_secret,
+    )
+    with pytest.raises(ValueError) as exc:
+        s.validate_settings()
+    assert missing in str(exc.value)
