@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from api.routes import router as main_router
 from config import settings
 from core.constants import BASE_DIR, LOG_FILE
+from utils.http_client import aclose_http_clients
 
 
 # ─────────────────────────────────────────────────────────────
@@ -57,6 +58,13 @@ app = FastAPI(title="Playlist Pilot")
 app.include_router(main_router)
 # Serve static files (CSS, JS, etc.)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    """Close shared HTTP clients on application shutdown."""
+    await aclose_http_clients()
+
 
 # ─────────────────────────────────────────────────────────────
 # Additional routes and startup events could be added here.
