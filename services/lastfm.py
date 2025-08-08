@@ -10,6 +10,8 @@ import logging
 import re
 import unicodedata
 import asyncio
+import json
+import httpx
 from config import settings
 from utils.http_client import get_http_client
 from utils.cache_manager import lastfm_cache, CACHE_TTLS
@@ -68,7 +70,7 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
         logger.info("[Last.fm] Extracted tags for %s - %s: %s", title, artist, tags)
         lastfm_cache.set(cache_key, tags, expire=CACHE_TTLS["lastfm"])
         return tags
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except (httpx.HTTPError, json.JSONDecodeError) as exc:
         record_failure("lastfm")
         logger.warning("Last.fm tag fetch failed for %s - %s: %s", title, artist, exc)
         lastfm_cache.set(cache_key, [], expire=CACHE_TTLS["lastfm"])
@@ -116,7 +118,7 @@ async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
         lastfm_cache.set(key, False, expire=CACHE_TTLS["lastfm"])
         return None
 
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except (httpx.HTTPError, json.JSONDecodeError) as exc:
         record_failure("lastfm")
         logger.warning("Last.fm lookup failed for %s - %s: %s", title, artist, exc)
         # Avoid caching failures so transient issues don't mark the track as missing

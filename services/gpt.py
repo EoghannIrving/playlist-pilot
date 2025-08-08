@@ -38,7 +38,7 @@ async def fetch_openai_models(api_key: str) -> list[str]:
         return [m.id for m in resp.data if m.id.startswith("gpt")]
     except openai.AuthenticationError as exc:  # type: ignore[attr-defined]
         logger.error("Invalid OpenAI API key: %s", exc)
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except openai.OpenAIError as exc:  # type: ignore[attr-defined]
         logger.error("Failed to fetch OpenAI models: %s", exc)
     return []
 
@@ -243,27 +243,19 @@ async def gpt_suggest_validated(
         try:
             title, artist = parse_gpt_line(line)
             suggestions_raw.append({"title": title, "artist": artist, "text": line})
-        except Exception as exc:  # pylint: disable=broad-exception-caught
+        except ValueError as exc:
             logger.warning("⚠️ Failed to parse line: '%s' → %s", line, exc)
 
     async def validate_and_score(track: dict) -> dict | None:
         title = track["title"]
         artist = track["artist"]
 
-        try:
-            track_data = await get_lastfm_track_info(title, artist)
-            if not track_data:
-                return None
+        track_data = await get_lastfm_track_info(title, artist)
+        if not track_data:
+            return None
 
-            track["popularity"] = int(track_data.get("listeners", 0))
-            return track
-
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.warning(
-                "⚠️ Last.fm lookup failed for %s - %s: %s", title, artist, exc
-            )
-            track["popularity"] = 0
-            return track
+        track["popularity"] = int(track_data.get("listeners", 0))
+        return track
 
     validated = await asyncio.gather(*[validate_and_score(t) for t in suggestions_raw])
     suggestions_raw = [track for track in validated if track]
@@ -512,6 +504,6 @@ def analyze_mood_from_lyrics(lyrics: str) -> str | None:
         logger.debug("Lyrics mood classification: %s", mood)
         logger.info("GPT lyrics mood analysis result: %s", mood)
         return mood
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except openai.OpenAIError as exc:  # type: ignore[attr-defined]
         logger.warning("Lyrics mood analysis failed: %s", exc)
         return None
