@@ -16,14 +16,14 @@ from utils.cache_manager import spotify_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
-_access_token: str | None = None
+_ACCESS_TOKEN: str | None = None
 
 
 async def _get_access_token() -> str | None:
     """Return a cached Spotify access token."""
-    global _access_token  # pylint: disable=global-statement
-    if _access_token:
-        return _access_token
+    global _ACCESS_TOKEN  # pylint: disable=global-statement
+    if _ACCESS_TOKEN:
+        return _ACCESS_TOKEN
     if not settings.spotify_client_id or not settings.spotify_client_secret:
         logger.info("[Spotify] credentials not configured; skipping token request")
         return None
@@ -35,8 +35,8 @@ async def _get_access_token() -> str | None:
             auth=(settings.spotify_client_id, settings.spotify_client_secret),
         )
         resp.raise_for_status()
-        _access_token = resp.json().get("access_token")
-        return _access_token
+        _ACCESS_TOKEN = resp.json().get("access_token")
+        return _ACCESS_TOKEN
     except (httpx.HTTPError, json.JSONDecodeError) as exc:
         logger.warning("Spotify token fetch failed: %s", exc)
         return None

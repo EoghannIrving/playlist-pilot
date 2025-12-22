@@ -33,7 +33,7 @@ def _extract_health_check():
 def test_health_check():
     """``health_check`` should return the expected status dictionary."""
     health_check = _extract_health_check()
-    result = asyncio.get_event_loop().run_until_complete(health_check())
+    result = asyncio.run(health_check())
     assert result == {"status": "ok"}
 
 
@@ -104,7 +104,7 @@ def test_export_m3u_no_tracks():
     dummy_req = types.SimpleNamespace(json=dummy_json)
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.get_event_loop().run_until_complete(export_m3u(dummy_req))
+        asyncio.run(export_m3u(dummy_req))
     assert exc.value.status_code == 400
 
 
@@ -116,7 +116,5 @@ def test_import_m3u_file_invalid_extension(tmp_path):
     import_m3u = _extract_import_m3u_file()
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.get_event_loop().run_until_complete(
-            import_m3u(dummy_req, dummy_payload)
-        )
+        asyncio.run(import_m3u(dummy_req, dummy_payload))
     assert exc.value.status_code == 400

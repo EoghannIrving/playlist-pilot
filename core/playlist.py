@@ -198,6 +198,66 @@ def normalize_track(raw: str | dict) -> Track:
             "year": ...
         }
     """
+
+    def _coerce_to_str(value: Any) -> str:
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, dict):
+            # Try to extract a name-like field
+            for key in ("Name", "Artist"):
+                candidate = value.get(key)
+                if candidate:
+                    normalized = _coerce_to_str(candidate)
+                    if normalized:
+                        return normalized
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                normalized = _coerce_to_str(item)
+                if normalized:
+                    return normalized
+            return ""
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    def _track_identifier(track_dict: dict) -> str:
+        for key in ("Name", "PlaylistItemId", "Id"):
+            candidate = _coerce_to_str(track_dict.get(key))
+            if candidate:
+                return candidate
+        return "Unknown track"
+
+    def _log_missing_metadata(track_dict: dict, field: str, fallback: str) -> None:
+        identifier = _track_identifier(track_dict)
+        logger.warning(
+            "Track %s missing %s metadata; defaulting to %s",
+            identifier,
+            field,
+            fallback,
+        )
+
+    def _resolve_title(track_dict: dict) -> str:
+        for key in ("Name", "SortName"):
+            candidate = _coerce_to_str(track_dict.get(key))
+            if candidate:
+                return candidate
+        _log_missing_metadata(track_dict, "title", "Unknown Title")
+        return "Unknown Title"
+
+    def _resolve_artist(track_dict: dict) -> str:
+        for key in (
+            "AlbumArtist",
+            "Artists",
+            "Artist",
+            "AlbumArtists",
+            "People",
+        ):
+            candidate = _coerce_to_str(track_dict.get(key))
+            if candidate:
+                return candidate
+        _log_missing_metadata(track_dict, "artist", "Unknown Artist")
+        return "Unknown Artist"
+
     if isinstance(raw, str):
         # GPT-style string
         parts = [p.strip() for p in raw.split(" - ")]
@@ -216,8 +276,8 @@ def normalize_track(raw: str | dict) -> Track:
         lyrics = raw.get("lyrics")
         return Track(
             raw=raw.get("Name", ""),
-            title=raw.get("Name", "").strip(),
-            artist=raw.get("AlbumArtist") or (raw.get("Artists") or [""])[0],
+            title=_resolve_title(raw),
+            artist=_resolve_artist(raw),
             album=raw.get("Album", "").strip(),
             year=extract_year(raw),
             Genres=raw.get("Genres", []),
@@ -234,7 +294,7 @@ def normalize_track(raw: str | dict) -> Track:
 def _ensure_track(parsed: Track | dict) -> Track:
     """Validate and convert a raw track into a :class:`Track`."""
     if isinstance(parsed, dict):
-        parsed = Track.parse_obj(parsed)
+        parsed = Track.model_validate(parsed)
     if not parsed.title or not parsed.artist:
         raise ValueError("Missing required track metadata (title/artist)")
     return parsed
@@ -313,7 +373,7 @@ async def _classify_mood(
     bpm_scores = mood_scores_from_bpm_data(bpm_data or {})
     lyrics_scores = None
     if settings.lyrics_enabled:
-        lyrics = get_lyrics_for_enrich(parsed.dict())
+        lyrics = get_lyrics_for_enrich(parsed.model_dump())
         lyrics_mood = (
             await asyncio.to_thread(analyze_mood_from_lyrics, lyrics)
             if lyrics
@@ -366,7 +426,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     mood_data = await _classify_mood(parsed, lastfm["tags"], bpm_data)
 
     return EnrichedTrack(
-        **parsed.dict(exclude={"tempo", "jellyfin_play_count", "album"}),
+        **parsed.model_dump(exclude={"tempo", "jellyfin_play_count", "album"}),
         genre=_select_genre(parsed.Genres or [], lastfm["tags"]) or "Unknown",
         mood=mood_data[0],
         mood_confidence=round(mood_data[1], 2),

@@ -266,7 +266,8 @@
 
   <script>
     const failureLimit = {{ settings.integration_failure_limit }};
-    fetch("/api/integration-failures")
+    const apiPrefix = "/api/v1";
+    fetch(`${apiPrefix}/integration-failures`)
       .then(res => res.json())
       .then(data => {
         const list = document.getElementById("integration-failure-list");
@@ -315,7 +316,7 @@
     window.testOpenAIKey = function() {
       const key = document.getElementById("OPENAI_API_KEY").value;
       window.updateStatus("openai-status", "loading");
-      fetch("/api/test/openai", {
+      fetch(`${apiPrefix}/test/openai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key })
@@ -329,7 +330,7 @@
       const url = document.getElementById("JELLYFIN_URL").value;
       const key = document.getElementById("JELLYFIN_API_KEY").value;
       window.updateStatus("jellyfin-status", "loading");
-      fetch("/api/test/jellyfin", {
+      fetch(`${apiPrefix}/test/jellyfin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, key })
@@ -342,7 +343,7 @@
     window.testLastfmKey = function() {
       const key = document.getElementById("LASTFM_API_KEY").value;
       window.updateStatus("lastfm-status", "loading");
-      fetch("/api/test/lastfm", {
+      fetch(`${apiPrefix}/test/lastfm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key })
@@ -355,7 +356,7 @@
     window.testGetSongBPMKey = function() {
       const key = document.getElementById("GETSONGBPM_API_KEY").value;
       window.updateStatus("getsongbpm-status", "loading");
-      fetch("/api/test/getsongbpm", {
+      fetch(`${apiPrefix}/test/getsongbpm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key })

@@ -12,7 +12,7 @@ from api.forms import SettingsForm
 
 
 def _default_form_data():
-    data = AppSettings().dict()
+    data = AppSettings().model_dump()
     data["cache_ttls"] = json.dumps(data["cache_ttls"])
     data["getsongbpm_headers"] = json.dumps(data["getsongbpm_headers"])
     return data

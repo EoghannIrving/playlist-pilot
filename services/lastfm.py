@@ -134,12 +134,20 @@ async def enrich_with_lastfm(title: str, artist: str) -> dict:
     tags_task = asyncio.create_task(get_lastfm_tags(title, artist))
     track_data, tags = await asyncio.gather(track_task, tags_task)
 
+    if track_data:
+        album_info = track_data.get("album") or {}
+        listeners = int(track_data.get("listeners", 0))
+        releasedate = album_info.get("releasedate", "")
+        album_title = album_info.get("title", "")
+    else:
+        listeners = 0
+        releasedate = ""
+        album_title = ""
+
     return {
         "exists": track_data is not None,
-        "listeners": int(track_data.get("listeners", 0)) if track_data else 0,
-        "releasedate": (
-            track_data.get("album", {}).get("releasedate", "") if track_data else ""
-        ),
-        "album": track_data.get("album", {}).get("title"),
+        "listeners": listeners,
+        "releasedate": releasedate,
+        "album": album_title,
         "tags": tags,
     }

@@ -1,7 +1,7 @@
 """Data models for playlist-pilot."""
 
 from typing import List, Optional
-from pydantic import BaseModel, Field  # pylint: disable=no-name-in-module
+from pydantic import BaseModel, Field, ConfigDict  # pylint: disable=no-name-in-module
 
 
 class Track(BaseModel):
@@ -20,10 +20,7 @@ class Track(BaseModel):
     Id: Optional[str] = None
     PlaylistItemId: Optional[str] = None
 
-    class Config:  # pylint: disable=too-few-public-methods
-        """Pydantic configuration for ``Track`` model."""
-
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class EnrichedTrack(Track):
@@ -40,10 +37,7 @@ class EnrichedTrack(Track):
     combined_popularity: Optional[float] = None
     FinalYear: Optional[str] = None
 
-    class Config:  # pylint: disable=too-few-public-methods
-        """Pydantic configuration for ``EnrichedTrack`` model."""
-
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ExportPlaylistRequest(BaseModel):

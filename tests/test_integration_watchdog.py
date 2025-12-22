@@ -4,12 +4,12 @@
 
 import logging
 
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from config import settings
 from api.schemas import IntegrationFailuresResponse
-from api.routes.monitoring_routes import integration_failures
+from api.routes.monitoring_routes import router as monitoring_router
 from utils import integration_watchdog as watchdog
 
 
@@ -46,13 +46,9 @@ def test_integration_failures_endpoint_returns_counts():
     watchdog.record_failure("b")
     watchdog.record_failure("b")
 
-    router = APIRouter()
-    router.get("/api/integration-failures", response_model=IntegrationFailuresResponse)(
-        integration_failures
-    )
     app = FastAPI()
-    app.include_router(router)
+    app.include_router(monitoring_router)
     client = TestClient(app)
-    resp = client.get("/api/integration-failures")
+    resp = client.get("/api/v1/integration-failures")
     assert resp.status_code == 200
     assert resp.json() == {"failures": {"a": 1, "b": 2}}

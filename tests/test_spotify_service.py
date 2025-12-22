@@ -14,7 +14,7 @@ def test_get_access_token(monkeypatch):
     """Spotify access token is fetched and cached."""
     monkeypatch.setattr(settings, "spotify_client_id", "id")
     monkeypatch.setattr(settings, "spotify_client_secret", "secret")
-    spotify._access_token = None
+    spotify._ACCESS_TOKEN = None
 
     async def main():
         with respx.mock(assert_all_called=True) as mock:

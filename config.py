@@ -206,14 +206,14 @@ def save_settings(s: AppSettings) -> None:
         s (AppSettings): The settings object to save.
     """
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(s.dict(), f, indent=2)
+        json.dump(s.model_dump(), f, indent=2)
 
 
 # ─────────────────────────────────────────────────────────────
 # Global Config Instance
 
 settings: AppSettings = load_settings()
-logging.getLogger("playlist-pilot").debug("settings loaded: %s", settings.dict())
+logging.getLogger("playlist-pilot").debug("settings loaded: %s", settings.model_dump())
 
 
 def get_global_min_lfm() -> int:

@@ -5,21 +5,19 @@ services:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
-    env_file:
-      - .env
     environment:
-      PYTHONPATH: /app
-      TZ: ${TZ:-UTC}
-      PYTHONUNBUFFERED: 1
+      - PYTHONPATH=/app
+      - TZ=America/New_York
+      - PYTHONUNBUFFERED=1
     ports:
       - 8010:8000
     volumes:
-      - ${LOGS_DIR:-./logs}:/app/logs
-      - ${CACHE_DIR:-./cache}:/app/cache
-      - ${USER_DATA_DIR:-./user_data}:/app/user_data
-      - ${SETTINGS_PATH:-./settings.json}:/app/settings.json:rw
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      - ./user_data:/app/user_data
+      - /mnt/Games/pilotsettings/settings.json:/app/settings.json:rw
       - ./data:/data # Ensures /data/.cache-spotify is persisted
-      - ${MUSIC_DIR:-/mnt/Movies-And-More/Music}:/Movies/Music
+      - /mnt/Movies-And-More/Music:/Movies/Music
     restart: unless-stopped
     healthcheck:
       test:

@@ -140,6 +140,15 @@ def _setup_roundtrip(monkeypatch, tmp_path, path_template):
     return m3u, history
 
 
+def _run_async(coro):
+    """Run an async coroutine in a fresh event loop."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 def _roundtrip(monkeypatch, tmp_path, path_template):
     m3u, history = _setup_roundtrip(monkeypatch, tmp_path, path_template)
     entry = {
@@ -147,11 +156,10 @@ def _roundtrip(monkeypatch, tmp_path, path_template):
             {"text": "Title - Artist", "in_jellyfin": True, "album": "Album"}
         ]
     }
-    loop = asyncio.get_event_loop()
-    m3u_file = loop.run_until_complete(
+    m3u_file = _run_async(
         m3u.export_history_entry_as_m3u(entry, "url", "key")
     )
-    loop.run_until_complete(m3u.import_m3u_as_history_entry(str(m3u_file)))
+    _run_async(m3u.import_m3u_as_history_entry(str(m3u_file)))
     hist = history.load_user_history("user")
     assert hist
     track = hist[0]["suggestions"][0]
@@ -208,8 +216,7 @@ def test_import_skips_failed_metadata(monkeypatch, tmp_path):
         ),
         encoding="utf-8",
     )
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(m3u.import_m3u_as_history_entry(str(m3u_path)))
+    _run_async(m3u.import_m3u_as_history_entry(str(m3u_path)))
     hist = history.load_user_history("user")
     assert hist
     suggestions = hist[0]["suggestions"]
@@ -230,8 +237,7 @@ def test_import_handles_non_utf8(monkeypatch, tmp_path):
         encoding="latin-1",
     )
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(m3u.import_m3u_as_history_entry(str(m3u_path)))
+    _run_async(m3u.import_m3u_as_history_entry(str(m3u_path)))
     hist = history.load_user_history("user")
     assert hist
     track = hist[0]["suggestions"][0]

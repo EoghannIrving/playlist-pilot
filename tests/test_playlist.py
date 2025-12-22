@@ -3,6 +3,8 @@
 import ast
 from pathlib import Path
 
+from core.playlist import normalize_track  # add import
+
 
 def _load_extract_year():
     """Load the ``extract_year`` function from ``core.playlist`` without importing the module."""
@@ -34,3 +36,27 @@ def test_extract_year_production_year_used():
     """Use ``ProductionYear`` when present."""
     track = {"ProductionYear": 1999, "PremiereDate": "2020-01-01"}
     assert extract_year(track) == "1999"
+
+
+def test_normalize_track_prefers_first_artist_entry():
+    """Artist should resolve from the first Artists entry when AlbumArtist missing."""
+    raw = {"Name": "Test Song", "Artists": ["Lead Artist", "Second Artist"]}
+    normalized = normalize_track(raw)
+    assert normalized.artist == "Lead Artist"
+    assert normalized.title == "Test Song"
+
+
+def test_normalize_track_defaults_missing_artist():
+    """Tracks without any artist metadata should fall back to Unknown Artist."""
+    raw = {"Name": "Minimal Song"}
+    normalized = normalize_track(raw)
+    assert normalized.artist == "Unknown Artist"
+    assert normalized.title == "Minimal Song"
+
+
+def test_normalize_track_handles_artist_dict_entries():
+    """Artist dictionaries should be parsed for their name fields."""
+    raw = {"Name": "Dict Song", "Artists": [{"Name": "Dict Artist"}]}
+    normalized = normalize_track(raw)
+    assert normalized.artist == "Dict Artist"
+    assert normalized.title == "Dict Song"

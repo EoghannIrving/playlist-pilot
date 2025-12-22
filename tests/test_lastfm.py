@@ -1,12 +1,13 @@
-"""Tests for the ``normalize`` helper in ``services.lastfm``."""
+"""Tests for the ``services.lastfm`` helpers."""
 
+import asyncio
 import sys
 import types
 import importlib
 
 
-def _load_normalize(monkeypatch):
-    """Import ``normalize`` with minimal stub modules."""
+def _load_lastfm_module(monkeypatch):
+    """Import ``services.lastfm`` with stubbed dependencies."""
 
     monkeypatch.setitem(sys.modules, "httpx", types.ModuleType("httpx"))
     config_stub = types.ModuleType("config")
@@ -20,7 +21,13 @@ def _load_normalize(monkeypatch):
     )
     cache_stub.CACHE_TTLS = {"lastfm": 1}
     monkeypatch.setitem(sys.modules, "utils.cache_manager", cache_stub)
-    lastfm = importlib.import_module("services.lastfm")
+    sys.modules.pop("services.lastfm", None)
+    return importlib.import_module("services.lastfm")
+
+
+def _load_normalize(monkeypatch):
+    """Return the ``normalize`` helper from a stubbed lastfm module."""
+    lastfm = _load_lastfm_module(monkeypatch)
     return lastfm.normalize
 
 
@@ -55,3 +62,23 @@ def test_normalize_accents(monkeypatch):
     """Accented characters should be converted to their ASCII equivalents."""
     normalize = _load_normalize(monkeypatch)
     assert normalize("Beyonc\u00e9") == "beyonce"
+
+
+def test_enrich_with_lastfm_handles_missing_track_info(monkeypatch):
+    """Track enrichment should still succeed when Last.fm lookup returns None."""
+    lastfm = _load_lastfm_module(monkeypatch)
+
+    async def fake_track_info(*_args, **_kwargs):
+        return None
+
+    async def fake_tags(*_args, **_kwargs):
+        return ["holiday", "seasonal"]
+
+    monkeypatch.setattr(lastfm, "get_lastfm_track_info", fake_track_info)
+    monkeypatch.setattr(lastfm, "get_lastfm_tags", fake_tags)
+
+    result = asyncio.run(lastfm.enrich_with_lastfm("Song", "Artist"))
+    assert result["listeners"] == 0
+    assert result["album"] == ""
+    assert result["releasedate"] == ""
+    assert result["tags"] == ["holiday", "seasonal"]

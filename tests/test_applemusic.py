@@ -13,7 +13,7 @@ def test_get_developer_token(monkeypatch):
     """Apple Music token retrieval caches tokens."""
     monkeypatch.setitem(settings.__dict__, "apple_client_id", "id")
     monkeypatch.setitem(settings.__dict__, "apple_client_secret", "secret")
-    applemusic._access_token = None
+    applemusic._ACCESS_TOKEN = None
 
     async def main():
         with respx.mock(assert_all_called=True) as mock:

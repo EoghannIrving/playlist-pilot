@@ -27,13 +27,17 @@
     <p>Playlist Pilot — Curate your soundtrack.</p>
   </footer>
   <script>
-    fetch('/api/integration-failures')
+    const monitoringEndpoint = '/api/v1/integration-failures';
+    const integrationFailuresElement = document.getElementById('integration-failures');
+
+    fetch(monitoringEndpoint)
       .then(r => r.json())
       .then(data => {
-        const el = document.getElementById('integration-failures');
-        const entries = Object.entries(data);
+        if (!integrationFailuresElement) return;
+        const entries = Object.entries(data.failures || {})
+          .filter(([, value]) => value > 0);
         if (entries.length) {
-          el.textContent = 'Integration failures: ' +
+          integrationFailuresElement.textContent = 'Integration failures: ' +
             entries.map(([k, v]) => `${k} (${v})`).join(', ');
         }
       })

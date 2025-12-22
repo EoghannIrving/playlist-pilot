@@ -18,6 +18,11 @@ Modules used:
 """
 
 import logging
+import os
+import tempfile
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI, Request
@@ -56,8 +61,21 @@ logger = logging.getLogger("playlist-pilot")
 logger.setLevel(logging.DEBUG)
 
 if not logger.handlers:
-    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    handler = RotatingFileHandler(LOG_FILE, maxBytes=1_000_000, backupCount=3)
+    log_dir = LOG_FILE.parent
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_target = LOG_FILE
+
+    if not os.access(log_dir, os.W_OK):
+        fallback_log_dir = Path(tempfile.gettempdir()) / "playlist_pilot_logs"
+        fallback_log_dir.mkdir(parents=True, exist_ok=True)
+        logger.warning(
+            "Log directory %s is not writable; using %s",
+            log_dir,
+            fallback_log_dir,
+        )
+        log_target = fallback_log_dir / LOG_FILE.name
+
+    handler = RotatingFileHandler(log_target, maxBytes=1_000_000, backupCount=3)
     handler.setLevel(logging.DEBUG)  # Capture DEBUG logs!
     formatter = logging.Formatter(
         "%(asctime)s | %(levelname)8s | %(name)s | %(message)s"
@@ -72,14 +90,25 @@ try:
 except ValueError as e:
     logger.warning("[Startup] Missing configuration: %s", e)
 
+
 # ─────────────────────────────────────────────────────────────
 # FastAPI App Setup
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ensure shared HTTP clients are closed during shutdown."""
+    try:
+        yield
+    finally:
+        await aclose_http_clients()
+
+
 app = FastAPI(
     title="Playlist Pilot",
     version=API_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_tags=tags_metadata,
+    lifespan=lifespan,
 )
 
 
@@ -96,12 +125,6 @@ app.include_router(router)
 app.include_router(api_router)
 # Serve static files (CSS, JS, etc.)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Close shared HTTP clients on application shutdown."""
-    await aclose_http_clients()
 
 
 # ─────────────────────────────────────────────────────────────

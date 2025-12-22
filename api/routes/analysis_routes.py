@@ -1,5 +1,6 @@
 """FastAPI routes for playlist analysis and related features."""
 
+import json
 import logging
 import shutil
 import tempfile
@@ -70,6 +71,33 @@ logger = logging.getLogger("playlist-pilot")
 
 
 router = APIRouter()
+
+
+async def _build_suggest_payload(
+    request: Request,
+) -> SuggestFromAnalyzedRequest:
+    """Normalize JSON and form submissions for suggestion requests."""
+
+    content_type = request.headers.get("content-type", "").lower()
+    if "application/json" in content_type:
+        body = await request.json()
+        return SuggestFromAnalyzedRequest(**body)
+
+    form_data = await request.form()
+    tracks_raw = form_data.get("tracks", "[]")
+    try:
+        tracks = json.loads(tracks_raw)
+    except json.JSONDecodeError as exc:  # nosec B307 - surfaced to user
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid JSON payload for tracks: {exc.msg}",
+        ) from exc
+
+    return SuggestFromAnalyzedRequest(
+        tracks=tracks,
+        playlist_name=form_data.get("playlist_name", ""),
+        text_summary=form_data.get("text_summary"),
+    )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -424,13 +452,14 @@ async def debug_lastfm_tags(title: str, artist: str) -> TagsResponse:
     tags=["Suggestions"],
 )
 async def suggest_from_analyzed(
-    payload: SuggestFromAnalyzedRequest, request: Request
+    request: Request,
 ) -> SuggestFromAnalyzedResponse | HTMLResponse:
     """Generate playlist suggestions from analyzed tracks.
 
     Returns an HTML page for standard requests or a JSON payload when the
     ``Accept`` header includes ``application/json``."""
 
+    payload = await _build_suggest_payload(request)
     tracks = [t.dict() for t in payload.tracks]
     playlist_name = payload.playlist_name
     text_summary = payload.text_summary or ""

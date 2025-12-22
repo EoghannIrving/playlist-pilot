@@ -16,14 +16,14 @@ from utils.cache_manager import apple_music_cache, CACHE_TTLS
 
 logger = logging.getLogger("playlist-pilot")
 
-_access_token: str | None = None
+_ACCESS_TOKEN: str | None = None
 
 
 async def _get_developer_token() -> str | None:
     """Return a cached Apple Music developer token."""
-    global _access_token  # pylint: disable=global-statement
-    if _access_token:
-        return _access_token
+    global _ACCESS_TOKEN  # pylint: disable=global-statement
+    if _ACCESS_TOKEN:
+        return _ACCESS_TOKEN
     client_id = getattr(settings, "apple_client_id", "")
     client_secret = getattr(settings, "apple_client_secret", "")
     if not client_id or not client_secret:
@@ -37,8 +37,8 @@ async def _get_developer_token() -> str | None:
             auth=(client_id, client_secret),
         )
         resp.raise_for_status()
-        _access_token = resp.json().get("access_token")
-        return _access_token
+        _ACCESS_TOKEN = resp.json().get("access_token")
+        return _ACCESS_TOKEN
     except (httpx.HTTPError, json.JSONDecodeError) as exc:
         logger.warning("Apple Music token fetch failed: %s", exc)
         return None

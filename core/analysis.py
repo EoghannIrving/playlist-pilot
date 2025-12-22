@@ -2,7 +2,6 @@
 
 from collections import Counter
 from typing import Dict, List
-from statistics import mean
 import math
 import logging
 import re
@@ -86,6 +85,9 @@ def summarize_tracks(tracks: List[dict]) -> dict:
         for t in tracks
         if isinstance(t.get("popularity"), (int, float))
     ]
+    avg_listeners = (
+        sum(listener_values) / len(listener_values) if listener_values else 0
+    )
     base_summary = {
         "dominant_genre": most_common(genres),
         "mood_profile": percent_distribution(moods),
@@ -96,7 +98,7 @@ def summarize_tracks(tracks: List[dict]) -> dict:
         "genre_distribution": percent_distribution(genres),
         "mood_distribution": percent_distribution(moods),
         "tempo_ranges": classify_tempo_ranges(tracks),
-        "avg_listeners": mean(listener_values) if listener_values else 0,
+        "avg_listeners": avg_listeners,
         "avg_popularity": (
             sum(popularity_values) / len(popularity_values) if popularity_values else 0
         ),

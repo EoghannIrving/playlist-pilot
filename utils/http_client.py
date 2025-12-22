@@ -9,9 +9,9 @@ import httpx
 from config import settings
 
 
-_client_long: httpx.AsyncClient | None = None
-_client_short: httpx.AsyncClient | None = None
-_httpx_module = httpx
+_CLIENT_LONG: httpx.AsyncClient | None = None
+_CLIENT_SHORT: httpx.AsyncClient | None = None
+_HTTPX_MODULE = httpx
 
 
 def get_http_client(short: bool = False) -> httpx.AsyncClient:
@@ -24,33 +24,33 @@ def get_http_client(short: bool = False) -> httpx.AsyncClient:
         httpx.AsyncClient: The reusable client.
     """
 
-    global _client_long, _client_short, _httpx_module  # pylint: disable=global-statement
+    global _CLIENT_LONG, _CLIENT_SHORT, _HTTPX_MODULE  # pylint: disable=global-statement
 
     current_httpx = importlib.import_module("httpx")
 
     if short:
-        if _client_short is None or _httpx_module is not current_httpx:
-            _client_short = current_httpx.AsyncClient(
+        if _CLIENT_SHORT is None or _HTTPX_MODULE is not current_httpx:
+            _CLIENT_SHORT = current_httpx.AsyncClient(
                 timeout=settings.http_timeout_short
             )
-            _httpx_module = current_httpx
-        return _client_short
+            _HTTPX_MODULE = current_httpx
+        return _CLIENT_SHORT
 
-    if _client_long is None or _httpx_module is not current_httpx:
-        _client_long = current_httpx.AsyncClient(timeout=settings.http_timeout_long)
-        _httpx_module = current_httpx
-    return _client_long
+    if _CLIENT_LONG is None or _HTTPX_MODULE is not current_httpx:
+        _CLIENT_LONG = current_httpx.AsyncClient(timeout=settings.http_timeout_long)
+        _HTTPX_MODULE = current_httpx
+    return _CLIENT_LONG
 
 
 async def aclose_http_clients() -> None:
     """Close any instantiated HTTP clients."""
 
-    global _client_long, _client_short  # pylint: disable=global-statement
+    global _CLIENT_LONG, _CLIENT_SHORT  # pylint: disable=global-statement
 
-    if _client_long is not None:
-        await _client_long.aclose()
-        _client_long = None
+    if _CLIENT_LONG is not None:
+        await _CLIENT_LONG.aclose()
+        _CLIENT_LONG = None
 
-    if _client_short is not None:
-        await _client_short.aclose()
-        _client_short = None
+    if _CLIENT_SHORT is not None:
+        await _CLIENT_SHORT.aclose()
+        _CLIENT_SHORT = None
