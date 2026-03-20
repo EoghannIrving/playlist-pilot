@@ -71,9 +71,11 @@
     {% if removal_suggestions %}
       <ul class="list-disc pl-5 text-gray-700 dark:text-gray-200">
         {% for item in removal_suggestions %}
-          {% if item.html %}
+          {% if item.title and item.artist %}
             <li class="whitespace-pre-line flex justify-between items-center">
-              <span>{{ item.html | safe }}</span>
+              <span>
+                <strong>{{ item.title }}</strong> - <strong>{{ item.artist }}</strong>{% if item.reason %} - {{ item.reason }}{% endif %}
+              </span>
               
             </li>
           {% endif %}

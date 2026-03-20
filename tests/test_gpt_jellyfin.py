@@ -223,11 +223,15 @@ def test_format_removal_suggestions():
     result = format_lines(raw, tracks)
     assert result == [
         {
-            "html": "<strong>Foo</strong> - <strong>Bar</strong> - Reason",
+            "title": "Foo",
+            "artist": "Bar",
+            "reason": "Reason",
             "item_id": "1",
         },
         {
-            "html": "<strong>Baz</strong> - <strong>Qux</strong> - Another",
+            "title": "Baz",
+            "artist": "Qux",
+            "reason": "Another",
             "item_id": "2",
         },
     ]
@@ -262,7 +266,9 @@ def test_format_removal_suggestions_by_style():
     result = format_lines(raw, tracks)
     assert result == [
         {
-            "html": "<strong>Track One</strong> - <strong>Artist A</strong> - too fast",
+            "title": "Track One",
+            "artist": "Artist A",
+            "reason": "too fast",
             "item_id": "x",
         },
     ]
@@ -309,13 +315,15 @@ def test_format_removal_suggestions_multiline_justification():
     result = format_lines(raw, tracks)
     assert result == [
         {
-            "html": "<strong>The Whole of the Moon (video version)</strong> - "
-            "<strong>The Waterboys</strong> - While it has a chill mood, the "
-            "track's more expansive and expressive sound may disrupt the overall vibe.",
+            "title": "The Whole of the Moon (video version)",
+            "artist": "The Waterboys",
+            "reason": "While it has a chill mood, the track's more expansive and expressive sound may disrupt the overall vibe.",
             "item_id": "1",
         },
         {
-            "html": "<strong>China in Your Hand</strong> - <strong>T'Pau</strong>",
+            "title": "China in Your Hand",
+            "artist": "T'Pau",
+            "reason": None,
             "item_id": "2",
         },
     ]

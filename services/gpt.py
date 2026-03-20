@@ -357,10 +357,11 @@ def _normalize_removal_blocks(raw: str) -> list[str]:
 def format_removal_suggestions(
     raw: str, tracks: list[dict] | None = None
 ) -> list[dict]:
-    """Return removal suggestions with HTML and matching item IDs.
+    """Return structured removal suggestions and matching item IDs.
 
-    Each suggestion dict has ``html`` (formatted text) and ``item_id`` if a
-    matching track is found in ``tracks`` based on title and artist.
+    Each suggestion dict has ``title``, ``artist``, optional ``reason``, and
+    ``item_id`` if a matching track is found in ``tracks`` based on title and
+    artist.
     """
 
     track_index = {}
@@ -378,16 +379,19 @@ def format_removal_suggestions(
 
         remaining = _extract_remaining(text, title, artist)
 
-        formatted = f"<strong>{title}</strong> - <strong>{artist}</strong>"
-        if remaining:
-            formatted += f" - {remaining}"
-
         item_id = None
         match = track_index.get((title.lower(), artist.lower()))
         if match is not None:
             item_id = match.get("PlaylistItemId") or match.get("Id")
 
-        suggestions.append({"html": formatted, "item_id": item_id})
+        suggestions.append(
+            {
+                "title": title,
+                "artist": artist,
+                "reason": remaining or None,
+                "item_id": item_id,
+            }
+        )
 
     return suggestions
 
