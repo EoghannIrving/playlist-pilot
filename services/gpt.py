@@ -483,12 +483,15 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
     )
 
     prompt = (
-        "You are an expert music curator analyzing a playlist to guide future "
-        "additions. In 1–2 sentences, describe what kinds of tracks would "
-        "complement and extend this playlist, focusing on the overall mood, "
-        "vibe, and listening experience rather than strictly on genres or "
-        "decades, but factoring in geography. Do not suggest specific tracks "
-        "by name.\n\n"
+        "You are an expert music curator analyzing a playlist.\n\n"
+        "First, write a true profile summary of the playlist in 2-3 sentences. "
+        "Describe what the playlist currently is: its overall identity, mood, "
+        "energy, genre mix, era balance, and any geographic or stylistic character. "
+        "This must summarize the existing playlist, not recommend additions yet.\n\n"
+        "Then, in 1 sentence, describe what kinds of tracks would complement and "
+        "extend it while preserving its character. Focus on mood, vibe, listening "
+        "experience, and geography rather than listing genres mechanically. "
+        "Do not suggest specific tracks by name.\n\n"
         "Then output a section exactly titled:\n"
         "Suggested Removals\n\n"
         "In that section, list up to 4 tracks that feel out of place and could "
