@@ -231,7 +231,7 @@
                     <span class="sort-indicator text-xs text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300">⬍</span>
                   </span>
                 </th>
-                <th class="p-2 border-b cursor-pointer group text-left" data-tippy-content="Export Metadata to Jellyfin">
+                <th class="p-2 border-b cursor-pointer group text-left" data-tippy-content="Export metadata to the active media source">
                     Actions
                 </th>
               </tr>
@@ -292,7 +292,7 @@
                 class="px-1 py-0 rounded hover:bg-blue-200 export-track-metadata"
                 data-track='{{ track | tojson | safe }}'
                 data-tippy-content="Export metadata for {{ track.title }}"
-                aria-label="Export metadata for {{ track.title }} to Jellyfin">
+                aria-label="Export metadata for {{ track.title }}">
           📤
         </button>
       </td>
@@ -611,7 +611,7 @@ document.querySelectorAll('.export-track-metadata').forEach(button => {
       alert("No track data found.");
       return;
     }
-    if (confirm(`Export metadata for track "${trackData.title}" to Jellyfin?`)) {
+    if (confirm(`Export metadata for track "${trackData.title}" to the active media source?`)) {
 
       const sendExport = (extra = {}) => {
         fetch('/export/track-metadata', {

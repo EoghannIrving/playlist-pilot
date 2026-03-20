@@ -47,6 +47,7 @@ from services.jellyfin import (
 from services.lastfm import get_lastfm_tags
 from utils.helpers import get_cached_playlists, load_sorted_history, get_log_excerpt
 from utils.helpers import current_user_scope
+from utils.file_tags import write_track_tags
 from api.forms import (
     ComparePlaylistsRequest,
     HistoryDeleteRequest,
@@ -716,10 +717,11 @@ async def export_m3u(payload: Request):
     response_model=ExportTrackMetadataResponse,
     tags=["Metadata"],
 )
+# pylint: disable=too-many-locals,too-many-return-statements,too-many-branches
 async def export_track_metadata(
     payload: ExportTrackMetadataRequest,
-) -> ExportTrackMetadataResponse | JSONResponse:  # pylint: disable=too-many-locals
-    """Write enriched metadata for a track back to Jellyfin."""
+) -> ExportTrackMetadataResponse | JSONResponse:
+    """Write enriched metadata for a track to the active backend."""
 
     track = payload.track
     force_album_overwrite = payload.force_album_overwrite
@@ -729,6 +731,48 @@ async def export_track_metadata(
 
     title = track.title
     artist = track.artist
+    media_server = get_media_server()
+
+    if settings.media_backend == "navidrome":
+        existing_item = await media_server.get_track_metadata(title, artist)
+        if not existing_item:
+            return ExportTrackMetadataResponse(
+                error="Could not resolve Navidrome track metadata."
+            )
+
+        file_path = existing_item.get("Path")
+        if not file_path:
+            return ExportTrackMetadataResponse(
+                error="Could not resolve a writable file path for this Navidrome track."
+            )
+
+        existing_album = existing_item.get("Album", "")
+        incoming_album = track.album or ""
+        if not skip_album and incoming_album:
+            if existing_album and existing_album != incoming_album:
+                if not force_album_overwrite:
+                    response = ExportTrackMetadataResponse(
+                        action="confirm_overwrite_album",
+                        current_album=existing_album,
+                        suggested_album=incoming_album,
+                    )
+                    return JSONResponse(response.model_dump(), status_code=409)
+        track_payload = track.model_dump()
+        if skip_album or not incoming_album:
+            track_payload["album"] = existing_album
+
+        try:
+            write_track_tags(file_path, track_payload)
+        except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+            logger.error(
+                "Failed to write file tags for %s - %s: %s", title, artist, exc
+            )
+            return ExportTrackMetadataResponse(error=str(exc))
+
+        return ExportTrackMetadataResponse(
+            message=f"Metadata for track '{title}' exported to file tags."
+        )
+
     existing_item = await jellyfin.fetch_jellyfin_track_metadata(title, artist)
     if not existing_item or not existing_item.get("Id"):
         return ExportTrackMetadataResponse(
@@ -771,7 +815,7 @@ async def export_track_metadata(
                     current_album=existing_album,
                     suggested_album=incoming_album,
                 )
-                return JSONResponse(response.dict(), status_code=409)
+                return JSONResponse(response.model_dump(), status_code=409)
 
     # Apply updates to full item
     full_item["Genres"] = merged_genres

@@ -12,7 +12,7 @@ from starlette.datastructures import UploadFile
 from api.schemas import AnalysisExportRequest
 from api.forms import SettingsForm
 from api.routes import settings_routes, analysis_routes
-from api.schemas import VerifyEntryRequest
+from api.schemas import VerifyEntryRequest, ExportTrackMetadataRequest, TrackMetadata
 
 
 def _extract_health_check():
@@ -321,3 +321,70 @@ def test_show_analysis_page_passes_refresh_to_playlist_cache(monkeypatch):
 
     assert captured == {"user_id": "user-1", "force_refresh": True}
     assert result["refresh_requested"] is True
+
+
+def test_export_track_metadata_writes_file_tags_for_navidrome(monkeypatch):
+    """Navidrome-backed metadata export should write directly to the file path."""
+
+    captured = {}
+
+    class DummyServer:
+        async def get_track_metadata(self, _title, _artist):
+            return {"Path": "/music/song.mp3", "Album": ""}
+
+    def fake_write_track_tags(file_path, track):
+        captured["file_path"] = file_path
+        captured["track"] = track
+
+    monkeypatch.setattr(
+        analysis_routes.settings, "media_backend", "navidrome", raising=False
+    )
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(analysis_routes, "write_track_tags", fake_write_track_tags)
+
+    result = asyncio.run(
+        analysis_routes.export_track_metadata(
+            ExportTrackMetadataRequest(
+                track=TrackMetadata(
+                    title="Song",
+                    artist="Artist",
+                    album="New Album",
+                    genre="rock",
+                    mood="happy",
+                    tempo=120,
+                )
+            )
+        )
+    )
+
+    assert result.message == "Metadata for track 'Song' exported to file tags."
+    assert captured["file_path"] == "/music/song.mp3"
+    assert captured["track"]["album"] == "New Album"
+    assert captured["track"]["genre"] == "rock"
+
+
+def test_export_track_metadata_navidrome_album_conflict(monkeypatch):
+    """Navidrome file-tag export should preserve album overwrite confirmation."""
+
+    class DummyServer:
+        async def get_track_metadata(self, _title, _artist):
+            return {"Path": "/music/song.mp3", "Album": "Old Album"}
+
+    monkeypatch.setattr(
+        analysis_routes.settings, "media_backend", "navidrome", raising=False
+    )
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+
+    response = asyncio.run(
+        analysis_routes.export_track_metadata(
+            ExportTrackMetadataRequest(
+                track=TrackMetadata(
+                    title="Song",
+                    artist="Artist",
+                    album="New Album",
+                )
+            )
+        )
+    )
+
+    assert response.status_code == 409

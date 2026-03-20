@@ -14,7 +14,7 @@ def test_navidrome_adapter_capabilities():
     assert adapter.backend_name() == "navidrome"
     assert adapter.requires_user_id() is False
     assert adapter.supports_lyrics() is True
-    assert adapter.supports_path_resolution() is False
+    assert adapter.supports_path_resolution() is True
 
 
 def test_navidrome_test_connection(monkeypatch):
@@ -89,6 +89,15 @@ def test_navidrome_get_track_metadata(monkeypatch):
                     }
                 },
             )
+            mock.get("http://nav/rest/getSong.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "song": {"id": "x", "title": "Song", "artist": "Artist"},
+                    }
+                },
+            )
             metadata = await NavidromeAdapter().get_track_metadata("Song", "Artist")
             assert metadata["Id"] == "x"
             assert metadata["Name"] == "Song"
@@ -97,6 +106,47 @@ def test_navidrome_get_track_metadata(monkeypatch):
             assert metadata["Genres"] == []
             assert metadata["RunTimeTicks"] == 0
             assert metadata["UserData"]["PlayCount"] == 0
+            assert metadata["Path"] is None
+
+    asyncio.run(main())
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+def test_navidrome_resolve_track_path_hydrates_song(monkeypatch):
+    """Path resolution should hydrate sparse search results via ``getSong``."""
+    monkeypatch.setattr(settings, "media_url", "http://nav", raising=False)
+    monkeypatch.setattr(settings, "media_username", "user", raising=False)
+    monkeypatch.setattr(settings, "media_password", "pass", raising=False)
+
+    async def main():
+        with respx.mock(assert_all_called=True) as mock:
+            mock.get("http://nav/rest/search3.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "searchResult3": {
+                            "song": [{"id": "x", "title": "Song", "artist": "Artist"}]
+                        },
+                    }
+                },
+            )
+            mock.get("http://nav/rest/getSong.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "song": {
+                            "id": "x",
+                            "title": "Song",
+                            "artist": "Artist",
+                            "path": "/music/song.mp3",
+                        },
+                    }
+                },
+            )
+            path = await NavidromeAdapter().resolve_track_path("Song", "Artist")
+            assert path == "/music/song.mp3"
 
     asyncio.run(main())
     asyncio.set_event_loop(asyncio.new_event_loop())

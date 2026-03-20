@@ -59,7 +59,7 @@ class NavidromeAdapter(MediaServer):
         return True
 
     def supports_path_resolution(self) -> bool:
-        return False
+        return True
 
     def _auth_params(self) -> dict[str, str]:
         salt = secrets.token_hex(3)
@@ -268,7 +268,8 @@ class NavidromeAdapter(MediaServer):
                 song_title = str(song.get("title", "")).lower()
                 song_artist = str(song.get("artist", "")).lower()
                 if title_lower in song_title and artist_lower in song_artist:
-                    return self._normalize_song(song)
+                    full_song = await self._hydrate_song(song)
+                    return self._normalize_song(full_song)
             return None
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
             logger.error("Navidrome track metadata lookup failed: %s", exc)
@@ -348,6 +349,10 @@ class NavidromeAdapter(MediaServer):
         return False
 
     async def resolve_track_path(self, title: str, artist: str) -> str | None:
-        """Navidrome path resolution is not exposed by default."""
-        del title, artist
+        """Resolve a Navidrome track path via metadata lookup."""
+        metadata = await self.get_track_metadata(title, artist)
+        if isinstance(metadata, dict):
+            path = metadata.get("Path")
+            if isinstance(path, str) and path.strip():
+                return path
         return None
