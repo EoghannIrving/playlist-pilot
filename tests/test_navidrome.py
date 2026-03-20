@@ -157,3 +157,56 @@ def test_navidrome_get_playlist_tracks_normalizes_entries(monkeypatch):
 
     asyncio.run(main())
     asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+def test_navidrome_get_playlist_tracks_hydrates_sparse_entries(monkeypatch):
+    """Sparse playlist entries should be hydrated through ``getSong``."""
+    monkeypatch.setattr(settings, "media_url", "http://nav", raising=False)
+    monkeypatch.setattr(settings, "media_username", "user", raising=False)
+    monkeypatch.setattr(settings, "media_password", "pass", raising=False)
+
+    async def main():
+        with respx.mock(assert_all_called=True) as mock:
+            mock.get("http://nav/rest/getPlaylist.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "playlist": {
+                            "entry": [
+                                {
+                                    "id": "track-2",
+                                    "title": "Song",
+                                    "artist": "Artist",
+                                }
+                            ]
+                        },
+                    }
+                },
+            )
+            mock.get("http://nav/rest/getSong.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "song": {
+                            "id": "track-2",
+                            "title": "Song",
+                            "artist": "Artist",
+                            "album": "Album",
+                            "genre": "Pop",
+                            "year": 1984,
+                            "duration": 240,
+                            "playCount": 3,
+                        },
+                    }
+                },
+            )
+            tracks = await NavidromeAdapter().get_playlist_tracks("playlist-1")
+            assert tracks[0]["Genres"] == ["Pop"]
+            assert tracks[0]["ProductionYear"] == 1984
+            assert tracks[0]["RunTimeTicks"] == 2400000000
+            assert tracks[0]["UserData"]["PlayCount"] == 3
+
+    asyncio.run(main())
+    asyncio.set_event_loop(asyncio.new_event_loop())

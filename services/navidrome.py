@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -146,6 +147,35 @@ class NavidromeAdapter(MediaServer):
             "backend_item_id": item_id or None,
         }
 
+    @staticmethod
+    def _needs_song_hydration(song: dict[str, Any]) -> bool:
+        """Return whether a playlist entry is missing useful metadata."""
+        return not (
+            song.get("genre")
+            and song.get("duration")
+            and song.get("year")
+            and song.get("artist")
+            and song.get("title")
+        )
+
+    async def _hydrate_song(self, song: dict[str, Any]) -> dict[str, Any]:
+        """Fetch a full song record when a playlist entry is sparse."""
+        if not self._needs_song_hydration(song):
+            return song
+        item_id = str(song.get("id", "")).strip()
+        if not item_id:
+            return song
+        try:
+            data = await self._get("getSong", id=item_id)
+            full_song = data.get("song", {})
+            if isinstance(full_song, dict) and full_song.get("id"):
+                merged = dict(song)
+                merged.update(full_song)
+                return merged
+        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            logger.warning("Failed to hydrate Navidrome song %s: %s", item_id, exc)
+        return song
+
     async def test_connection(self) -> dict:
         """Verify Navidrome connectivity using current settings."""
         try:
@@ -201,14 +231,23 @@ class NavidromeAdapter(MediaServer):
             entries = playlist.get("entry", [])
             if isinstance(entries, dict):
                 entries = [entries]
+            hydrated_entries = await self._hydrate_playlist_entries(entries)
             return [
                 self._normalize_song(entry)
-                for entry in entries
+                for entry in hydrated_entries
                 if isinstance(entry, dict)
             ]
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
             logger.error("Failed to fetch Navidrome playlist %s: %s", playlist_id, exc)
             return []
+
+    async def _hydrate_playlist_entries(
+        self, entries: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Hydrate sparse playlist entries using ``getSong``."""
+        return await asyncio.gather(
+            *[self._hydrate_song(entry) for entry in entries if isinstance(entry, dict)]
+        )
 
     async def search_track(self, title: str, artist: str) -> bool:
         """Return whether a track exists in the library."""

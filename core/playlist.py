@@ -419,17 +419,22 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
 
     year_info = _determine_year(parsed.year or "", bpm_data.get("year"))
     mood_data = await _classify_mood(parsed, lastfm["tags"], bpm_data)
+    selected_genre = _select_genre(parsed.Genres or [], lastfm["tags"]) or "Unknown"
+    duration_seconds = _duration_from_ticks(parsed.RunTimeTicks, bpm_data)
+    tempo = bpm_data.get("bpm") or parsed.tempo
+    if tempo is None and duration_seconds:
+        tempo = estimate_tempo(duration_seconds, selected_genre)
 
     return EnrichedTrack(
         **parsed.model_dump(
             exclude={"tempo", "jellyfin_play_count", "play_count", "album"}
         ),
-        genre=_select_genre(parsed.Genres or [], lastfm["tags"]) or "Unknown",
+        genre=selected_genre,
         mood=mood_data[0],
         mood_confidence=round(mood_data[1], 2),
-        tempo=bpm_data.get("bpm") or parsed.tempo,
+        tempo=tempo,
         decade=infer_decade(year_info[0] or ""),
-        duration=_duration_from_ticks(parsed.RunTimeTicks, bpm_data),
+        duration=duration_seconds,
         popularity=lastfm["listeners"],
         play_count=parsed.play_count,
         jellyfin_play_count=parsed.jellyfin_play_count,

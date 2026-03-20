@@ -46,3 +46,4 @@ def test_enrich_track_uses_spotify(monkeypatch):
     assert enriched.album == "Album"
     assert enriched.RunTimeTicks == 123000 * 10000
     assert enriched.FinalYear == "2000"
+    assert enriched.tempo == 100
