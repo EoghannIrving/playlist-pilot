@@ -268,6 +268,59 @@ def test_format_removal_suggestions_by_style():
     ]
 
 
+def test_format_removal_suggestions_multiline_justification():
+    """Multiline removal suggestions should be collapsed into one entry."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+    format_lines = gpt_mod.format_removal_suggestions
+
+    raw = (
+        "The Whole of the Moon (video version) - The Waterboys\n"
+        "Justification: While it has a chill mood, the track's more expansive "
+        "and expressive sound may disrupt the overall vibe.\n"
+        "China in Your Hand - T'Pau"
+    )
+    tracks = [
+        {
+            "title": "The Whole of the Moon (video version)",
+            "artist": "The Waterboys",
+            "PlaylistItemId": "1",
+        },
+        {"title": "China in Your Hand", "artist": "T'Pau", "PlaylistItemId": "2"},
+    ]
+    result = format_lines(raw, tracks)
+    assert result == [
+        {
+            "html": "<strong>The Whole of the Moon (video version)</strong> - "
+            "<strong>The Waterboys</strong> - While it has a chill mood, the "
+            "track's more expansive and expressive sound may disrupt the overall vibe.",
+            "item_id": "1",
+        },
+        {
+            "html": "<strong>China in Your Hand</strong> - <strong>T'Pau</strong>",
+            "item_id": "2",
+        },
+    ]
+
+
 def test_extract_remaining_handles_dashes():
     """_extract_remaining should ignore dashes inside titles or artists."""
     openai_stub = types.ModuleType("openai")

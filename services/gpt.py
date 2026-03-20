@@ -310,6 +310,50 @@ def _extract_remaining(text: str, title: str, artist: str) -> str:
     return parts[2].strip() if len(parts) > 2 else ""
 
 
+def _normalize_removal_blocks(raw: str) -> list[str]:
+    """Collapse multiline GPT removal suggestions into one line each."""
+    blocks: list[str] = []
+    current: str | None = None
+    ignored_patterns = (
+        r"^thanks[!. ]*$",
+        r"^thank you[!. ]*$",
+        r"^hope this helps[!. ]*$",
+    )
+
+    for line in raw.splitlines():
+        text = strip_number_prefix(line).strip()
+        if not text:
+            continue
+        if text.lower().startswith("suggested removals"):
+            continue
+        if any(
+            re.match(pattern, text, flags=re.IGNORECASE) for pattern in ignored_patterns
+        ):
+            continue
+
+        if text.lower().startswith("justification:"):
+            reason = text.split(":", 1)[1].strip()
+            if current and reason:
+                current = f"{current} - {reason}"
+            continue
+
+        try:
+            parse_gpt_line(text)
+        except ValueError:
+            if current:
+                current = f"{current} {text}".strip()
+            continue
+
+        if current:
+            blocks.append(current)
+        current = text
+
+    if current:
+        blocks.append(current)
+
+    return blocks
+
+
 def format_removal_suggestions(
     raw: str, tracks: list[dict] | None = None
 ) -> list[dict]:
@@ -326,10 +370,7 @@ def format_removal_suggestions(
         }
 
     suggestions: list[dict] = []
-    for line in raw.splitlines():
-        text = strip_number_prefix(line).strip()
-        if not text:
-            continue
+    for text in _normalize_removal_blocks(raw):
         try:
             title, artist = parse_gpt_line(text)
         except ValueError:
@@ -444,9 +485,20 @@ async def generate_playlist_analysis_summary(summary: dict, tracks: list):
         "vibe, and listening experience rather than strictly on genres or "
         "decades, but factoring in geography. Do not suggest specific tracks "
         "by name.\n\n"
-        "Then, suggest up to 4 tracks that feel out of place and could be "
-        "removed to improve consistency under the heading Suggested Removals. "
-        "Justify each suggestion briefly. You can suggest less than 4.\n\n"
+        "Then output a section exactly titled:\n"
+        "Suggested Removals\n\n"
+        "In that section, list up to 4 tracks that feel out of place and could "
+        "be removed to improve consistency. You can suggest fewer than 4.\n\n"
+        "Formatting rules for Suggested Removals:\n"
+        "- Each removal must be on exactly one line.\n"
+        "- Use exactly this format:\n"
+        "  Title - Artist - Short reason\n"
+        "- Do not use bullets, numbering, markdown, labels, or extra commentary.\n"
+        "- Do not use a separate 'Justification:' line.\n"
+        "- Keep each reason under 18 words.\n"
+        "- Only use tracks from the provided playlist.\n"
+        "- If no removals are warranted, output exactly:\n"
+        "  None\n\n"
         "Tracks:\n"
         f"{track_blob}"
     )
