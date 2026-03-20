@@ -276,16 +276,21 @@ def add_combined_popularity(
 ) -> list[dict]:
     """Calculate combined popularity for a list of track dictionaries."""
 
-    jellyfin_raw = [
-        t["jellyfin_play_count"]
-        for t in tracks
-        if isinstance(t.get("jellyfin_play_count"), int)
-    ]
+    def _play_count(track: dict) -> int | None:
+        value = track.get("play_count")
+        if isinstance(value, int):
+            return value
+        value = track.get("jellyfin_play_count")
+        if isinstance(value, int):
+            return value
+        return None
+
+    jellyfin_raw = [value for t in tracks if (value := _play_count(t)) is not None]
     min_jf, max_jf = min(jellyfin_raw, default=0), max(jellyfin_raw, default=0)
 
     for track in tracks:
         raw_lfm = track.get("popularity")
-        raw_jf = track.get("jellyfin_play_count")
+        raw_jf = _play_count(track)
         norm_lfm = (
             normalize_popularity_log(
                 raw_lfm, get_global_min_lfm(), get_global_max_lfm()

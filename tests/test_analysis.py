@@ -23,18 +23,18 @@ def test_combined_popularity_score_basic():
 def test_add_combined_popularity():
     """Verify ``combined_popularity`` field is added to all tracks."""
     tracks = [
-        {"jellyfin_play_count": 10, "popularity": 5000},
-        {"jellyfin_play_count": 20, "popularity": 10000},
+        {"play_count": 10, "popularity": 5000},
+        {"play_count": 20, "popularity": 10000},
     ]
     result = add_combined_popularity(tracks, w_lfm=0.5, w_jf=0.5)
     assert all("combined_popularity" in t for t in result)
 
 
 def test_add_combined_popularity_uniform_counts():
-    """Uniform Jellyfin counts should yield full popularity."""
+    """Uniform play counts should yield full popularity."""
     tracks = [
-        {"jellyfin_play_count": 5, "popularity": 100},
-        {"jellyfin_play_count": 5, "popularity": 200},
+        {"play_count": 5, "popularity": 100},
+        {"play_count": 5, "popularity": 200},
     ]
     result = add_combined_popularity(tracks, w_lfm=0.0, w_jf=1.0)
     assert all(t["combined_popularity"] == 100 for t in result)

@@ -2,6 +2,7 @@
 
 import asyncio
 
+import services.jellyfin as jellyfin_module
 from services.jellyfin import JellyfinAdapter, strip_lrc_timecodes
 
 
@@ -40,10 +41,7 @@ def test_jellyfin_adapter_delegates_track_metadata(monkeypatch):
         assert artist == "Artist"
         return {"Id": "123"}
 
-    monkeypatch.setattr(
-        "services.jellyfin.fetch_jellyfin_track_metadata",
-        fake_fetch,
-    )
+    monkeypatch.setattr(jellyfin_module, "fetch_jellyfin_track_metadata", fake_fetch)
     adapter = JellyfinAdapter()
     result = asyncio.run(adapter.get_track_metadata("Song", "Artist"))
     assert result == {"Id": "123"}

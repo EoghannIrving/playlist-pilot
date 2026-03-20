@@ -15,6 +15,12 @@ class SettingsForm(AppSettings):
     @classmethod
     def as_form(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         cls,
+        media_backend: str = Form("jellyfin"),
+        media_url: str = Form(""),
+        media_username: str = Form(""),
+        media_password: str = Form(""),
+        media_api_key: str = Form(""),
+        media_user_id: str = Form(""),
         jellyfin_url: str = Form(""),
         jellyfin_api_key: str = Form(""),
         jellyfin_user_id: str = Form(""),
@@ -58,6 +64,12 @@ class SettingsForm(AppSettings):
                 ) from exc
 
         return cls(
+            media_backend=media_backend,
+            media_url=media_url or jellyfin_url,
+            media_username=media_username,
+            media_password=media_password,
+            media_api_key=media_api_key or jellyfin_api_key,
+            media_user_id=media_user_id or jellyfin_user_id,
             jellyfin_url=jellyfin_url,
             jellyfin_api_key=jellyfin_api_key,
             jellyfin_user_id=jellyfin_user_id,

@@ -2,6 +2,7 @@
 
 from services.jellyfin import JellyfinAdapter
 from services.media_factory import get_media_server
+from services.navidrome import NavidromeAdapter
 from config import settings
 
 
@@ -28,3 +29,10 @@ def test_get_media_server_uses_default_when_backend_empty(monkeypatch):
     monkeypatch.setattr(settings, "media_backend", "", raising=False)
     adapter = get_media_server()
     assert isinstance(adapter, JellyfinAdapter)
+
+
+def test_get_media_server_supports_navidrome(monkeypatch):
+    """Navidrome backend selection should return the Navidrome adapter."""
+    monkeypatch.setattr(settings, "media_backend", "navidrome", raising=False)
+    adapter = get_media_server()
+    assert isinstance(adapter, NavidromeAdapter)

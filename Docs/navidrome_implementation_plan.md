@@ -14,16 +14,7 @@ This reduces long-term maintenance cost compared with a Navidrome-only fork and 
 
 ## Current State
 
-Playlist Pilot is currently Jellyfin-centric in several layers:
-
-- configuration fields are Jellyfin-specific
-- the settings UI is Jellyfin-specific
-- API connection tests are Jellyfin-specific
-- core playlist logic imports Jellyfin helpers directly
-- M3U export logic assumes Jellyfin path resolution
-- multiple tests monkeypatch `services.jellyfin` directly
-
-The main integration boundary is concentrated enough that this can be refactored safely if done in stages.
+The adapter foundation is in place and the first backend-agnostic core and route migrations are complete. The remaining work is centered on adding the Navidrome implementation, wiring backend selection through the UI and settings flow, and cleaning up transitional Jellyfin-specific naming.
 
 ## Implementation Strategy
 
@@ -236,18 +227,20 @@ Documentation and tests fully cover multi-backend support.
 ### Completed
 
 - PR 1: Adapter foundation
+- PR 2: core and settings-route migration
+- PR 3: Navidrome adapter and backend-aware settings flow
 - `MediaServer` contract added
 - `JellyfinAdapter` added
+- `NavidromeAdapter` added
 - `get_media_server()` factory added
 - generic media settings added
 - legacy Jellyfin settings migration added
-- first core caller path migrated through the adapter factory
-- targeted tests added for factory, config migration, adapter behavior, and playlist factory usage
+- adapter-based playlist, M3U, and settings-route paths added
+- backend-aware settings template added
+- targeted tests added for factory, config migration, adapter behavior, forms, routes, playlist, M3U, and Navidrome flows
 
 ### Remaining
 
-- PR 2: migrate remaining `core/` and `api/routes/` code paths to the adapter
-- PR 3: implement Navidrome adapter and backend-specific wiring
 - PR 4: cleanup, terminology normalization, docs completion, and full test pass
 
 ## Resolved Design Decisions
@@ -532,284 +525,6 @@ Keep a small number of backend-specific tests only for:
 - response parsing
 - backend capability differences
 
-## File-By-File Execution Checklist
-
-Work through these files in order. The goal is to land the abstraction first, then migrate callers, then add Navidrome.
-
-### 1. New Adapter Layer
-
-#### `services/media_server.py`
-
-- define the `MediaServer` abstract base class or protocol
-- define normalized typed shapes or helper models for track, playlist, and user data
-- define adapter capability methods such as `requires_user_id()`, `supports_lyrics()`, and `supports_path_resolution()`
-- define `get_media_server()` or keep the factory in a separate file if cleaner
-
-#### `services/navidrome.py`
-
-- create the `NavidromeAdapter`
-- implement Subsonic or OpenSubsonic request helpers
-- implement normalized playlist listing
-- implement normalized track lookup and metadata lookup
-- implement normalized lyrics lookup
-- implement server-side playlist create or update flows
-- return `None` for unsupported path resolution until proven reliable
-
-#### Optional: `services/media_factory.py`
-
-- add this file only if the factory feels too large for `services/media_server.py`
-- centralize backend selection and adapter construction here
-
-### 2. Existing Jellyfin Integration Refactor
-
-#### `services/jellyfin.py`
-
-- convert current top-level helper functions into methods consumable by `JellyfinAdapter`
-- preserve current request behavior and response parsing
-- normalize return values into the canonical shapes defined in the new adapter layer
-- keep temporary compatibility wrappers if existing code still imports old helpers during transition
-
-#### `services/__init__.py`
-
-- export the new adapter-facing entry points if needed
-- avoid re-exporting Jellyfin-specific helpers as the long-term public interface
-
-### 3. Settings And Configuration
-
-#### `config.py`
-
-- add the new generic media-server fields:
-  - `media_backend`
-  - `media_url`
-  - `media_username`
-  - `media_password`
-  - `media_api_key`
-  - `media_user_id`
-- implement migration from legacy Jellyfin keys during `load_settings()`
-- update `validate_settings()` to branch on `media_backend`
-- update cache invalidation helpers if cache key naming changes require it
-- ensure `save_settings()` writes the canonical schema only
-
-#### `env.example`
-
-- replace or supplement Jellyfin-only examples with generic media-server settings
-- document the Jellyfin and Navidrome variants clearly
-
-#### `core/constants.py`
-
-- replace hard-coded Jellyfin default-setting keys with generic media-setting keys
-- keep temporary aliases only if still needed by older code paths
-
-### 4. Forms, Schemas, And Route Wiring
-
-#### `api/forms.py`
-
-- replace Jellyfin-only form fields with generic media-server fields
-- keep transitional aliases only if needed for backward compatibility
-- ensure form parsing matches the new validation model
-
-#### `api/schemas.py`
-
-- add or rename request and response models for backend-neutral connection testing
-- preserve backward compatibility only if existing frontend JavaScript still depends on current names during transition
-
-#### `api/routes/settings_routes.py`
-
-- replace direct imports from `services.jellyfin`
-- load the active adapter from the factory
-- route connection tests through the active backend
-- make user-list loading conditional on backend capability
-- update settings save logic to write generic media fields
-
-#### Other files under `api/routes/`
-
-- search for direct `services.jellyfin` imports
-- switch playlist and metadata calls to the adapter factory
-- rename route labels or tags that should become backend-neutral
-
-### 5. Core Logic Migration
-
-#### `core/playlist.py`
-
-- remove direct imports of Jellyfin helpers
-- call the active adapter for:
-  - playlist listing
-  - playlist track fetch
-  - library scanning
-  - track metadata lookup
-- replace backend-native field usage such as `jellyfin_play_count` with normalized fields
-- keep any temporary translation layer near the adapter boundary, not spread through the file
-
-#### `core/m3u.py`
-
-- remove direct imports of Jellyfin helpers
-- route metadata lookup and path resolution through the adapter
-- make server-side playlist creation the preferred export path where supported
-- keep path-based M3U export as a capability-driven fallback
-
-#### `core/analysis.py`
-
-- replace direct references to Jellyfin-specific popularity fields
-- use normalized `play_count`
-- verify all ranking and normalization functions still behave correctly with missing play counts
-
-#### `core/models.py`
-
-- update model fields if they currently encode Jellyfin-specific names
-- add normalized backend-neutral fields where needed
-- keep compatibility fields only if removing them would cause excessive churn in one pass
-
-#### `core/templates.py`
-
-- update any template context helpers that assume Jellyfin naming
-- expose backend name or capability flags to templates where needed
-
-#### `core/history.py`
-
-- inspect stored suggestion payloads for fields like `in_jellyfin`
-- decide whether to migrate to `in_library` during write, read, or both
-
-### 6. Templates And Frontend Text
-
-#### `templates/settings.html`
-
-- add a backend selector
-- conditionally render backend-specific credential fields
-- rename general labels from `Jellyfin` to `Media Server` where appropriate
-- adjust the connection-test JavaScript to call the backend-neutral route or payload
-
-#### `templates/analyze.html`
-
-- rename `Jellyfin Playlist` labels to backend-neutral wording
-- update any element IDs or JavaScript variables that encode Jellyfin-specific names if they are part of shared UX
-
-#### `templates/compare.html`
-
-- make playlist source wording backend-neutral
-- update any serialized playlist variables or frontend labels that still imply Jellyfin-only behavior
-
-#### `templates/history.html`
-
-- rename export actions if they should target the active backend instead of Jellyfin specifically
-- update any `in_jellyfin` display logic to use normalized `in_library`
-
-#### `templates/results.html`
-
-- update library-presence markers to use backend-neutral naming
-
-#### Other templates
-
-- search for visible `Jellyfin` wording
-- leave backend-specific wording only where it is intentionally describing the selected backend
-
-### 7. Utility Layer
-
-#### `utils/cache_manager.py`
-
-- update cache-key composition to include backend and user scope
-- decide whether cache bucket names stay the same or become backend-neutral
-- ensure no cache helpers assume Jellyfin-only fields
-
-#### `utils/integration_watchdog.py`
-
-- generalize integration names if failures are currently tracked under Jellyfin-only assumptions
-- ensure Navidrome can be tracked independently in logs and warnings
-
-#### `utils/helpers.py`
-
-- inspect for any backend-specific formatting or messages
-
-### 8. Tests
-
-#### `tests/test_jellyfin.py`
-
-- convert these into adapter-focused Jellyfin tests
-- keep them validating parsing and capability behavior specific to Jellyfin
-
-#### `tests/test_playlist.py`
-
-- replace direct monkeypatching of `services.jellyfin` with monkeypatching of the adapter factory or adapter methods
-- update assertions to use normalized fields
-
-#### `tests/test_m3u.py`
-
-- update export tests for capability-based path resolution
-- add coverage for server-side export behavior if implemented here
-
-#### `tests/test_api_routes.py`
-
-- update route tests to reflect backend-neutral settings and connection-test flows
-- add coverage for backend-specific required fields
-
-#### `tests/test_config.py`
-
-- add coverage for legacy Jellyfin settings migration
-- add validation tests for Jellyfin and Navidrome backend modes
-
-#### `tests/test_history.py`
-
-- update stored field expectations if historical payload naming changes
-
-#### `tests/conftest.py`
-
-- add reusable adapter fixtures or backend-setting fixtures
-- centralize factory monkeypatching here if it reduces repeated setup
-
-#### Additional new tests
-
-- add adapter contract tests
-- add Navidrome-specific parsing tests
-- add factory-selection tests
-
-### 9. Documentation
-
-#### `README.md`
-
-- update feature descriptions from Jellyfin-first to multi-backend
-- document supported backends and their required settings
-
-#### `Docs/architecture.md`
-
-- describe the adapter layer and backend selection flow
-
-#### `Docs/configuration.md`
-
-- document the new generic media-server settings
-- include backend-specific examples for Jellyfin and Navidrome
-
-#### `Docs/usage_guide.md`
-
-- update user-facing setup and playlist flow descriptions where they mention Jellyfin specifically
-
-#### `Docs/api_reference.md`
-
-- rename or document any backend-neutral testing routes and settings payloads
-
-#### `Docs/navidrome_implementation_plan.md`
-
-- check off completed milestones as work progresses
-- keep implementation notes here if design changes are needed
-
-### 10. Final Verification Pass
-
-#### Repository-wide search
-
-- search for:
-  - `jellyfin_`
-  - `Jellyfin`
-  - `in_jellyfin`
-  - `jellyfin_play_count`
-- classify each remaining occurrence as:
-  - intentional backend-specific code
-  - transitional compatibility code
-  - cleanup still required
-
-#### Verification commands
-
-- run `black .`
-- run `pylint core api services utils`
-- run `pytest`
-
 ## Recommended PR Breakdown
 
 ### PR 1: Adapter Foundation
@@ -835,154 +550,183 @@ Work through these files in order. The goal is to land the abstraction first, th
 - clean up compatibility shims
 - finish docs and test updates
 
-## PR 2 Detailed Execution Checklist
+## PR 3 Detailed Execution Checklist
 
-This is the second implementation slice. It should migrate the remaining Jellyfin-dependent application paths to the adapter layer while keeping Jellyfin as the only active backend.
+This is the third implementation slice. It should add a working `NavidromeAdapter`, extend backend selection beyond Jellyfin, and wire backend-aware validation and settings behavior without attempting the full terminology cleanup yet.
 
 ### Goal
 
-Make `core/` and `api/routes/` backend-agnostic enough that adding `NavidromeAdapter` becomes additive rather than invasive.
+Make Navidrome a real second backend with working connection, user-context handling, playlist listing, playlist track fetch, metadata lookup, and basic export-compatible behavior.
 
 ### Non-Goals
 
-- no Navidrome implementation yet
-- no backend selector UI yet
-- no full terminology cleanup yet unless required by route or core migration
-- no removal of legacy Jellyfin compatibility fields yet
+- no broad naming cleanup yet
+- no full conversion from legacy history fields like `in_jellyfin`
+- no comprehensive UI polish beyond what is required to choose and validate the backend
+- no full cache-key redesign unless required for correctness
 
 ### Primary Work Areas
 
-#### `core/playlist.py`
+#### `services/navidrome.py`
 
-- replace remaining direct Jellyfin helper usage where the adapter already has equivalent methods
-- migrate:
-  - playlist track fetch
-  - full library scan calls
-  - track metadata lookup calls
-- keep temporary compatibility translation near the adapter boundary if legacy downstream code still expects Jellyfin-shaped fields
-- leave backend-specific response shaping inside adapters, not in this file
-
-#### `core/m3u.py`
-
-- replace direct imports from `services.jellyfin`
-- use `get_media_server()` for:
+- add `NavidromeAdapter(MediaServer)`
+- implement authenticated request helper(s) for the Subsonic or OpenSubsonic API
+- implement:
+  - `backend_name() -> "navidrome"`
+  - `requires_user_id() -> False`
+  - `supports_lyrics()`
+  - `supports_path_resolution() -> False` initially unless a reliable path flow is verified
+  - `test_connection()`
+  - `list_users()`
+  - `list_audio_playlists()`
+  - `get_playlist_tracks()`
+  - `search_track()`
   - `get_track_metadata()`
+  - `get_full_audio_library()`
+  - `get_lyrics()`
+  - `create_playlist()`
+- implement safe default stubs for:
+  - `update_playlist()`
+  - `delete_playlist()`
   - `resolve_track_path()`
-- keep current path-based export behavior for Jellyfin
-- structure export flow so server-side playlist export can be added in PR 3 without another major rewrite
+
+#### `services/media_factory.py`
+
+- extend `get_media_server()` to return `NavidromeAdapter` when `settings.media_backend == "navidrome"`
+- preserve clear error messages for unsupported backends
+
+#### `config.py`
+
+- ensure `validate_settings()` enforces:
+  - Jellyfin: `media_url`, `media_api_key`, `media_user_id`
+  - Navidrome: `media_url`, `media_username`, `media_password`
+- keep legacy Jellyfin fallback logic for transition
+- do not add Navidrome-specific legacy compatibility fields
 
 #### `api/routes/settings_routes.py`
 
-- replace direct `services.jellyfin` imports with adapter-factory usage where practical
-- route settings page user loading through `get_media_server().list_users()`
-- route connection tests through `get_media_server().test_connection()` or a backend-neutral helper
-- keep current Jellyfin route names if changing them would force premature frontend churn
-- make route internals backend-aware even if the public endpoint names stay transitional
+- make settings-page user loading conditional on backend capability
+- for Navidrome, allow empty user list or authenticated-user-only behavior
+- route connection testing through backend-aware logic
+- keep the current `/test/jellyfin` endpoint only if the frontend still depends on it
+- if needed, make the endpoint backend-aware internally while leaving the route name transitional
 
 #### `api/forms.py`
 
-- add generic media-server fields:
-  - `media_backend`
-  - `media_url`
-  - `media_username`
-  - `media_password`
-  - `media_api_key`
-  - `media_user_id`
-- keep legacy Jellyfin fields accepted during transition if route wiring still reads them
-- prefer generic fields in returned form objects
-
-#### `api/schemas.py`
-
-- add backend-neutral request or response models if needed for connection testing
-- avoid broad schema churn unless required for `settings_routes.py`
-
-#### `core/analysis.py`
-
-- start replacing direct `jellyfin_play_count` assumptions where low-risk
-- if a full rename is too large for PR 2, add a compatibility normalization step and defer the final rename to PR 4
+- confirm generic media fields are sufficient for Navidrome
+- ensure `media_username` and `media_password` are preserved into `SettingsForm`
 
 ### Secondary Work Areas
 
-#### `core/models.py`
+#### `templates/settings.html`
 
-- inspect whether model fields need additive normalized aliases such as `play_count` or `in_library`
-- avoid large incompatible model surgery in PR 2 unless it unblocks adapter usage
+- add a backend selector if the current page still assumes Jellyfin-only configuration
+- conditionally show:
+  - API key and user ID for Jellyfin
+  - username and password for Navidrome
+- keep existing layout changes minimal in PR 3
 
-#### `core/history.py`
+#### `api/schemas.py`
 
-- keep writing existing history payload shape unless changing it is necessary for migrated core paths
-- if needed, add read-time compatibility for both `in_jellyfin` and `in_library`
+- add backend-neutral connection-test models only if required by route wiring
+- otherwise preserve current schema churn for PR 4
 
-#### `services/jellyfin.py`
+#### `core/playlist.py`
 
-- add any missing adapter methods needed by migrated callers
-- keep existing helper functions only where still referenced by transitional code
-- do not start Navidrome code here
+- verify existing adapter-based paths work with Navidrome return shapes
+- add compatibility translation only where a migrated flow still assumes Jellyfin-shaped data
+
+#### `core/m3u.py`
+
+- keep path-based export as capability-driven
+- ensure Navidrome gracefully falls back when `resolve_track_path()` returns `None`
+
+### Navidrome Capability Targets
+
+PR 3 should support:
+
+- connection validation
+- authenticated user context
+- playlist listing
+- playlist track retrieval
+- track metadata lookup
+- library search or scan
+- server-side playlist creation if practical
+
+PR 3 may defer:
+
+- reliable path-based M3U export
+- rich lyrics support if the API surface is inconsistent
+- full playlist update or delete support
 
 ### Tests To Add Or Update
 
-#### `tests/test_playlist.py`
+#### New tests
 
-- add coverage for additional adapter-based code paths migrated in `core/playlist.py`
-- patch the factory or adapter methods instead of patching Jellyfin helpers directly where possible
+- `tests/test_navidrome.py`
+  - adapter capability flags
+  - connection-test parsing
+  - playlist-list parsing
+  - track metadata parsing
+  - library lookup behavior
 
-#### `tests/test_m3u.py`
+- adapter-factory coverage
+  - extend `tests/test_media_factory.py` for Navidrome selection
 
-- replace direct `services.jellyfin` monkeypatching with adapter-based patching for migrated paths
-- cover capability-based path resolution behavior
+#### Existing tests to extend
 
-#### `tests/test_api_routes.py`
+- `tests/test_config.py`
+  - Navidrome validation success
+  - Navidrome missing-field validation errors
 
-- update settings-route tests to reflect adapter-based user loading and connection testing
-- add coverage for backend-neutral settings fields if they are introduced into route handling in this PR
+- `tests/test_forms.py`
+  - Navidrome form parsing for username and password
 
-#### `tests/test_forms.py`
+- `tests/test_api_routes.py`
+  - settings routes with Navidrome active
+  - route behavior when `list_users()` returns an empty list
 
-- add tests for generic media-server form parsing
-- keep transition coverage for legacy Jellyfin fields if still accepted
+- `tests/test_playlist.py`
+  - at least one adapter-driven flow using a Navidrome-like server stub
 
-#### `tests/test_config.py`
-
-- add any extra coverage required by the route and form migration
-
-### Exact Search Targets For PR 2
+### Exact Search Targets For PR 3
 
 Repository-wide searches to run before editing:
 
-- `from services.jellyfin import`
-- `services.jellyfin`
-- `fetch_jellyfin_`
-- `resolve_jellyfin_path`
-- `jellyfin_play_count`
-- `in_jellyfin`
+- `media_backend`
+- `test_jellyfin`
+- `jellyfin_users`
+- `settings.jellyfin_`
+- `supports_path_resolution`
+- `requires_user_id`
 
 Classify each occurrence as:
 
-- migrate now to adapter usage
-- keep temporarily as transitional compatibility
-- defer to PR 4 cleanup
+- backend logic that now needs Navidrome support
+- transitional Jellyfin naming that can remain until PR 4
+- cleanup that should still wait
 
 ### Expected Deliverables
 
-- `core/playlist.py` uses adapter methods for the remaining migrated paths
-- `core/m3u.py` no longer imports Jellyfin helpers directly
-- `api/routes/settings_routes.py` uses the adapter layer for user listing and connection testing
-- `api/forms.py` accepts generic media-server settings
-- route and core tests cover adapter-based flows
+- `services/navidrome.py` exists and implements the adapter contract
+- `get_media_server()` supports both Jellyfin and Navidrome
+- config validation supports Navidrome credentials
+- settings routes and forms can operate with `media_backend = "navidrome"`
+- targeted Navidrome adapter and backend-selection tests pass
 
-### Exit Criteria For PR 2
+### Exit Criteria For PR 3
 
-PR 2 is complete when all of the following are true:
+PR 3 is complete when all of the following are true:
 
-- no new non-adapter code paths import Jellyfin helpers directly
-- `core/m3u.py` and migrated `core/playlist.py` paths use `get_media_server()`
-- settings routes use adapter-based connection and user-list logic
-- generic media-server form fields are accepted and exercised by tests
-- targeted tests for playlist, M3U, forms, config, and route flows pass
-- `black .`, `pylint core api services utils`, and the updated targeted test set pass
+- Navidrome can be selected through configuration
+- the factory returns `NavidromeAdapter`
+- Navidrome connection validation works
+- Navidrome playlists and track metadata can be loaded through adapter-based flows
+- settings and form tests cover both backend modes
+- `black .`, `pylint core api services utils`, and the PR 3 targeted tests pass
 
-### Verification Commands For PR 2
+### Verification Commands For PR 3
 
 - `black .`
 - `pylint core api services utils`
-- `pytest tests/test_playlist.py tests/test_m3u.py tests/test_api_routes.py tests/test_forms.py tests/test_config.py`
+- `pytest tests/test_navidrome.py tests/test_media_factory.py tests/test_config.py tests/test_forms.py tests/test_api_routes.py tests/test_playlist.py`

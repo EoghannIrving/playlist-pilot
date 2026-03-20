@@ -26,9 +26,9 @@
       {% endif %}
     </div>
   {% endif %}
-  {% if jellyfin_users|length == 0 %}
+  {% if media_server_users|length == 0 and settings.media_backend == 'jellyfin' %}
     <div class="bg-red-100 p-2 rounded mb-4 text-red-800">
-      ❌ Unable to fetch Jellyfin users. Check your Jellyfin settings.
+      ❌ Unable to fetch media server users. Check your server settings.
     </div>
   {% endif %}
   {% if models|length == 0 %}
@@ -46,33 +46,57 @@
 
     <div class="grid gap-6 md:grid-cols-2 w-full">
 
-    <!-- 🎬 Jellyfin Section -->
+    <!-- 🎬 Media Server Section -->
     <fieldset class="mb-4 border border-gray-200 dark:border-gray-600 p-4 rounded w-full">
-      <legend class="px-2 text-lg font-semibold text-gray-800 dark:text-gray-100">🎬 Jellyfin Integration</legend>
+      <legend class="px-2 text-lg font-semibold text-gray-800 dark:text-gray-100">🎬 Media Server</legend>
 
       <div class="space-y-4">
-        <label for="JELLYFIN_URL" class="block font-semibold required-label">Jellyfin URL</label>
-        <input type="text" id="JELLYFIN_URL" name="jellyfin_url" value="{{ settings.jellyfin_url }}" placeholder="http://localhost:8096" title="Your Jellyfin server URL" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-        <small class="text-gray-300">e.g., http://localhost:8096 or your remote Jellyfin address</small>
+        <label for="MEDIA_BACKEND" class="block font-semibold required-label">Backend</label>
+        <select id="MEDIA_BACKEND" name="media_backend" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500" onchange="toggleBackendFields()">
+          <option value="jellyfin" {% if settings.media_backend == 'jellyfin' %}selected{% endif %}>Jellyfin</option>
+          <option value="navidrome" {% if settings.media_backend == 'navidrome' %}selected{% endif %}>Navidrome</option>
+        </select>
       </div>
 
-      <div class="space-y-4">
-        <label for="JELLYFIN_API_KEY" class="block font-semibold required-label">Jellyfin API Key</label>
+      <div class="space-y-4" id="media-url-wrapper">
+        <label for="JELLYFIN_URL" class="block font-semibold required-label">Server URL</label>
+        <input type="text" id="JELLYFIN_URL" name="jellyfin_url" value="{{ settings.media_url or settings.jellyfin_url }}" placeholder="http://localhost:8096" title="Your media server URL" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+        <input type="hidden" name="media_url" id="MEDIA_URL" value="{{ settings.media_url or settings.jellyfin_url }}">
+        <small class="text-gray-300">Jellyfin example: http://localhost:8096. Navidrome example: http://localhost:4533.</small>
+      </div>
+
+      <div class="space-y-4 backend-jellyfin">
+        <label for="JELLYFIN_API_KEY" class="block font-semibold required-label">API Key</label>
         <div class="flex items-center gap-2">
-          <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" placeholder="Jellyfin key" title="Jellyfin API Key" required class="flex-1 min-w-0 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <input type="text" id="JELLYFIN_API_KEY" name="jellyfin_api_key" value="{{ settings.media_api_key or settings.jellyfin_api_key }}" placeholder="Jellyfin key" title="Jellyfin API Key" class="flex-1 min-w-0 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <input type="hidden" id="MEDIA_API_KEY" name="media_api_key" value="{{ settings.media_api_key or settings.jellyfin_api_key }}">
           <button type="button" onclick="testJellyfinKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate this key">Test</button>
           <span id="jellyfin-status" class="text-sm"></span>
         </div>
         <small class="text-gray-300">Find this in your Jellyfin user profile > API Keys</small>
       </div>
 
-      <div class="space-y-4">
-        <label for="JELLYFIN_USER_ID" class="block font-semibold required-label">Jellyfin User</label>
-        <select name="jellyfin_user_id" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          {% for name, id in jellyfin_users.items() %}
-            <option value="{{ id }}" {% if id == settings.jellyfin_user_id %}selected{% endif %}>{{ name }}</option>
+      <div class="space-y-4 backend-jellyfin">
+        <label for="JELLYFIN_USER_ID" class="block font-semibold required-label">Server User</label>
+        <select name="jellyfin_user_id" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          {% for name, id in media_server_users.items() %}
+            <option value="{{ id }}" {% if id == (settings.media_user_id or settings.jellyfin_user_id) %}selected{% endif %}>{{ name }}</option>
           {% endfor %}
         </select>
+        <input type="hidden" id="MEDIA_USER_ID" name="media_user_id" value="{{ settings.media_user_id or settings.jellyfin_user_id }}">
+      </div>
+
+      <div class="space-y-4 backend-navidrome hidden">
+        <label for="MEDIA_USERNAME_INPUT" class="block font-semibold required-label">Navidrome Username</label>
+        <input type="text" id="MEDIA_USERNAME_INPUT" name="media_username" value="{{ settings.media_username }}" placeholder="navidrome username" title="Navidrome Username" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div class="space-y-4 backend-navidrome hidden">
+        <label for="MEDIA_PASSWORD_INPUT" class="block font-semibold required-label">Navidrome Password</label>
+        <div class="flex items-center gap-2">
+          <input type="password" id="MEDIA_PASSWORD_INPUT" name="media_password" value="{{ settings.media_password }}" placeholder="Navidrome password" title="Navidrome Password" class="flex-1 min-w-0 p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
+          <button type="button" onclick="testJellyfinKey()" class="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Validate these credentials">Test</button>
+        </div>
       </div>
     </fieldset>
 
@@ -213,7 +237,7 @@
           <div class="space-y-2">
             <label for="MUSIC_LIBRARY_ROOT" class="block font-semibold">Music Library Root</label>
             <input type="text" id="MUSIC_LIBRARY_ROOT" name="music_library_root" value="{{ settings.music_library_root }}" class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-            <small class="text-gray-300">Path to your Jellyfin music library.</small>
+            <small class="text-gray-300">Path to your music library.</small>
           </div>
         </div>
 
@@ -327,18 +351,40 @@
     };
 
     window.testJellyfinKey = function() {
+      const backend = document.getElementById("MEDIA_BACKEND").value;
       const url = document.getElementById("JELLYFIN_URL").value;
       const key = document.getElementById("JELLYFIN_API_KEY").value;
+      const username = document.getElementById("MEDIA_USERNAME_INPUT")?.value || "";
+      const password = document.getElementById("MEDIA_PASSWORD_INPUT")?.value || "";
       window.updateStatus("jellyfin-status", "loading");
-      fetch(`${apiPrefix}/test/jellyfin`, {
+      fetch(`${apiPrefix}/test/media-server`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, key })
+        body: JSON.stringify({ backend, url, key, username, password })
       })
       .then(res => res.json())
-      .then(data => window.updateStatus("jellyfin-status", data.success, data.success ? "Key works" : "Invalid key or URL"))
+      .then(data => window.updateStatus("jellyfin-status", data.success, data.success ? "Credentials work" : "Invalid credentials or URL"))
       .catch(() => window.updateStatus("jellyfin-status", false, "Request failed"));
     };
+
+    window.toggleBackendFields = function() {
+      const backend = document.getElementById("MEDIA_BACKEND").value;
+      const jellyfinFields = document.querySelectorAll(".backend-jellyfin");
+      const navidromeFields = document.querySelectorAll(".backend-navidrome");
+      jellyfinFields.forEach(el => el.classList.toggle("hidden", backend !== "jellyfin"));
+      navidromeFields.forEach(el => el.classList.toggle("hidden", backend !== "navidrome"));
+    };
+
+    document.getElementById("JELLYFIN_URL").addEventListener("input", event => {
+      document.getElementById("MEDIA_URL").value = event.target.value;
+    });
+    document.getElementById("JELLYFIN_API_KEY").addEventListener("input", event => {
+      document.getElementById("MEDIA_API_KEY").value = event.target.value;
+    });
+    document.querySelector('select[name="jellyfin_user_id"]').addEventListener("change", event => {
+      document.getElementById("MEDIA_USER_ID").value = event.target.value;
+    });
+    window.toggleBackendFields();
 
     window.testLastfmKey = function() {
       const key = document.getElementById("LASTFM_API_KEY").value;

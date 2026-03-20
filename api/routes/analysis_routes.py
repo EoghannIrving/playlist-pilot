@@ -34,6 +34,7 @@ from core.playlist import (
 from core.templates import templates
 from core.models import ExportPlaylistRequest
 from services import jellyfin
+from services.media_factory import get_media_server
 from services.gpt import (
     generate_playlist_analysis_summary,
     fetch_gpt_suggestions,
@@ -41,13 +42,11 @@ from services.gpt import (
     format_removal_suggestions,
 )
 from services.jellyfin import (
-    create_jellyfin_playlist,
-    fetch_jellyfin_track_metadata,
     fetch_tracks_for_playlist_id,
-    resolve_jellyfin_path,
 )
 from services.lastfm import get_lastfm_tags
 from utils.helpers import get_cached_playlists, load_sorted_history, get_log_excerpt
+from utils.helpers import current_user_scope
 from api.forms import (
     ComparePlaylistsRequest,
     HistoryDeleteRequest,
@@ -115,7 +114,7 @@ async def index(request: Request):
     except ValueError:
         return RedirectResponse(url="/settings", status_code=302)
 
-    user_id = settings.jellyfin_user_id
+    user_id = current_user_scope()
     playlists_data = await get_cached_playlists(user_id)
     error_message = playlists_data.get("error")
     history = load_sorted_history(user_id)
@@ -125,6 +124,7 @@ async def index(request: Request):
         {
             "request": request,
             "jellyfin_playlists": playlists_data["playlists"],
+            "server_playlists": playlists_data["playlists"],
             "history": history,
             "error_message": error_message,
         },
@@ -136,12 +136,12 @@ async def compare_playlists_form(
     request: Request,
     payload: ComparePlaylistsRequest = Depends(ComparePlaylistsRequest.as_form),
 ):  # pylint: disable=too-many-locals
-    """Compare the overlap between two playlists (GPT or Jellyfin).
+    """Compare the overlap between two playlists (history or media server).
 
     The body of the request is parsed using a ``ComparePlaylistsRequest`` where
     each playlist is identified by its source and id. The response is an HTML
     page summarising shared and unique tracks."""
-    history = load_sorted_history(settings.jellyfin_user_id)
+    history = load_sorted_history()
     pf_data = await fetch_audio_playlists()
     all_playlists = pf_data["playlists"]
     error_message = pf_data.get("error")
@@ -184,7 +184,7 @@ async def compare_playlists_form(
             tracks = await fetch_tracks_for_playlist_id(source_id)
             label = next(
                 (p["name"] for p in all_playlists if p["id"] == source_id),
-                "Jellyfin Playlist",
+                "Server Playlist",
             )
             formatted = [
                 f'{t["Name"]} - {(t.get("Artists") or [None])[0] or t.get("AlbumArtist", "")}'
@@ -273,7 +273,7 @@ async def compare_playlists_form(
 async def compare_ui(request: Request):
     """Render the playlist comparison form where users select playlists to
     compare."""
-    history = load_sorted_history(settings.jellyfin_user_id)
+    history = load_sorted_history()
     pf_data = await fetch_audio_playlists()
     all_playlists = pf_data["playlists"]
     error_message = pf_data.get("error")
@@ -293,7 +293,7 @@ async def history_page(
     request: Request, sort: str = Query("recent"), deleted: int = Query(0)
 ):
     """Display the user's GPT history with optional sorting and status flags."""
-    history = load_sorted_history(settings.jellyfin_user_id)
+    history = load_sorted_history()
 
     if sort == "recent":
         history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)
@@ -322,14 +322,14 @@ async def delete_history(
     payload: HistoryDeleteRequest = Depends(HistoryDeleteRequest.as_form),
 ):
     """Delete a playlist entry from the user's history."""
-    delete_history_entry_by_id(settings.jellyfin_user_id, payload.entry_id)
+    delete_history_entry_by_id(current_user_scope(), payload.entry_id)
     return RedirectResponse(url="/history", status_code=303)
 
 
 @router.get("/analyze", response_class=HTMLResponse, tags=["Analysis"])
 async def show_analysis_page(request: Request):
     """Display the playlist analysis form where users can choose a source."""
-    user_id = settings.jellyfin_user_id
+    user_id = current_user_scope()
     playlists_data = await get_cached_playlists(user_id)
     error_message = playlists_data.get("error")
     history = load_sorted_history(user_id)
@@ -339,6 +339,7 @@ async def show_analysis_page(request: Request):
         {
             "request": request,
             "jellyfin_playlists": playlists_data["playlists"],
+            "server_playlists": playlists_data["playlists"],
             "history": history,
             "error_message": error_message,
         },
@@ -350,12 +351,12 @@ async def analyze_selected_playlist(
     request: Request,
     payload: AnalyzePlaylistRequest = Depends(AnalyzePlaylistRequest.as_form),
 ):  # pylint: disable=too-many-locals
-    """Analyze a selected playlist from Jellyfin or GPT history."""
+    """Analyze a selected playlist from the media server or GPT history."""
     source_type = payload.source_type
     playlist_id = payload.playlist_id
     if source_type == "jellyfin":
         enriched = await enrich_jellyfin_playlist(playlist_id)
-        name_data = await get_cached_playlists(settings.jellyfin_user_id)
+        name_data = await get_cached_playlists()
         playlistdetail = name_data.get("playlists", [])
         playlist_name = "Temporary Name"
 
@@ -366,7 +367,7 @@ async def analyze_selected_playlist(
 
         playlist_id_to_use = playlist_id
     else:
-        history = load_sorted_history(settings.jellyfin_user_id)
+        history = load_sorted_history()
         entry = history[int(playlist_id)]
         suggestions = entry.get("suggestions", [])
         tracks = [s.get("text", "") for s in suggestions if isinstance(s, dict)]
@@ -553,7 +554,7 @@ async def suggest_order_from_analyzed(
 @router.get("/history/export", tags=["History"])
 async def export_history_m3u(label: str = Query(...)):
     """Export a stored GPT playlist from history as an M3U file."""
-    user_id = settings.jellyfin_user_id
+    user_id = current_user_scope()
     history = load_sorted_history(user_id)
 
     entry = next((h for h in history if h.get("label") == label), None)
@@ -579,6 +580,51 @@ async def export_history_m3u(label: str = Query(...)):
 
 
 @router.post(
+    "/export/server",
+    response_model=ExportPlaylistResponse,
+    tags=["Exports"],
+)
+async def export_playlist_to_server(
+    payload: ExportPlaylistRequest,
+) -> ExportPlaylistResponse:
+    """Create a new server playlist populated with the given tracks."""
+    logger.info(
+        "🚀 Export playlist request received: %s with %d tracks",
+        payload.name,
+        len(payload.tracks),
+    )
+
+    media_server = get_media_server()
+    item_ids = []
+
+    for track in payload.tracks:
+        metadata = await media_server.get_track_metadata(
+            track["title"], track["artist"]
+        )
+        if metadata:
+            item_ids.append(metadata["Id"])
+        else:
+            logger.warning(
+                "⚠️ Skipping track not found in library: %s - %s",
+                track["title"],
+                track["artist"],
+            )
+
+    if not item_ids:
+        raise HTTPException(
+            status_code=400, detail="No valid library tracks found for export."
+        )
+
+    created = await media_server.create_playlist(payload.name, item_ids)
+    playlist_id = created.get("id") if created else None
+
+    if not playlist_id:
+        raise HTTPException(status_code=500, detail="Failed to create server playlist.")
+
+    return ExportPlaylistResponse(status="success", playlist_id=playlist_id)
+
+
+@router.post(
     "/export/jellyfin",
     response_model=ExportPlaylistResponse,
     tags=["Exports"],
@@ -586,39 +632,8 @@ async def export_history_m3u(label: str = Query(...)):
 async def export_playlist_to_jellyfin(
     payload: ExportPlaylistRequest,
 ) -> ExportPlaylistResponse:
-    """Create a new Jellyfin playlist populated with the given tracks."""
-    logger.info(
-        "🚀 Export playlist request received: %s with %d tracks",
-        payload.name,
-        len(payload.tracks),
-    )
-
-    item_ids = []
-
-    for track in payload.tracks:
-        metadata = await fetch_jellyfin_track_metadata(track["title"], track["artist"])
-        if metadata:
-            item_ids.append(metadata["Id"])
-        else:
-            logger.warning(
-                "⚠️ Skipping track not found in Jellyfin: %s - %s",
-                track["title"],
-                track["artist"],
-            )
-
-    if not item_ids:
-        raise HTTPException(
-            status_code=400, detail="No valid Jellyfin tracks found for export."
-        )
-
-    playlist_id = await create_jellyfin_playlist(payload.name, item_ids)
-
-    if not playlist_id:
-        raise HTTPException(
-            status_code=500, detail="Failed to create Jellyfin playlist."
-        )
-
-    return ExportPlaylistResponse(status="success", playlist_id=playlist_id)
+    """Backward-compatible alias for server playlist export."""
+    return await export_playlist_to_server(payload)
 
 
 def parse_import_m3u(
@@ -677,16 +692,11 @@ async def export_m3u(payload: Request):
     for track in tracks:
         artist = track.artist
         title = track.title
-        path = await resolve_jellyfin_path(
-            title,
-            artist,
-            settings.jellyfin_url,
-            settings.jellyfin_api_key,
-        )
+        path = await get_media_server().resolve_track_path(title, artist)
         if path:
             lines.append(path)
         else:
-            lines.append(f"# Missing Jellyfin path for {artist} - {title}")
+            lines.append(f"# Missing library path for {artist} - {title}")
 
     m3u_path = Path(tempfile.gettempdir()) / f"analysis_export_{uuid.uuid4().hex}.m3u"
     m3u_path.write_text("\n".join(lines), encoding="utf-8")

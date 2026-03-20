@@ -16,9 +16,16 @@ from utils.cache_manager import playlist_cache, CACHE_TTLS
 logger = logging.getLogger("playlist-pilot")
 
 
+def current_user_scope() -> str:
+    """Return the active user scope for playlists and history."""
+    if settings.media_backend == "navidrome":
+        return settings.media_username or settings.media_user_id
+    return settings.jellyfin_user_id or settings.media_user_id
+
+
 async def get_cached_playlists(user_id: str | None = None) -> dict:
     """Return audio playlists for a user using caching."""
-    user_id = user_id or settings.jellyfin_user_id
+    user_id = user_id or current_user_scope()
     cache_key = f"playlists:{user_id}"
     playlists_data = playlist_cache.get(cache_key)
     if playlists_data is None:
@@ -37,7 +44,7 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
 
 def load_sorted_history(user_id: str | None = None) -> list:
     """Load user history sorted by most recent entries."""
-    user_id = user_id or settings.jellyfin_user_id
+    user_id = user_id or current_user_scope()
     history = load_user_history(user_id)
     history.sort(key=lambda e: extract_date_from_label(e["label"]), reverse=True)
     return history

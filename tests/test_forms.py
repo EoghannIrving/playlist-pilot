@@ -52,3 +52,44 @@ def test_integration_failure_limit_default():
 
     assert isinstance(param.default, Form)
     assert param.default.default == 3
+
+
+def test_as_form_prefers_generic_media_fields():
+    """Generic media-server fields should populate the returned form model."""
+    defaults = _default_form_data()
+    form = SettingsForm.as_form(
+        **{
+            **defaults,
+            "media_backend": "jellyfin",
+            "media_url": "http://media",
+            "media_api_key": "media-key",
+            "media_user_id": "media-user",
+            "jellyfin_url": "http://legacy",
+            "jellyfin_api_key": "legacy-key",
+            "jellyfin_user_id": "legacy-user",
+        }
+    )
+
+    assert form.media_backend == "jellyfin"
+    assert form.media_url == "http://media"
+    assert form.media_api_key == "media-key"
+    assert form.media_user_id == "media-user"
+
+
+def test_as_form_accepts_navidrome_fields():
+    """Navidrome settings should populate the generic media fields."""
+    defaults = _default_form_data()
+    form = SettingsForm.as_form(
+        **{
+            **defaults,
+            "media_backend": "navidrome",
+            "media_url": "http://nav",
+            "media_username": "nav-user",
+            "media_password": "nav-pass",
+        }
+    )
+
+    assert form.media_backend == "navidrome"
+    assert form.media_url == "http://nav"
+    assert form.media_username == "nav-user"
+    assert form.media_password == "nav-pass"

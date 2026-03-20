@@ -159,6 +159,33 @@ def test_validate_settings_accepts_legacy_jellyfin_fields_during_transition():
     s.validate_settings()
 
 
+def test_validate_settings_accepts_navidrome_fields():
+    """Navidrome should validate with URL, username, and password."""
+    s = config.AppSettings(
+        media_backend="navidrome",
+        media_url="http://nav",
+        media_username="user",
+        media_password="pass",
+        openai_api_key="o",
+    )
+
+    s.validate_settings()
+
+
+def test_validate_settings_requires_navidrome_credentials():
+    """Navidrome validation should require both username and password."""
+    s = config.AppSettings(
+        media_backend="navidrome",
+        media_url="http://nav",
+        media_username="user",
+        openai_api_key="o",
+    )
+
+    with pytest.raises(ValueError) as exc:
+        s.validate_settings()
+    assert "Media Server Password" in str(exc.value)
+
+
 @pytest.mark.parametrize(
     "apple_client_id, apple_client_secret, missing",
     [

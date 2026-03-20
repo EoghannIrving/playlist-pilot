@@ -10,6 +10,9 @@ import pytest
 from fastapi import HTTPException
 from starlette.datastructures import UploadFile
 from api.schemas import AnalysisExportRequest
+from api.forms import SettingsForm
+from api.routes import settings_routes
+from api.schemas import VerifyEntryRequest
 
 
 def _extract_health_check():
@@ -118,3 +121,128 @@ def test_import_m3u_file_invalid_extension(tmp_path):
     with pytest.raises(HTTPException) as exc:
         asyncio.run(import_m3u(dummy_req, dummy_payload))
     assert exc.value.status_code == 400
+
+
+def test_verify_playlist_entry_uses_media_server(monkeypatch):
+    """Verify-entry should resolve tracks through the adapter."""
+
+    class DummyServer:
+        async def get_playlist_tracks(self, _playlist_id):
+            return [{"PlaylistItemId": "entry-1", "Name": "Song"}]
+
+    monkeypatch.setattr(settings_routes, "get_media_server", lambda: DummyServer())
+
+    result = asyncio.run(
+        settings_routes.verify_playlist_entry(
+            VerifyEntryRequest(playlist_id="playlist", entry_id="entry-1")
+        )
+    )
+
+    assert result.success is True
+    assert result.track["Name"] == "Song"
+
+
+def test_update_settings_prefers_generic_media_fields(monkeypatch):
+    """Settings updates should persist generic media fields and use adapter users."""
+
+    class DummyServer:
+        async def list_users(self):
+            return [{"id": "u1", "name": "User One"}]
+
+    captured = {}
+
+    def fake_template_response(_template, context):
+        captured.update(context)
+        return context
+
+    async def fake_models(_key):
+        return ["gpt-4o-mini"]
+
+    monkeypatch.setattr(settings_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        settings_routes.templates, "TemplateResponse", fake_template_response
+    )
+    monkeypatch.setattr(settings_routes, "fetch_openai_models", fake_models)
+    monkeypatch.setattr(settings_routes, "get_log_excerpt", lambda: "logs")
+    monkeypatch.setattr(settings_routes, "save_settings", lambda _settings: None)
+
+    form_data = SettingsForm(
+        media_backend="jellyfin",
+        media_url="http://media",
+        media_api_key="media-key",
+        media_user_id="media-user",
+        jellyfin_url="http://legacy",
+        jellyfin_api_key="legacy-key",
+        jellyfin_user_id="legacy-user",
+        openai_api_key="openai",
+        cache_ttls={},
+        getsongbpm_headers={},
+    )
+
+    result = asyncio.run(
+        settings_routes.update_settings(
+            request=types.SimpleNamespace(),
+            form_data=form_data,
+        )
+    )
+
+    assert result["media_server_users"] == {"User One": "u1"}
+    assert settings_routes.settings.media_url == "http://media"
+    assert settings_routes.settings.media_api_key == "media-key"
+    assert settings_routes.settings.media_user_id == "media-user"
+
+
+def test_test_jellyfin_route_supports_navidrome_backend(monkeypatch):
+    """The transitional test route should support Navidrome credentials."""
+
+    class DummyAdapter:
+        async def test_connection(self):
+            return {"success": True, "status": 200, "data": {"status": "ok"}}
+
+    monkeypatch.setattr(
+        settings_routes,
+        "NavidromeAdapter",
+        lambda **_kwargs: DummyAdapter(),
+    )
+
+    result = asyncio.run(
+        settings_routes.test_jellyfin(
+            settings_routes.JellyfinTestRequest(
+                backend="navidrome",
+                url="http://nav",
+                username="user",
+                password="pass",
+            )
+        )
+    )
+
+    assert result.success is True
+    assert result.status == 200
+
+
+def test_test_media_server_route_supports_navidrome_backend(monkeypatch):
+    """The backend-neutral test route should support Navidrome credentials."""
+
+    class DummyAdapter:
+        async def test_connection(self):
+            return {"success": True, "status": 200, "data": {"status": "ok"}}
+
+    monkeypatch.setattr(
+        settings_routes,
+        "NavidromeAdapter",
+        lambda **_kwargs: DummyAdapter(),
+    )
+
+    result = asyncio.run(
+        settings_routes.test_media_server(
+            settings_routes.JellyfinTestRequest(
+                backend="navidrome",
+                url="http://nav",
+                username="user",
+                password="pass",
+            )
+        )
+    )
+
+    assert result.success is True
+    assert result.status == 200

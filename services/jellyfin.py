@@ -11,11 +11,15 @@ import httpx
 
 from config import settings
 from services.media_server import MediaServer, NormalizedPlaylist, NormalizedUser
-from utils.cache_manager import jellyfin_track_cache, library_cache, CACHE_TTLS
+from utils import cache_manager
 from utils.http_client import get_http_client
 from utils.integration_watchdog import record_failure, record_success
 
 logger = logging.getLogger("playlist-pilot")
+
+jellyfin_track_cache = cache_manager.jellyfin_track_cache
+library_cache = getattr(cache_manager, "library_cache", jellyfin_track_cache)
+CACHE_TTLS = cache_manager.CACHE_TTLS
 
 
 def _jellyfin_url() -> str:
@@ -41,6 +45,16 @@ def normalize_search_term(term):
 class JellyfinAdapter(MediaServer):
     """Media-server adapter for Jellyfin."""
 
+    def __init__(
+        self,
+        url: str | None = None,
+        api_key: str | None = None,
+        user_id: str | None = None,
+    ) -> None:
+        self._url = (url or _jellyfin_url()).rstrip("/")
+        self._api_key = api_key or _jellyfin_api_key()
+        self._user_id = user_id or _jellyfin_user_id()
+
     def backend_name(self) -> str:
         return "jellyfin"
 
@@ -55,16 +69,14 @@ class JellyfinAdapter(MediaServer):
 
     async def test_connection(self) -> dict:
         """Verify Jellyfin connectivity using current settings."""
-        url = _jellyfin_url().rstrip("/")
-        key = _jellyfin_api_key()
         headers = {
-            "X-Emby-Token": key,
+            "X-Emby-Token": self._api_key,
             "Accept": "application/json",
             "User-Agent": "PlaylistPilotTest/1.0",
         }
         try:
             client = get_http_client(short=True)
-            response = await client.get(f"{url}/System/Info", headers=headers)
+            response = await client.get(f"{self._url}/System/Info", headers=headers)
             response.raise_for_status()
             data = response.json()
             return {
@@ -83,7 +95,7 @@ class JellyfinAdapter(MediaServer):
 
     async def list_audio_playlists(self) -> list[NormalizedPlaylist]:
         """Return all Jellyfin audio playlists in normalized form."""
-        user_id = _jellyfin_user_id()
+        user_id = self._user_id
         resp = await jf_get(
             f"/Users/{user_id}/Items",
             IncludeItemTypes="Playlist",

@@ -1,28 +1,28 @@
 # Playlist Pilot 🎵
 
-Playlist Pilot is a FastAPI application that generates and manages music playlists using GPT, Jellyfin and a few helper services. It caches results on disk so repeated requests stay fast and ships with a small web UI built with Jinja2 and Tailwind.
+Playlist Pilot is a FastAPI application that generates and manages music playlists using GPT, supported media-server backends, and a few helper services. It caches results on disk so repeated requests stay fast and ships with a small web UI built with Jinja2 and Tailwind.
 
 See [Docs/architecture.md](Docs/architecture.md) for a high level overview of the code structure.
 
 ## Features
 
-- **Playlist suggestions** existing song playlists using GPT with Last.fm metadata and Jellyfin library sampling.
-- **Playlist analysis** of Jellyfin, saved GPT suggested playlists, or imported m3u playlists, measuring mood, tempo, decade distribution and popularity.
-- **Playlist comparison** showing overlap between two Jellyfin or GPT/m3u imported playlists.
+- **Playlist suggestions** from existing playlists using GPT with Last.fm metadata and media-server library sampling.
+- **Playlist analysis** of server playlists, saved GPT suggested playlists, or imported m3u playlists, measuring mood, tempo, decade distribution and popularity.
+- **Playlist comparison** showing overlap between two server playlists or GPT/m3u imported playlists.
 - **Playlist order suggestions** using GPT to arrange tracks for optimal flow.
 - **BPM and audio data** from GetSongBPM to enrich mood scoring.
-- **Lyrics-based mood analysis** when `.lrc` files or Jellyfin lyrics are
+- **Lyrics-based mood analysis** when `.lrc` files or server-provided lyrics are
   available.
 - **Toggle for lyrics processing** if you want to disable GPT lyric analysis.
 - **Customizable weights** for lyrics, BPM and tag matching to fine tune
   playlist mood detection.
-- **YouTube link lookup** via yt‑dlp for tracks not in Jellyfin, with duration filtering, VEVO prioritization and cached search results.
-- **Import/export** `.m3u` files and create playlists directly in Jellyfin.
-- **Track metadata export** back to Jellyfin (genre, mood tags, album, etc.), helping to standardize your metadata.
-- **Combined popularity scoring** blends Last.fm listener data with Jellyfin play counts to highlight mainstream and obscure tracks alike.
+- **YouTube link lookup** via yt‑dlp for tracks not in your library, with duration filtering, VEVO prioritization and cached search results.
+- **Import/export** `.m3u` files and create playlists directly in the active server when supported.
+- **Track metadata export** back to Jellyfin-compatible flows where supported.
+- **Combined popularity scoring** blends Last.fm listener data with server play counts to highlight mainstream and obscure tracks alike.
 - **History management** with the ability to view and delete past GPT suggestions.
-- **DiskCache based caching** for GPT prompts, Jellyfin queries, Last.fm lookups and more. Agressively caches for both speed and to reduce API costs.
-- **Integration monitoring** with a simple watchdog that logs repeated Jellyfin and Last.fm failures.
+- **DiskCache based caching** for GPT prompts, media-server queries, Last.fm lookups and more. Aggressively caches for both speed and to reduce API costs.
+- **Integration monitoring** with a simple watchdog that logs repeated backend and Last.fm failures.
 - Runs as a Docker container or directly with Python.
 
 ## Requirements
@@ -98,7 +98,9 @@ mypy . --ignore-missing-imports
 
 Navigate to [http://localhost:8010/settings](http://localhost:8010/settings) and supply:
 
-- Jellyfin server URL, API key and user ID
+- Media server backend and connection details
+- For Jellyfin: server URL, API key, and user ID
+- For Navidrome: server URL, username, and password
 - OpenAI API key
 - Last.fm API key
 - Optional GetSongBPM key
@@ -130,7 +132,7 @@ persist across upgrades.
 - Pydantic settings
 - DiskCache for persistent caching
 - yt-dlp for YouTube lookups
-- Jellyfin, Last.fm and GetSongBPM integrations
+- Jellyfin, Navidrome, Last.fm and GetSongBPM integrations
 
 The overall architecture is described in [Docs/architecture.md](Docs/architecture.md).
 

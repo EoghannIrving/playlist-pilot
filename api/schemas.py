@@ -29,8 +29,11 @@ class LastfmTestResponse(BaseModel):
 class JellyfinTestRequest(BaseModel):
     """Request model for Jellyfin API validation."""
 
+    backend: str = "jellyfin"
     url: str
-    key: str
+    key: str = ""
+    username: str = ""
+    password: str = ""
 
 
 class JellyfinTestResponse(BaseModel):

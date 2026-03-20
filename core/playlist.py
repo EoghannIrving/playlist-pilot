@@ -29,17 +29,13 @@ from core.analysis import (
 from core.models import Track, EnrichedTrack
 from services.getsongbpm import get_cached_bpm
 from services.gpt import analyze_mood_from_lyrics
-from services.jellyfin import (
-    jf_get,
-    fetch_full_audio_library,
-    fetch_tracks_for_playlist_id,
-    fetch_jellyfin_track_metadata,
-)
+from services.jellyfin import jf_get
 from services.media_factory import get_media_server
 from services.metube import get_youtube_url_single
 from services.lastfm import enrich_with_lastfm
 from services.spotify import fetch_spotify_metadata
 from services.applemusic import fetch_applemusic_metadata
+from utils.cache_manager import library_cache, CACHE_TTLS
 from utils.http_client import get_http_client
 
 logger = logging.getLogger("playlist-pilot")
@@ -121,7 +117,45 @@ async def get_playlist_tracks(playlist_id: str) -> list[str]:
 
 async def get_full_audio_library(force_refresh: bool = False) -> list[str]:
     """Return the user's full audio library with caching."""
-    return await fetch_full_audio_library(force_refresh=force_refresh)
+    # pylint: disable=duplicate-code
+    cache_key = f"library:{settings.jellyfin_user_id or settings.media_user_id}"
+    if not force_refresh:
+        cached = library_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+    items: list[str] = []
+    start_index = 0
+    limit = settings.library_scan_limit
+    while True:
+        response = await jf_get(
+            f"/Users/{settings.jellyfin_user_id or settings.media_user_id}/Items",
+            Recursive="true",
+            IncludeItemTypes="Audio",
+            StartIndex=start_index,
+            Limit=limit,
+        )
+        chunk = response.get("Items", [])
+        for item in chunk:
+            if isinstance(item, dict):
+                song = item.get("Name")
+                artist = item.get("AlbumArtist")
+                if isinstance(song, str) and isinstance(artist, str):
+                    song = song.strip()
+                    artist = artist.strip()
+                    if song and artist:
+                        items.append(f"{song} - {artist}")
+        if len(chunk) < limit:
+            break
+        start_index += limit
+
+    library_cache.set(cache_key, items, expire=CACHE_TTLS["full_library"])
+    return items
+
+
+async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
+    """Compatibility wrapper for track metadata lookups."""
+    return await get_media_server().get_track_metadata(title, artist)
 
 
 def parse_suggestion_line(line: str) -> tuple[str, str]:
@@ -249,7 +283,13 @@ def normalize_track(raw: str | dict) -> Track:
 def _ensure_track(parsed: Track | dict) -> Track:
     """Validate and convert a raw track into a :class:`Track`."""
     if isinstance(parsed, dict):
+        if "play_count" in parsed and "jellyfin_play_count" not in parsed:
+            parsed["jellyfin_play_count"] = parsed["play_count"]
+        if "jellyfin_play_count" in parsed and "play_count" not in parsed:
+            parsed["play_count"] = parsed["jellyfin_play_count"]
         parsed = Track.model_validate(parsed)
+    parsed.play_count = parsed.play_count or parsed.jellyfin_play_count
+    parsed.jellyfin_play_count = parsed.jellyfin_play_count or parsed.play_count
     if not parsed.title or not parsed.artist:
         raise ValueError("Missing required track metadata (title/artist)")
     return parsed
@@ -381,7 +421,9 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     mood_data = await _classify_mood(parsed, lastfm["tags"], bpm_data)
 
     return EnrichedTrack(
-        **parsed.model_dump(exclude={"tempo", "jellyfin_play_count", "album"}),
+        **parsed.model_dump(
+            exclude={"tempo", "jellyfin_play_count", "play_count", "album"}
+        ),
         genre=_select_genre(parsed.Genres or [], lastfm["tags"]) or "Unknown",
         mood=mood_data[0],
         mood_confidence=round(mood_data[1], 2),
@@ -389,6 +431,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         decade=infer_decade(year_info[0] or ""),
         duration=_duration_from_ticks(parsed.RunTimeTicks, bpm_data),
         popularity=lastfm["listeners"],
+        play_count=parsed.play_count,
         jellyfin_play_count=parsed.jellyfin_play_count,
         year_flag=year_info[1],
         album=lastfm["album"] or parsed.album,
@@ -566,24 +609,25 @@ async def enrich_jellyfin_playlist(
     playlist_id: str, limit: int | None = None
 ) -> list[dict]:
     """Fetch tracks for a playlist and enrich them concurrently."""
-    raw_tracks = await fetch_tracks_for_playlist_id(playlist_id, limit)
+    raw_tracks = await get_media_server().get_playlist_tracks(playlist_id)
     if isinstance(limit, int) and limit > 0:
         raw_tracks = raw_tracks[:limit]
 
     async def process(track: dict) -> dict | None:
         try:
             norm = normalize_track(track)
-            norm.jellyfin_play_count = track.get("UserData", {}).get("PlayCount", 0)
+            norm.play_count = track.get("UserData", {}).get("PlayCount", 0)
+            norm.jellyfin_play_count = norm.play_count
             enriched_data = await enrich_track(norm)
             logger.info(
-                "✅ Enriched: %s | Last.fm: %s | Jellyfin Plays: %s",
+                "✅ Enriched: %s | Last.fm: %s | Play Count: %s",
                 norm.title or "Unknown",
                 (
                     enriched_data.popularity
                     if hasattr(enriched_data, "popularity")
                     else "N/A"
                 ),
-                norm.jellyfin_play_count,
+                norm.play_count,
             )
             return enriched_data.dict()
         except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -600,9 +644,7 @@ async def enrich_jellyfin_playlist(
         t["popularity"] for t in enriched if isinstance(t.get("popularity"), int)
     ]
     jellyfin_raw = [
-        t["jellyfin_play_count"]
-        for t in enriched
-        if isinstance(t.get("jellyfin_play_count"), int)
+        t["play_count"] for t in enriched if isinstance(t.get("play_count"), int)
     ]
 
     logger.debug(
@@ -611,7 +653,7 @@ async def enrich_jellyfin_playlist(
         max(lastfm_raw, default=0),
     )
     logger.debug(
-        "📊 Jellyfin play count range: min=%s, max=%s",
+        "📊 Play count range: min=%s, max=%s",
         min(jellyfin_raw, default=0),
         max(jellyfin_raw, default=0),
     )
@@ -620,7 +662,7 @@ async def enrich_jellyfin_playlist(
 
     for t in enriched:
         raw_lfm = t.get("popularity")
-        raw_jf = t.get("jellyfin_play_count")
+        raw_jf = t.get("play_count")
         norm_lfm = normalize_popularity_log(
             raw_lfm, get_global_min_lfm(), get_global_max_lfm()
         )
@@ -696,12 +738,13 @@ def extract_tag_value(tags: list[str], prefix: str) -> str | None:
 
 async def enrich_suggestion(suggestion: dict) -> dict | None:
     """Return enriched data for a single GPT suggestion."""
+    # pylint: disable=too-many-locals
     try:
         text, reason = parse_suggestion_line(suggestion["text"])
         title = suggestion["title"]
         artist = suggestion["artist"]
         jellyfin_data = await fetch_jellyfin_track_metadata(title, artist)
-        in_jellyfin = jellyfin_data is not None
+        in_library = jellyfin_data is not None
         play_count = 0
         genres = []
         duration_ticks = 0
@@ -710,7 +753,7 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
             play_count = jellyfin_data.get("UserData", {}).get("PlayCount", 0)
             genres = jellyfin_data.get("Genres", [])
             duration_ticks = jellyfin_data.get("RunTimeTicks", 0)
-        if not in_jellyfin:
+        if not in_library:
             search_query = f"{suggestion['title']} {suggestion['artist']}"
             try:
                 _, youtube_url = await get_youtube_url_single(search_query)
@@ -719,6 +762,7 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
         parsed = {
             "title": suggestion["title"],
             "artist": suggestion["artist"],
+            "play_count": play_count,
             "jellyfin_play_count": play_count,
             "Genres": genres,
             "RunTimeTicks": duration_ticks,
@@ -730,7 +774,8 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
             "title": suggestion["title"],
             "artist": suggestion["artist"],
             "youtube_url": youtube_url,
-            "in_jellyfin": in_jellyfin,
+            "in_library": in_library,
+            "in_jellyfin": in_library,
             **enriched.dict(),
         }
 
@@ -744,15 +789,15 @@ async def enrich_and_score_suggestions(suggestions_raw: list[dict]) -> list[dict
     parsed_raw = await asyncio.gather(*[enrich_suggestion(s) for s in suggestions_raw])
     suggestions = [s for s in parsed_raw if s is not None]
 
-    suggestions.sort(key=lambda s: not s["in_jellyfin"])
+    suggestions.sort(key=lambda s: not s.get("in_library", s.get("in_jellyfin")))
 
     add_combined_popularity(suggestions, w_lfm=0.3, w_jf=0.7)
     for track in suggestions:
         raw_lfm = track.get("popularity")
-        raw_jf = track.get("jellyfin_play_count")
+        raw_jf = track.get("play_count", track.get("jellyfin_play_count"))
         combined = track.get("combined_popularity")
         logger.info(
-            "%s - %s | Combined: %s | Last.fm: %s, Jellyfin: %s",
+            "%s - %s | Combined: %s | Last.fm: %s, Play Count: %s",
             track["title"],
             track["artist"],
             f"{combined:.1f}" if isinstance(combined, (int, float)) else combined,

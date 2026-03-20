@@ -4,7 +4,7 @@ Playlist Pilot reads its settings from `settings.json` and environment variables
 
 Key options include:
 
-- `jellyfin_url`, `jellyfin_api_key`, and `jellyfin_user_id` for connecting to your Jellyfin server.
+- `media_backend`, `media_url`, and backend-specific credentials for connecting to Jellyfin or Navidrome.
 - `openai_api_key` and `lastfm_api_key` for metadata enrichment and suggestions.
 - `spotify_client_id` and `spotify_client_secret` to enable optional Spotify metadata lookups.
 - `apple_client_id` and `apple_client_secret` to enable optional Apple Music metadata lookups.

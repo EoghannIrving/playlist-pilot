@@ -82,11 +82,11 @@
     </a>
 
     <button type="button"
-            class="text-sm px-2 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 export-to-jellyfin"
+            class="text-sm px-2 py-0.5 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 export-to-server"
             data-name="{{ entry.label }}"
             data-tracks='{{ entry.suggestions | tojson | safe }}'
-            title="Export to Jellyfin">
-      📤 Jellyfin
+            title="Export to server">
+      📤 Server
     </button>
 
   </div>
@@ -102,8 +102,8 @@
                 <li class="p-4 rounded-xl border border-gray-300 dark:border-gray-600 shadow-sm bg-white dark:bg-gray-800 transition hover:shadow-md">
                   <div class="text-base font-semibold text-gray-900 dark:text-white">
                     {{ parts[0] }} — {{ parts[1] }}
-                    {% if track.in_jellyfin %}
-                      <span class="ml-2 text-green-500">✔ In Jellyfin</span>
+                    {% if track.in_library or track.in_jellyfin %}
+                      <span class="ml-2 text-green-500">✔ In Library</span>
                     {% endif %}
                   </div>
                   <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">
@@ -138,12 +138,12 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Handle Export to Jellyfin buttons
-  document.querySelectorAll('.export-to-jellyfin').forEach(button => {
+  // Handle Export to server buttons
+  document.querySelectorAll('.export-to-server').forEach(button => {
     button.addEventListener('click', () => {
       const name = button.getAttribute('data-name');
       const tracks = JSON.parse(button.getAttribute('data-tracks'));
-      confirmExportToJellyfin(name, tracks);
+      confirmExportToServer(name, tracks);
     });
   });
 
@@ -155,12 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => toast.remove(), 3000);
   }
 
-  window.confirmExportToJellyfin = function(name, tracks) {
+  window.confirmExportToServer = function(name, tracks) {
     if (!tracks || tracks.length === 0) {
       showToast("This playlist has no valid tracks for export.", 'error');
       return;
     }
-    if (confirm(`Export playlist '${name}' to Jellyfin?`)) {
+    if (confirm(`Export playlist '${name}' to the server?`)) {
       fetch('/export/jellyfin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`❌ Export failed with status ${response.status}`, 'error');
         }
       }).catch(() => {
-        showToast(`❌ Failed to export playlist '${name}' to Jellyfin.`, 'error');
+        showToast(`❌ Failed to export playlist '${name}' to the server.`, 'error');
       });
     }
   };

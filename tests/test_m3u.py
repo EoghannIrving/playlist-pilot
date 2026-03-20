@@ -13,16 +13,19 @@ from core import constants
 
 # Stub optional dependencies to allow importing core.m3u without installing them
 sys.modules.setdefault("httpx", types.ModuleType("httpx"))
-initial_services_stub = types.ModuleType("services.jellyfin")
-initial_services_stub.resolve_jellyfin_path = lambda *_a, **_kw: None  # type: ignore[attr-defined]
+initial_factory_stub = types.ModuleType("services.media_factory")
 
 
-async def _dummy_fetch(*_a, **_kw):
-    return None
+class _InitialServer:
+    async def resolve_track_path(self, *_a, **_kw):
+        return None
+
+    async def get_track_metadata(self, *_a, **_kw):
+        return None
 
 
-initial_services_stub.fetch_jellyfin_track_metadata = _dummy_fetch  # type: ignore[attr-defined]
-sys.modules.setdefault("services.jellyfin", initial_services_stub)
+initial_factory_stub.get_media_server = lambda: _InitialServer()  # type: ignore[attr-defined]
+sys.modules.setdefault("services.media_factory", initial_factory_stub)
 initial_playlist_stub = types.ModuleType("core.playlist")
 
 
@@ -115,23 +118,23 @@ def _setup_roundtrip(monkeypatch, tmp_path, path_template):
     monkeypatch.setattr(settings, "jellyfin_user_id", "user", raising=False)
     monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
 
-    services_stub_local = types.ModuleType("services.jellyfin")
+    factory_stub_local = types.ModuleType("services.media_factory")
 
-    async def dummy_resolve(title, artist, *_a, **_kw):
-        return Path(path_template.format(artist=artist, title=title)).as_posix()
+    class DummyServer:
+        async def resolve_track_path(self, title, artist):
+            return Path(path_template.format(artist=artist, title=title)).as_posix()
 
-    async def dummy_fetch(*_a, **_kw):
-        return {"Id": "1"}
+        async def get_track_metadata(self, *_a, **_kw):
+            return {"Id": "1"}
 
-    services_stub_local.resolve_jellyfin_path = dummy_resolve
-    services_stub_local.fetch_jellyfin_track_metadata = dummy_fetch
+    factory_stub_local.get_media_server = lambda: DummyServer()
     playlist_stub_local = types.ModuleType("core.playlist")
 
     async def dummy_enrich(track):
         return types.SimpleNamespace(**track, dict=lambda: track)
 
     playlist_stub_local.enrich_track = dummy_enrich
-    monkeypatch.setitem(sys.modules, "services.jellyfin", services_stub_local)
+    monkeypatch.setitem(sys.modules, "services.media_factory", factory_stub_local)
     monkeypatch.setitem(sys.modules, "core.playlist", playlist_stub_local)
     sys.modules.pop("core.m3u", None)
     sys.modules.pop("core.history", None)
@@ -153,7 +156,7 @@ def _roundtrip(monkeypatch, tmp_path, path_template):
     m3u, history = _setup_roundtrip(monkeypatch, tmp_path, path_template)
     entry = {
         "suggestions": [
-            {"text": "Title - Artist", "in_jellyfin": True, "album": "Album"}
+            {"text": "Title - Artist", "in_library": True, "album": "Album"}
         ]
     }
     m3u_file = _run_async(m3u.export_history_entry_as_m3u(entry, "url", "key"))
@@ -181,22 +184,25 @@ def test_import_skips_failed_metadata(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "jellyfin_user_id", "user", raising=False)
     monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
 
-    services_stub = types.ModuleType("services.jellyfin")
+    factory_stub = types.ModuleType("services.media_factory")
 
-    async def fetch(title, _artist):
-        if title == "First":
-            raise RuntimeError("fail")
-        return {"Id": "ok"}
+    class DummyServer:
+        async def get_track_metadata(self, title, _artist):
+            if title == "First":
+                raise RuntimeError("fail")
+            return {"Id": "ok"}
 
-    services_stub.fetch_jellyfin_track_metadata = fetch
-    services_stub.resolve_jellyfin_path = lambda *_a, **_kw: None
+        async def resolve_track_path(self, *_a, **_kw):
+            return None
+
+    factory_stub.get_media_server = lambda: DummyServer()
     playlist_stub = types.ModuleType("core.playlist")
 
     async def enrich(track):
         return types.SimpleNamespace(**track, dict=lambda: track)
 
     playlist_stub.enrich_track = enrich
-    monkeypatch.setitem(sys.modules, "services.jellyfin", services_stub)
+    monkeypatch.setitem(sys.modules, "services.media_factory", factory_stub)
     monkeypatch.setitem(sys.modules, "core.playlist", playlist_stub)
     sys.modules.pop("core.m3u", None)
     sys.modules.pop("core.history", None)

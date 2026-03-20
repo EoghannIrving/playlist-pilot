@@ -15,14 +15,18 @@ from pathlib import Path
 import ntpath
 
 from config import settings
-from services.jellyfin import (
-    resolve_jellyfin_path,
-    fetch_jellyfin_track_metadata,
-)
+from services.media_factory import get_media_server
 from core.history import save_user_history
 from core.playlist import enrich_track
 
 logger = logging.getLogger("playlist-pilot")
+
+
+def _history_user_id() -> str:
+    """Return the active user ID for history persistence."""
+    if settings.media_backend == "navidrome":
+        return settings.media_username or settings.media_user_id
+    return settings.jellyfin_user_id or settings.media_user_id
 
 
 def cleanup_temp_file(path: Path):
@@ -93,14 +97,16 @@ def persist_history_and_m3u(suggestions: list[dict], playlist_name: str) -> Path
     """Save generated playlist suggestions to history and disk."""
     playlist_clean = playlist_name.strip('"').strip("'")
     label = f"{playlist_clean} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    user_id = settings.jellyfin_user_id
+    user_id = _history_user_id()
     save_user_history(user_id, label, suggestions)
     return write_m3u([s["text"] for s in suggestions])
 
 
 async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
     """Export a history entry's tracks into an M3U playlist."""
+    del jellyfin_url, jellyfin_api_key  # transitional signature compatibility
     lines = ["#EXTM3U"]
+    media_server = get_media_server()
 
     for track in entry.get("suggestions", []):
         title = track.get("title")
@@ -108,15 +114,13 @@ async def export_history_entry_as_m3u(entry, jellyfin_url, jellyfin_api_key):
         if not title or not artist:
             title, artist = _parse_title_artist(track.get("text", ""))
         album = track.get("album", "Unknown_Album")  # If `album` present in `track`
-        if track.get("in_jellyfin"):
-            path = await resolve_jellyfin_path(
-                title, artist, jellyfin_url, jellyfin_api_key
-            )
+        if track.get("in_library", track.get("in_jellyfin")):
+            path = await media_server.resolve_track_path(title, artist)
             if path:
                 lines.append(path)
             else:
                 proposed_path = generate_proposed_path(artist, album, title)
-                lines.append(f"# Missing Jellyfin path: {proposed_path}")
+                lines.append(f"# Missing library path: {proposed_path}")
         else:
             proposed_path = generate_proposed_path(artist, album, title)
             lines.append(f"# Suggested (not in library): {proposed_path}")
@@ -179,17 +183,18 @@ async def import_m3u_as_history_entry(filepath: str):
     """Import tracks from an M3U file into user history."""
     # pylint: disable=too-many-locals
     logger.info("📂 Importing M3U playlist: %s", filepath)
-    user_id = settings.jellyfin_user_id
+    user_id = _history_user_id()
     imported_tracks = []
     with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
         lines = [
             line.strip() for line in f if line.strip() and not line.startswith("#")
         ]
 
+    media_server = get_media_server()
     metas = [(path, infer_track_metadata_from_path(path)) for path in lines]
     tasks = [
         asyncio.create_task(
-            fetch_jellyfin_track_metadata(meta["title"], meta["artist"])
+            media_server.get_track_metadata(meta["title"], meta["artist"])
         )
         for _, meta in metas
     ]
@@ -216,7 +221,9 @@ async def import_m3u_as_history_entry(filepath: str):
                 "youtube_url",
                 f"https://www.youtube.com/results?search_query={title}+{artist}",
             )
+            enriched.setdefault("in_library", True)
             enriched.setdefault("in_jellyfin", True)
+            enriched.setdefault("play_count", 0)
             enriched.setdefault("jellyfin_play_count", 0)
             enriched.setdefault("Genres", [])
             enriched.setdefault("RunTimeTicks", 0)
@@ -238,7 +245,7 @@ async def import_m3u_as_history_entry(filepath: str):
             imported_tracks.append(enriched)
         else:
             logger.warning(
-                "Skipping track not found in Jellyfin: %s by %s",
+                "Skipping track not found in library: %s by %s",
                 title,
                 artist,
             )

@@ -7,7 +7,8 @@ All programmatic endpoints are versioned under `/api/v1`.
 | GET | `/api/v1/health` | Simple health check |
 | GET | `/api/v1/integration-failures` | Current integration failure counters |
 | POST | `/api/v1/test/lastfm` | Verify Last.fm connectivity |
-| POST | `/api/v1/test/jellyfin` | Verify Jellyfin connectivity |
+| POST | `/api/v1/test/media-server` | Verify media-server connectivity |
+| POST | `/api/v1/test/jellyfin` | Backward-compatible media-server test alias |
 | POST | `/api/v1/test/openai` | Verify OpenAI connectivity |
 | POST | `/api/v1/test/getsongbpm` | Verify GetSongBPM connectivity |
 | POST | `/api/v1/verify-entry` | Verify a playlist entry ID |
@@ -19,11 +20,11 @@ All programmatic endpoints are versioned under `/api/v1`.
 curl http://localhost:8000/api/v1/health
 ```
 
-### Verify Jellyfin
+### Verify Media Server
 ```bash
-curl -X POST http://localhost:8000/api/v1/test/jellyfin \
+curl -X POST http://localhost:8000/api/v1/test/media-server \
   -H 'Content-Type: application/json' \
-  -d '{"url":"http://jellyfin.local","key":"API_KEY"}'
+  -d '{"backend":"jellyfin","url":"http://jellyfin.local","key":"API_KEY"}'
 ```
 
 ## Authentication

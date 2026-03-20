@@ -13,7 +13,9 @@ from fastapi.responses import HTMLResponse
 from config import save_settings, settings
 from core.templates import templates
 from services.gpt import fetch_openai_models
-from services.jellyfin import fetch_jellyfin_users, fetch_tracks_for_playlist_id
+from services.jellyfin import JellyfinAdapter
+from services.media_factory import get_media_server
+from services.navidrome import NavidromeAdapter
 from utils.helpers import get_log_excerpt
 from api.forms import SettingsForm
 from api.schemas import (
@@ -35,6 +37,38 @@ router = APIRouter()
 api_router = APIRouter(prefix="/api/v1")
 
 
+async def _load_backend_users() -> dict[str, str]:
+    """Return the active backend users as a template-friendly mapping."""
+    users = await get_media_server().list_users()
+    return {user["name"]: user["id"] for user in users}
+
+
+async def _test_media_server_connection(
+    payload: JellyfinTestRequest,
+) -> JellyfinTestResponse:
+    """Verify the provided media-server credentials using the selected backend."""
+    backend = payload.backend.strip().lower()
+    if backend == "navidrome":
+        adapter = NavidromeAdapter(
+            url=payload.url,
+            username=payload.username,
+            password=payload.password,
+        )
+    else:
+        adapter = JellyfinAdapter(
+            url=payload.url,
+            api_key=payload.key,
+        )
+
+    result = await adapter.test_connection()
+    return JellyfinTestResponse(
+        success=bool(result.get("success")),
+        status=result.get("status"),
+        data=result.get("data"),
+        error=result.get("error"),
+    )
+
+
 @router.get("/settings", response_class=HTMLResponse, tags=["Settings"])
 async def get_settings(request: Request):
     """Display current configuration and available Jellyfin users."""
@@ -45,7 +79,7 @@ async def get_settings(request: Request):
     except ValueError as ve:
         validation_message = str(ve)
         validation_error = True
-    users = await fetch_jellyfin_users()
+    users = await _load_backend_users()
     models = await fetch_openai_models(settings.openai_api_key)
     log_excerpt = get_log_excerpt()
 
@@ -53,11 +87,11 @@ async def get_settings(request: Request):
         "settings.html",
         {
             "request": request,
-            "settings": settings.dict(),
+            "settings": settings.model_dump(),
             "models": models,
             "validation_message": validation_message,
             "validation_error": validation_error,
-            "jellyfin_users": users,
+            "media_server_users": users,
             "log_excerpt": log_excerpt,
         },
     )
@@ -69,9 +103,19 @@ async def update_settings(
     form_data: SettingsForm = Depends(SettingsForm.as_form),
 ):
     """Update application configuration settings from form input."""
+    settings.media_backend = form_data.media_backend
+    settings.media_url = form_data.media_url or form_data.jellyfin_url
+    settings.media_username = form_data.media_username
+    settings.media_password = form_data.media_password
+    settings.media_api_key = form_data.media_api_key or form_data.jellyfin_api_key
+    settings.media_user_id = form_data.media_user_id or form_data.jellyfin_user_id
     settings.jellyfin_url = form_data.jellyfin_url
     settings.jellyfin_api_key = form_data.jellyfin_api_key
     settings.jellyfin_user_id = form_data.jellyfin_user_id
+    if settings.media_backend == "jellyfin":
+        settings.jellyfin_url = settings.media_url
+        settings.jellyfin_api_key = settings.media_api_key
+        settings.jellyfin_user_id = settings.media_user_id
     settings.openai_api_key = form_data.openai_api_key
     settings.lastfm_api_key = form_data.lastfm_api_key
     settings.spotify_client_id = form_data.spotify_client_id
@@ -107,17 +151,17 @@ async def update_settings(
         validation_message = str(ve)
         validation_error = True
 
-    users = await fetch_jellyfin_users()
+    users = await _load_backend_users()
     log_excerpt = get_log_excerpt()
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request,
-            "settings": settings.dict(),
+            "settings": settings.model_dump(),
             "validation_message": validation_message,
             "validation_error": validation_error,
             "models": models,
-            "jellyfin_users": users,
+            "media_server_users": users,
             "log_excerpt": log_excerpt,
         },
     )
@@ -155,32 +199,19 @@ async def test_lastfm(payload: LastfmTestRequest) -> LastfmTestResponse:
 
 
 @api_router.post(
+    "/test/media-server", response_model=JellyfinTestResponse, tags=["Testing"]
+)
+async def test_media_server(payload: JellyfinTestRequest) -> JellyfinTestResponse:
+    """Verify the provided media-server credentials using the selected backend."""
+    return await _test_media_server_connection(payload)
+
+
+@api_router.post(
     "/test/jellyfin", response_model=JellyfinTestResponse, tags=["Testing"]
 )
 async def test_jellyfin(payload: JellyfinTestRequest) -> JellyfinTestResponse:
-    """Verify the provided Jellyfin URL and API key."""
-    url = payload.url.rstrip("/")
-    key = payload.key
-
-    try:
-        headers = {
-            "X-Emby-Token": key,
-            "Accept": "application/json",
-            "User-Agent": "PlaylistPilotTest/1.0",
-        }
-        async with httpx.AsyncClient() as client:
-            r = await client.get(f"{url}/System/Info", headers=headers)
-        logger.debug("Jellyfin Test: %s", r.text)
-
-        json_data = r.json()
-        valid = r.status_code == 200 and any(k.lower() == "version" for k in json_data)
-        return JellyfinTestResponse(success=valid, status=r.status_code, data=json_data)
-    except httpx.HTTPError as exc:
-        logger.error("HTTP error during Jellyfin API test: %s", str(exc))
-        return JellyfinTestResponse(
-            success=False,
-            error="An internal error occurred while testing the Jellyfin API.",
-        )
+    """Backward-compatible alias for media-server connection testing."""
+    return await _test_media_server_connection(payload)
 
 
 @api_router.post("/test/openai", response_model=OpenAITestResponse, tags=["Testing"])
@@ -261,7 +292,7 @@ async def verify_playlist_entry(payload: VerifyEntryRequest) -> VerifyEntryRespo
             success=False, error="playlist_id and entry_id are required"
         )
 
-    tracks = await fetch_tracks_for_playlist_id(playlist_id)
+    tracks = await get_media_server().get_playlist_tracks(playlist_id)
     match = next((t for t in tracks if t.get("PlaylistItemId") == entry_id), None)
 
     if match:
