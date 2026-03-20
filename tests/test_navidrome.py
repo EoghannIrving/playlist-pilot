@@ -68,7 +68,7 @@ def test_navidrome_list_audio_playlists(monkeypatch):
 
 
 def test_navidrome_get_track_metadata(monkeypatch):
-    """Search results should return the matching track metadata."""
+    """Search results should return normalized matching track metadata."""
     monkeypatch.setattr(settings, "media_url", "http://nav", raising=False)
     monkeypatch.setattr(settings, "media_username", "user", raising=False)
     monkeypatch.setattr(settings, "media_password", "pass", raising=False)
@@ -90,7 +90,70 @@ def test_navidrome_get_track_metadata(monkeypatch):
                 },
             )
             metadata = await NavidromeAdapter().get_track_metadata("Song", "Artist")
-            assert metadata == {"id": "x", "title": "Song", "artist": "Artist"}
+            assert metadata["Id"] == "x"
+            assert metadata["Name"] == "Song"
+            assert metadata["AlbumArtist"] == "Artist"
+            assert metadata["Artists"] == ["Artist"]
+            assert metadata["Genres"] == []
+            assert metadata["RunTimeTicks"] == 0
+            assert metadata["UserData"]["PlayCount"] == 0
+
+    asyncio.run(main())
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+def test_navidrome_get_playlist_tracks_normalizes_entries(monkeypatch):
+    """Playlist entries should be normalized for the core enrichment pipeline."""
+    monkeypatch.setattr(settings, "media_url", "http://nav", raising=False)
+    monkeypatch.setattr(settings, "media_username", "user", raising=False)
+    monkeypatch.setattr(settings, "media_password", "pass", raising=False)
+
+    async def main():
+        with respx.mock(assert_all_called=True) as mock:
+            mock.get("http://nav/rest/getPlaylist.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "playlist": {
+                            "entry": [
+                                {
+                                    "id": "track-1",
+                                    "title": "Song",
+                                    "artist": "Artist",
+                                    "album": "Album",
+                                    "genre": "Rock",
+                                    "year": 2020,
+                                    "duration": 245,
+                                    "playCount": 7,
+                                }
+                            ]
+                        },
+                    }
+                },
+            )
+            tracks = await NavidromeAdapter().get_playlist_tracks("playlist-1")
+            assert tracks == [
+                {
+                    "Id": "track-1",
+                    "PlaylistItemId": "track-1",
+                    "Name": "Song",
+                    "SortName": "Song",
+                    "AlbumArtist": "Artist",
+                    "Artists": ["Artist"],
+                    "Artist": "Artist",
+                    "Album": "Album",
+                    "Genres": ["Rock"],
+                    "ProductionYear": 2020,
+                    "PremiereDate": None,
+                    "RunTimeTicks": 2450000000,
+                    "Path": None,
+                    "lyrics": None,
+                    "UserData": {"PlayCount": 7},
+                    "backend": "navidrome",
+                    "backend_item_id": "track-1",
+                }
+            ]
 
     asyncio.run(main())
     asyncio.set_event_loop(asyncio.new_event_loop())

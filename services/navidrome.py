@@ -114,6 +114,38 @@ class NavidromeAdapter(MediaServer):
             return [artist]
         return []
 
+    def _normalize_song(self, song: dict[str, Any]) -> dict[str, Any]:
+        """Return a Jellyfin-compatible track shape from a Navidrome song."""
+        artists = self._artists(song)
+        title = str(song.get("title", "")).strip()
+        album = str(song.get("album", "")).strip()
+        genre = str(song.get("genre", "")).strip()
+        item_id = str(song.get("id", "")).strip()
+        duration_seconds = self._duration_seconds(song) or 0
+        play_count = song.get("playCount")
+
+        return {
+            "Id": item_id or None,
+            "PlaylistItemId": item_id or None,
+            "Name": title,
+            "SortName": title,
+            "AlbumArtist": (
+                artists[0] if artists else str(song.get("artist", "")).strip()
+            ),
+            "Artists": artists,
+            "Artist": str(song.get("artist", "")).strip(),
+            "Album": album,
+            "Genres": [genre] if genre else [],
+            "ProductionYear": self._year(song),
+            "PremiereDate": None,
+            "RunTimeTicks": duration_seconds * 10_000_000,
+            "Path": song.get("path"),
+            "lyrics": song.get("lyrics"),
+            "UserData": {"PlayCount": play_count if isinstance(play_count, int) else 0},
+            "backend": self.backend_name(),
+            "backend_item_id": item_id or None,
+        }
+
     async def test_connection(self) -> dict:
         """Verify Navidrome connectivity using current settings."""
         try:
@@ -169,7 +201,11 @@ class NavidromeAdapter(MediaServer):
             entries = playlist.get("entry", [])
             if isinstance(entries, dict):
                 entries = [entries]
-            return [entry for entry in entries if isinstance(entry, dict)]
+            return [
+                self._normalize_song(entry)
+                for entry in entries
+                if isinstance(entry, dict)
+            ]
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
             logger.error("Failed to fetch Navidrome playlist %s: %s", playlist_id, exc)
             return []
@@ -193,7 +229,7 @@ class NavidromeAdapter(MediaServer):
                 song_title = str(song.get("title", "")).lower()
                 song_artist = str(song.get("artist", "")).lower()
                 if title_lower in song_title and artist_lower in song_artist:
-                    return song
+                    return self._normalize_song(song)
             return None
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
             logger.error("Navidrome track metadata lookup failed: %s", exc)
