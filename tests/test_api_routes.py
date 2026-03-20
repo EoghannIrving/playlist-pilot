@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from starlette.datastructures import UploadFile
 from api.schemas import AnalysisExportRequest
 from api.forms import SettingsForm
-from api.routes import settings_routes
+from api.routes import settings_routes, analysis_routes
 from api.schemas import VerifyEntryRequest
 
 
@@ -246,3 +246,78 @@ def test_test_media_server_route_supports_navidrome_backend(monkeypatch):
 
     assert result.success is True
     assert result.status == 200
+
+
+def test_index_passes_refresh_to_playlist_cache(monkeypatch):
+    """Index should forward the refresh flag to the playlist cache helper."""
+
+    captured = {}
+
+    async def fake_get_cached_playlists(user_id, force_refresh=False):
+        captured["user_id"] = user_id
+        captured["force_refresh"] = force_refresh
+        return {"playlists": [], "error": None}
+
+    def fake_template_response(_template, context):
+        return context
+
+    monkeypatch.setattr(
+        analysis_routes, "get_cached_playlists", fake_get_cached_playlists
+    )
+    monkeypatch.setattr(analysis_routes, "current_user_scope", lambda: "user-1")
+    monkeypatch.setattr(
+        analysis_routes, "load_sorted_history", lambda _user_id=None: []
+    )
+    monkeypatch.setattr(
+        analysis_routes.templates, "TemplateResponse", fake_template_response
+    )
+    monkeypatch.setattr(
+        analysis_routes.settings.__class__,
+        "validate_settings",
+        lambda _self: None,
+        raising=False,
+    )
+
+    result = asyncio.run(
+        analysis_routes.index(
+            types.SimpleNamespace(url=types.SimpleNamespace(path="/")), refresh=True
+        )
+    )
+
+    assert captured == {"user_id": "user-1", "force_refresh": True}
+    assert result["refresh_requested"] is True
+
+
+def test_show_analysis_page_passes_refresh_to_playlist_cache(monkeypatch):
+    """Analyze page should support forcing a fresh server playlist fetch."""
+
+    captured = {}
+
+    async def fake_get_cached_playlists(user_id, force_refresh=False):
+        captured["user_id"] = user_id
+        captured["force_refresh"] = force_refresh
+        return {"playlists": [], "error": None}
+
+    def fake_template_response(_template, context):
+        return context
+
+    monkeypatch.setattr(
+        analysis_routes, "get_cached_playlists", fake_get_cached_playlists
+    )
+    monkeypatch.setattr(analysis_routes, "current_user_scope", lambda: "user-1")
+    monkeypatch.setattr(
+        analysis_routes, "load_sorted_history", lambda _user_id=None: []
+    )
+    monkeypatch.setattr(
+        analysis_routes.templates, "TemplateResponse", fake_template_response
+    )
+
+    result = asyncio.run(
+        analysis_routes.show_analysis_page(
+            types.SimpleNamespace(url=types.SimpleNamespace(path="/analyze")),
+            refresh=True,
+        )
+    )
+
+    assert captured == {"user_id": "user-1", "force_refresh": True}
+    assert result["refresh_requested"] is True

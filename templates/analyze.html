@@ -4,7 +4,18 @@
 {% block content %}
 <main class="container mx-auto max-w-screen-x1 p-4">
   <div class="p-6 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-    <h1 class="text-2xl font-bold mb-6">🧠 Analyze Playlist</h1>
+    <div class="mb-6 flex items-center justify-between gap-4">
+      <h1 class="text-2xl font-bold">🧠 Analyze Playlist</h1>
+      <a href="{{ request.url.path }}?refresh=1"
+         class="inline-flex items-center rounded border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-700">
+        Refresh Server Playlists
+      </a>
+    </div>
+    {% if refresh_requested %}
+    <div class="mb-4 p-2 rounded bg-blue-100 text-blue-800">
+      🔄 Playlist list refreshed from the media server.
+    </div>
+    {% endif %}
     {% if error_message %}
     <div class="mb-4 p-2 rounded bg-red-100 text-red-800">
       ❌ {{ error_message }}
@@ -97,4 +108,3 @@ function togglePlaylistSelect(source) {
 }
 </script>
 {% endblock %}
-

@@ -5,8 +5,10 @@
 import ast
 from pathlib import Path
 import types
+import asyncio
 import pytest
 
+from utils import helpers
 from core import constants
 from core.history import (
     save_whole_user_history,
@@ -116,3 +118,83 @@ def test_load_sorted_history(monkeypatch, tmp_path):
     save_whole_user_history("user", entries)
     sorted_hist = load_sorted_history("user")
     assert sorted_hist[0]["id"] == "2"
+
+
+class DummyCache(dict):
+    """Minimal cache stub for helper tests."""
+
+    def get(self, key):
+        """Return cached value for ``key``."""
+        return super().get(key)
+
+    def set(self, key, value, expire=None):
+        """Store ``value`` for ``key``; ``expire`` is ignored."""
+        _ = expire
+        self[key] = value
+
+    def delete(self, key):
+        """Delete ``key`` when present."""
+        self.pop(key, None)
+
+
+def test_get_cached_playlists_uses_cache_for_jellyfin(monkeypatch):
+    """Jellyfin-backed playlist lookups should reuse the cached result."""
+
+    calls = []
+
+    async def fake_fetch(user_id):
+        calls.append(user_id)
+        return {"playlists": [{"id": str(len(calls)), "name": "Mix"}]}
+
+    monkeypatch.setattr(helpers, "playlist_cache", DummyCache())
+    monkeypatch.setattr(helpers, "fetch_audio_playlists", fake_fetch)
+    monkeypatch.setattr(helpers, "CACHE_TTLS", {"playlists": 60})
+    monkeypatch.setattr(helpers.settings, "media_backend", "jellyfin", raising=False)
+
+    first = asyncio.run(helpers.get_cached_playlists("user-1"))
+    second = asyncio.run(helpers.get_cached_playlists("user-1"))
+
+    assert first == second
+    assert calls == ["user-1"]
+
+
+def test_get_cached_playlists_force_refresh_bypasses_cache(monkeypatch):
+    """Forced refresh should fetch fresh playlist data even with a cache entry."""
+
+    calls = []
+
+    async def fake_fetch(user_id):
+        calls.append(user_id)
+        return {"playlists": [{"id": str(len(calls)), "name": f"Mix {len(calls)}"}]}
+
+    monkeypatch.setattr(helpers, "playlist_cache", DummyCache())
+    monkeypatch.setattr(helpers, "fetch_audio_playlists", fake_fetch)
+    monkeypatch.setattr(helpers, "CACHE_TTLS", {"playlists": 60})
+    monkeypatch.setattr(helpers.settings, "media_backend", "jellyfin", raising=False)
+
+    first = asyncio.run(helpers.get_cached_playlists("user-1"))
+    refreshed = asyncio.run(helpers.get_cached_playlists("user-1", force_refresh=True))
+
+    assert first != refreshed
+    assert calls == ["user-1", "user-1"]
+
+
+def test_get_cached_playlists_bypasses_cache_for_navidrome(monkeypatch):
+    """Navidrome-backed playlist lookups should not rely on stale cache data."""
+
+    calls = []
+
+    async def fake_fetch(user_id):
+        calls.append(user_id)
+        return {"playlists": [{"id": str(len(calls)), "name": f"Mix {len(calls)}"}]}
+
+    monkeypatch.setattr(helpers, "playlist_cache", DummyCache())
+    monkeypatch.setattr(helpers, "fetch_audio_playlists", fake_fetch)
+    monkeypatch.setattr(helpers, "CACHE_TTLS", {"playlists": 60})
+    monkeypatch.setattr(helpers.settings, "media_backend", "navidrome", raising=False)
+
+    first = asyncio.run(helpers.get_cached_playlists("user-1"))
+    second = asyncio.run(helpers.get_cached_playlists("user-1"))
+
+    assert first != second
+    assert calls == ["user-1", "user-1"]

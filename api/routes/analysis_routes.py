@@ -104,7 +104,7 @@ async def _build_suggest_payload(
 
 
 @router.get("/", response_class=HTMLResponse, tags=["UI"])
-async def index(request: Request):
+async def index(request: Request, refresh: bool = Query(False)):
     """Render the homepage showing available audio playlists.
 
     Redirects to the settings page when configuration is incomplete and uses
@@ -115,7 +115,7 @@ async def index(request: Request):
         return RedirectResponse(url="/settings", status_code=302)
 
     user_id = current_user_scope()
-    playlists_data = await get_cached_playlists(user_id)
+    playlists_data = await get_cached_playlists(user_id, force_refresh=refresh)
     error_message = playlists_data.get("error")
     history = load_sorted_history(user_id)
 
@@ -127,6 +127,7 @@ async def index(request: Request):
             "server_playlists": playlists_data["playlists"],
             "history": history,
             "error_message": error_message,
+            "refresh_requested": refresh,
         },
     )
 
@@ -327,10 +328,10 @@ async def delete_history(
 
 
 @router.get("/analyze", response_class=HTMLResponse, tags=["Analysis"])
-async def show_analysis_page(request: Request):
+async def show_analysis_page(request: Request, refresh: bool = Query(False)):
     """Display the playlist analysis form where users can choose a source."""
     user_id = current_user_scope()
-    playlists_data = await get_cached_playlists(user_id)
+    playlists_data = await get_cached_playlists(user_id, force_refresh=refresh)
     error_message = playlists_data.get("error")
     history = load_sorted_history(user_id)
 
@@ -342,6 +343,7 @@ async def show_analysis_page(request: Request):
             "server_playlists": playlists_data["playlists"],
             "history": history,
             "error_message": error_message,
+            "refresh_requested": refresh,
         },
     )
 

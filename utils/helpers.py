@@ -23,11 +23,19 @@ def current_user_scope() -> str:
     return settings.jellyfin_user_id or settings.media_user_id
 
 
-async def get_cached_playlists(user_id: str | None = None) -> dict:
-    """Return audio playlists for a user using caching."""
+async def get_cached_playlists(
+    user_id: str | None = None, force_refresh: bool = False
+) -> dict:
+    """Return audio playlists for a user using caching.
+
+    Navidrome playlist lists are refreshed on each request because playlist
+    creation commonly happens outside Playlist Pilot and stale server-side state
+    is more confusing than the extra fetch.
+    """
     user_id = user_id or current_user_scope()
     cache_key = f"playlists:{user_id}"
-    playlists_data = playlist_cache.get(cache_key)
+    should_bypass_cache = force_refresh or settings.media_backend == "navidrome"
+    playlists_data = None if should_bypass_cache else playlist_cache.get(cache_key)
     if playlists_data is None:
         try:
             playlists_data = await fetch_audio_playlists(user_id)
@@ -40,6 +48,19 @@ async def get_cached_playlists(user_id: str | None = None) -> dict:
             # do not persist until the TTL expires
             return {"playlists": [], "error": str(exc)}
     return playlists_data
+
+
+def invalidate_cached_playlists(user_id: str | None = None) -> None:
+    """Invalidate cached playlists for the active or provided user scope."""
+    user_id = user_id or current_user_scope()
+    cache_key = f"playlists:{user_id}"
+    try:
+        if hasattr(playlist_cache, "delete"):
+            playlist_cache.delete(cache_key)
+        else:
+            playlist_cache.pop(cache_key, None)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning("Failed to invalidate playlist cache for %s: %s", user_id, exc)
 
 
 def load_sorted_history(user_id: str | None = None) -> list:
