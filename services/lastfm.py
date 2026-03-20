@@ -29,6 +29,20 @@ _punct_re = re.compile(r"[^a-z0-9 ]")
 _space_re = re.compile(r"\s+")
 
 
+def _extract_tag_names(payload: dict | None) -> list[str]:
+    """Extract tag names from a Last.fm payload fragment."""
+    if not isinstance(payload, dict):
+        return []
+    raw_tags = payload.get("tag", [])
+    if isinstance(raw_tags, dict):
+        raw_tags = [raw_tags]
+    return [
+        str(tag.get("name", "")).strip()
+        for tag in raw_tags
+        if isinstance(tag, dict) and str(tag.get("name", "")).strip()
+    ]
+
+
 def normalize(text: str) -> str:
     """Standardize text for caching and comparison."""
     # Normalize accents to their ASCII equivalents before lowercasing
@@ -133,6 +147,10 @@ async def enrich_with_lastfm(title: str, artist: str) -> dict:
     track_task = asyncio.create_task(get_lastfm_track_info(title, artist))
     tags_task = asyncio.create_task(get_lastfm_tags(title, artist))
     track_data, tags = await asyncio.gather(track_task, tags_task)
+    if track_data:
+        info_tags = _extract_tag_names(track_data.get("toptags"))
+        if info_tags:
+            tags = list(dict.fromkeys([*tags, *info_tags]))
 
     if track_data:
         album_info = track_data.get("album") or {}

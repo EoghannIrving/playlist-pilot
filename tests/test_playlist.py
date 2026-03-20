@@ -64,6 +64,13 @@ def test_normalize_track_handles_artist_dict_entries():
     assert normalized.title == "Dict Song"
 
 
+def test_normalize_genre_supports_common_navidrome_subgenres():
+    """Common Last.fm/Navidrome subgenre tags should map to known genres."""
+    assert playlist_module.normalize_genre("synth-pop") == "synthpop"
+    assert playlist_module.filter_valid_genre(["sophisti-pop"]) == "pop"
+    assert playlist_module.filter_valid_genre(["new wave revival"]) == "new wave"
+
+
 def test_fetch_audio_playlists_uses_media_server_factory(monkeypatch):
     """Playlist fetches should go through the media-server factory."""
 

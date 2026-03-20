@@ -506,7 +506,11 @@ GENRE_SYNONYMS = {
     "kpop": "k-pop",
     "jpop": "j-pop",
     "afrobeats": "afrobeat",
+    "synth-pop": "synthpop",
     "synth pop": "synthpop",
+    "electropop": "synthpop",
+    "new romantic": "new wave",
+    "sophisti-pop": "pop",
     "ambient music": "ambient",
 }
 
@@ -590,6 +594,9 @@ def filter_valid_genre(tags: list[str]) -> str:
         normalized = normalize_genre(tag).lower()
         if normalized in KNOWN_GENRES:
             return normalize_genre(tag)
+        for genre in KNOWN_GENRES:
+            if genre in normalized:
+                return genre
     return ""
 
 

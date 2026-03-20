@@ -517,8 +517,14 @@ def combine_mood_scores(
     sorted_moods = sorted(combined.items(), key=lambda x: x[1], reverse=True)
     filtered = dict(sorted_moods[:3])
     logger.debug("Filtered mood scores: %s", filtered)
-    if not filtered or max(filtered.values()) < 0.3:
+    top_score = max(filtered.values(), default=0.0)
+    non_zero_moods = [mood for mood, score in combined.items() if score > 0]
+    signal_sources = sum(1 for total in (tag_sum, bpm_sum, lyrics_sum) if total > 0)
+    if not filtered or top_score < 0.3:
         logger.info("← Final Mood: unknown (no strong scores)\n")
+        return "unknown", 0.0
+    if signal_sources == 1 and len(non_zero_moods) == 1 and top_score < 2.0:
+        logger.info("← Final Mood: unknown (single weak signal)\n")
         return "unknown", 0.0
 
     # Softmax confidence
@@ -544,7 +550,6 @@ def combine_mood_scores(
         "dark",
         "intense",
     ]
-    top_score = max(filtered.values())
     top_moods = [m for m, s in filtered.items() if s == top_score]
     best_mood = next((m for m in preferred_order if m in top_moods), top_mood)
 

@@ -82,3 +82,30 @@ def test_enrich_with_lastfm_handles_missing_track_info(monkeypatch):
     assert result["album"] == ""
     assert result["releasedate"] == ""
     assert result["tags"] == ["holiday", "seasonal"]
+
+
+def test_enrich_with_lastfm_merges_track_info_tags(monkeypatch):
+    """Track-info tags should supplement sparse ``getTopTags`` responses."""
+    lastfm = _load_lastfm_module(monkeypatch)
+
+    async def fake_track_info(*_args, **_kwargs):
+        return {
+            "listeners": "42",
+            "album": {"title": "Album", "releasedate": "1 Jan 1983"},
+            "toptags": {
+                "tag": [{"name": "new wave"}, {"name": "synth-pop"}, {"name": "pop"}]
+            },
+        }
+
+    async def fake_tags(*_args, **_kwargs):
+        return []
+
+    monkeypatch.setattr(lastfm, "get_lastfm_track_info", fake_track_info)
+    monkeypatch.setattr(lastfm, "get_lastfm_tags", fake_tags)
+
+    result = asyncio.run(lastfm.enrich_with_lastfm("Song", "Artist"))
+
+    assert result["listeners"] == 42
+    assert result["album"] == "Album"
+    assert result["releasedate"] == "1 Jan 1983"
+    assert result["tags"] == ["new wave", "synth-pop", "pop"]

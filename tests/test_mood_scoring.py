@@ -44,3 +44,12 @@ def test_combine_mood_scores_no_signal():
     mood, confidence = combine_mood_scores(empty, empty)
     assert mood == "unknown"
     assert confidence == 0.0
+
+
+def test_combine_mood_scores_single_weak_signal_returns_unknown():
+    """A single weak mood cue should not force a confident classification."""
+    tags = mood_scores_from_lastfm_tags(["smooth"])
+    empty = {m: 0.0 for m in mood_scores_from_lastfm_tags([])}
+    mood, confidence = combine_mood_scores(tags, empty)
+    assert mood == "unknown"
+    assert confidence == 0.0
