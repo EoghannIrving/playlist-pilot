@@ -6,8 +6,8 @@ openai
 pydantic
 requests
 uvicorn
-yt - dlp
-python - multipart
+yt-dlp
+python-multipart
 cloudscraper
 httpx
 respx
