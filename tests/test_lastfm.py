@@ -74,14 +74,19 @@ def test_enrich_with_lastfm_handles_missing_track_info(monkeypatch):
     async def fake_tags(*_args, **_kwargs):
         return ["holiday", "seasonal"]
 
+    async def fake_artist_tags(*_args, **_kwargs):
+        return ["crooner"]
+
     monkeypatch.setattr(lastfm, "get_lastfm_track_info", fake_track_info)
     monkeypatch.setattr(lastfm, "get_lastfm_tags", fake_tags)
+    monkeypatch.setattr(lastfm, "get_lastfm_artist_tags", fake_artist_tags)
 
     result = asyncio.run(lastfm.enrich_with_lastfm("Song", "Artist"))
     assert result["listeners"] == 0
     assert result["album"] == ""
     assert result["releasedate"] == ""
     assert result["tags"] == ["holiday", "seasonal"]
+    assert result["genre_tags"] == ["holiday", "seasonal", "crooner"]
 
 
 def test_enrich_with_lastfm_merges_track_info_tags(monkeypatch):
@@ -100,8 +105,12 @@ def test_enrich_with_lastfm_merges_track_info_tags(monkeypatch):
     async def fake_tags(*_args, **_kwargs):
         return []
 
+    async def fake_artist_tags(*_args, **_kwargs):
+        return ["pop"]
+
     monkeypatch.setattr(lastfm, "get_lastfm_track_info", fake_track_info)
     monkeypatch.setattr(lastfm, "get_lastfm_tags", fake_tags)
+    monkeypatch.setattr(lastfm, "get_lastfm_artist_tags", fake_artist_tags)
 
     result = asyncio.run(lastfm.enrich_with_lastfm("Song", "Artist"))
 
@@ -109,3 +118,4 @@ def test_enrich_with_lastfm_merges_track_info_tags(monkeypatch):
     assert result["album"] == "Album"
     assert result["releasedate"] == "1 Jan 1983"
     assert result["tags"] == ["new wave", "synth-pop", "pop"]
+    assert result["genre_tags"] == ["new wave", "synth-pop", "pop"]

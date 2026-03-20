@@ -300,8 +300,10 @@ async def _get_lastfm_data(title: str, artist: str) -> dict:
     data = await enrich_with_lastfm(title, artist)
     return {
         "tags": data["tags"],
+        "genre_tags": data.get("genre_tags", data["tags"]),
         "listeners": data["listeners"],
         "album": data["album"],
+        "releasedate": data.get("releasedate", ""),
     }
 
 
@@ -329,20 +331,36 @@ async def _fetch_bpm_data(artist: str, title: str) -> dict:
     return {}
 
 
-def _determine_year(jellyfin_year: str, bpm_year: int | None) -> tuple[str | None, str]:
+def _determine_year(
+    backend_year: str, bpm_year: int | None, releasedate: str = ""
+) -> tuple[str | None, str]:
     """Determine the final year and flag mismatches between sources."""
     year_flag = ""
-    final_year: str | None = None
+    candidates: list[tuple[str, int]] = []
+    if backend_year:
+        try:
+            candidates.append(("backend", int(backend_year)))
+        except (ValueError, TypeError):
+            logger.warning("Invalid backend year data: %s", backend_year)
     if bpm_year:
-        final_year = str(bpm_year)
-    elif jellyfin_year:
-        final_year = str(jellyfin_year)
+        candidates.append(("getsongbpm", int(bpm_year)))
+    release_year = extract_year_from_string(releasedate)
+    if release_year:
+        try:
+            candidates.append(("lastfm", int(release_year)))
+        except (ValueError, TypeError):
+            logger.warning("Invalid Last.fm release year data: %s", release_year)
+    final_year = str(min(year for _, year in candidates)) if candidates else None
     try:
-        if jellyfin_year and bpm_year and abs(int(jellyfin_year) - int(bpm_year)) > 1:
-            year_flag = f"GetSongBPM Date: {bpm_year} or Jellyfin Date: {jellyfin_year}"
+        distinct_years = sorted({year for _, year in candidates})
+        if len(distinct_years) > 1:
+            year_flag = " / ".join(f"{source}: {year}" for source, year in candidates)
     except (ValueError, TypeError):
         logger.warning(
-            "Invalid year data: Jellyfin=%s, BPM=%s", jellyfin_year, bpm_year
+            "Invalid year data: backend=%s, BPM=%s, releasedate=%s",
+            backend_year,
+            bpm_year,
+            releasedate,
         )
     return final_year, year_flag
 
@@ -417,9 +435,16 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         if not parsed.RunTimeTicks and meta.get("duration_ms"):
             parsed.RunTimeTicks = int(meta["duration_ms"] * 10_000)
 
-    year_info = _determine_year(parsed.year or "", bpm_data.get("year"))
+    year_info = _determine_year(
+        parsed.year or "",
+        bpm_data.get("year"),
+        lastfm.get("releasedate", ""),
+    )
     mood_data = await _classify_mood(parsed, lastfm["tags"], bpm_data)
-    selected_genre = _select_genre(parsed.Genres or [], lastfm["tags"]) or "Unknown"
+    selected_genre = (
+        _select_genre(parsed.Genres or [], lastfm.get("genre_tags", lastfm["tags"]))
+        or "Unknown"
+    )
     duration_seconds = _duration_from_ticks(parsed.RunTimeTicks, bpm_data)
     tempo = bpm_data.get("bpm") or parsed.tempo
     if tempo is None and duration_seconds:

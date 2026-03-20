@@ -147,3 +147,42 @@ def test_enrich_track_falls_back_to_apple_music(monkeypatch):
     assert enriched.album == "Apple Album"
     assert enriched.FinalYear == "1999"
     assert enriched.RunTimeTicks == 123000 * 10000
+
+
+def test_enrich_track_prefers_earliest_release_year(monkeypatch):
+    """Original release year should win over newer remaster-style metadata."""
+
+    async def fake_spotify(_title, _artist):
+        return None
+
+    async def fake_apple(_title, _artist):
+        return {"album": "Apple Album", "year": "2023", "duration_ms": 123000}
+
+    async def fake_lastfm_data(_title, _artist):
+        return {
+            "tags": [],
+            "genre_tags": [],
+            "listeners": 0,
+            "album": "",
+            "releasedate": "12 Oct 1984",
+        }
+
+    monkeypatch.setattr(settings, "spotify_client_id", "id")
+    monkeypatch.setattr(settings, "spotify_client_secret", "secret")
+    monkeypatch.setattr(settings, "apple_client_id", "id")
+    monkeypatch.setattr(settings, "apple_client_secret", "secret")
+    monkeypatch.setattr(playlist, "fetch_spotify_metadata", fake_spotify)
+    monkeypatch.setattr(playlist, "fetch_applemusic_metadata", fake_apple)
+    monkeypatch.setattr(playlist, "_get_lastfm_data", fake_lastfm_data)
+
+    track = {
+        "title": "Song",
+        "artist": "Artist",
+        "album": "",
+        "year": "",
+        "RunTimeTicks": 0,
+        "Genres": [],
+    }
+    enriched = asyncio.run(playlist.enrich_track(track))
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    assert enriched.FinalYear == "1984"

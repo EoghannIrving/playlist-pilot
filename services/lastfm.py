@@ -91,6 +91,39 @@ async def get_lastfm_tags(title: str, artist: str) -> list[str]:
         return []
 
 
+async def get_lastfm_artist_tags(artist: str) -> list[str]:
+    """Retrieve top genre-like tags for an artist from Last.fm."""
+    cache_key = f"artist-tags:{normalize(artist)}"
+    cached = lastfm_cache.get(cache_key)
+    if cached is not None:
+        logger.info("[Last.fm] Artist tag cache hit for %s", artist)
+        return cached
+
+    try:
+        client = get_http_client(short=True)
+        response = await client.get(
+            "https://ws.audioscrobbler.com/2.0/",
+            params={
+                "method": "artist.getTopTags",
+                "api_key": settings.lastfm_api_key,
+                "artist": artist,
+                "format": "json",
+            },
+        )
+        response.raise_for_status()
+        record_success("lastfm")
+        data = response.json()
+        tags = _extract_tag_names(data.get("toptags"))
+        logger.info("[Last.fm] Extracted artist tags for %s: %s", artist, tags)
+        lastfm_cache.set(cache_key, tags, expire=CACHE_TTLS["lastfm"])
+        return tags
+    except (httpx.HTTPError, json.JSONDecodeError) as exc:
+        record_failure("lastfm")
+        logger.warning("Last.fm artist tag fetch failed for %s: %s", artist, exc)
+        lastfm_cache.set(cache_key, [], expire=CACHE_TTLS["lastfm"])
+        return []
+
+
 async def get_lastfm_track_info(title: str, artist: str) -> dict | None:
     """
     Retrieve and cache Last.fm track.getInfo data.
@@ -146,11 +179,17 @@ async def enrich_with_lastfm(title: str, artist: str) -> dict:
     """
     track_task = asyncio.create_task(get_lastfm_track_info(title, artist))
     tags_task = asyncio.create_task(get_lastfm_tags(title, artist))
-    track_data, tags = await asyncio.gather(track_task, tags_task)
+    artist_tags_task = asyncio.create_task(get_lastfm_artist_tags(artist))
+    track_data, track_tags, artist_tags = await asyncio.gather(
+        track_task, tags_task, artist_tags_task
+    )
     if track_data:
         info_tags = _extract_tag_names(track_data.get("toptags"))
         if info_tags:
-            tags = list(dict.fromkeys([*tags, *info_tags]))
+            track_tags = list(dict.fromkeys([*track_tags, *info_tags]))
+    genre_tags = (
+        list(dict.fromkeys([*track_tags, *artist_tags])) if artist_tags else track_tags
+    )
 
     if track_data:
         album_info = track_data.get("album") or {}
@@ -167,5 +206,6 @@ async def enrich_with_lastfm(title: str, artist: str) -> dict:
         "listeners": listeners,
         "releasedate": releasedate,
         "album": album_title,
-        "tags": tags,
+        "tags": track_tags,
+        "genre_tags": genre_tags,
     }
