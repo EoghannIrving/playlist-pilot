@@ -57,7 +57,10 @@ def describe_popularity(score: float) -> str:
 
 
 def _build_gpt_prompt(
-    existing_tracks: list[str], count: int, summary: dict | str | None = None
+    existing_tracks: list[str],
+    count: int,
+    summary: dict | str | None = None,
+    profile_summary: str | None = None,
 ) -> str:
     """
     Constructs a tailored GPT prompt based a user selected playlist.
@@ -76,20 +79,31 @@ def _build_gpt_prompt(
         else:
             pop_score = summary.get("avg_popularity", 0)
             pop_desc = describe_popularity(pop_score)
-
-            summary_block = f"""The following is a summary of the playlist:
-            - Dominant Genre: {summary['dominant_genre']}
-            - Moods: {", ".join(summary['mood_profile'].keys())}
-            - Avg BPM: {int(summary['tempo_avg'])}
-            - Popularity: ~{pop_desc} (score: {int(pop_score)})
-            - Decades: {", ".join(summary['decades'].keys())}
-            """
+            summary_lines = ["The following is a summary of the playlist:"]
+            if summary.get("dominant_genre") and summary["dominant_genre"] != "Unknown":
+                summary_lines.append(f"- Dominant Genre: {summary['dominant_genre']}")
+            moods = list(summary.get("mood_profile", {}).keys())
+            if moods:
+                summary_lines.append(f"- Moods: {', '.join(moods)}")
+            if summary.get("tempo_avg"):
+                summary_lines.append(f"- Avg BPM: {int(summary['tempo_avg'])}")
+            summary_lines.append(f"- Popularity: ~{pop_desc} (score: {int(pop_score)})")
+            decades = list(summary.get("decades", {}).keys())
+            if decades:
+                summary_lines.append(f"- Decades: {', '.join(decades)}")
+            summary_block = "\n".join(summary_lines)
     else:
         summary_block = ""
+
+    if profile_summary:
+        profile_block = f"\nPlaylist profile summary:\n{profile_summary.strip()}\n"
+    else:
+        profile_block = ""
 
     intro = (
         "The user has provided a playlist which has the following "
         f"characteristics:\n{summary_block}\n\n"
+        f"{profile_block}"
         f"Reference Playlist:\n{base}\n\n"
         f"Suggest exactly {count} additional **real and relevant** songs "
         "that would strongly appeal to someone who enjoys this playlist."
@@ -102,6 +116,12 @@ def _build_gpt_prompt(
             "- Only include songs that are publicly verifiable and recognizable.\n"
             "- Avoid remixes, covers, live-only performances, or "
             "obscure/independent tracks unless they had commercial release.\n\n"
+            "Fit rules:\n"
+            "- Prioritize era, scene, production style, and emotional fit over generic similarity.\n"
+            "- If the playlist has a clear decade center, keep most suggestions in that decade or an adjacent one.\n"
+            "- Prefer artists, scenes, and sonic palettes plausibly adjacent to the reference playlist.\n"
+            "- Avoid generic modern indie or atmospheric recommendations unless the reference playlist clearly supports them.\n"
+            "- Rank strongest fit first, not broad popularity.\n\n"
             "Formatting rules:\n"
             "- Return each song on a single line.\n"
             "- Use the **exact** format:\n"
@@ -215,6 +235,7 @@ async def gpt_suggest_validated(
     existing_tracks: list[str],
     count: int,
     summary: dict | str | None = None,
+    profile_summary: str | None = None,
     exclude_pairs: set[tuple[str, str]] | None = None,
 ) -> list[dict]:
     """
@@ -227,7 +248,7 @@ async def gpt_suggest_validated(
     Returns:
         list[dict]: Validated GPT suggestions (title, artist, text, popularity)
     """
-    prompt = _build_gpt_prompt(existing_tracks, count * 3, summary)
+    prompt = _build_gpt_prompt(existing_tracks, count * 3, summary, profile_summary)
     logger.debug("Sending GPT prompt:\n%s...", prompt[:500])
     result = await cached_chat_completion(prompt)
     response_content = result.strip()
@@ -274,19 +295,26 @@ async def gpt_suggest_validated(
 
 
 async def fetch_gpt_suggestions(
-    tracks: list[dict], text_summary: str, count: int
+    tracks: list[dict],
+    summary: dict | str | None,
+    count: int,
+    profile_summary: str = "",
 ) -> list[dict]:
     """Wrapper to request suggestions from GPT based on seed tracks."""
     seed_lines = [
         f"{t['title']} - {t['artist']}"
-        f" - {t.get('tempo', '??')} BPM - mood: {t.get('mood', 'unknown')}"
+        f" - genre: {t.get('genre', 'unknown')}"
+        f" - mood: {t.get('mood', 'unknown')}"
+        f" - decade: {t.get('decade', 'unknown')}"
+        f" - tempo: {t.get('tempo', '??')} BPM"
         for t in tracks
     ]
     exclude_pairs = {(t["title"], t["artist"]) for t in tracks}
     return await gpt_suggest_validated(
         seed_lines,
         count,
-        text_summary,
+        summary,
+        profile_summary=profile_summary,
         exclude_pairs=exclude_pairs,
     )
 
