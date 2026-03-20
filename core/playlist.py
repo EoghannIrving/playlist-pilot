@@ -31,14 +31,15 @@ from services.getsongbpm import get_cached_bpm
 from services.gpt import analyze_mood_from_lyrics
 from services.jellyfin import (
     jf_get,
+    fetch_full_audio_library,
     fetch_tracks_for_playlist_id,
     fetch_jellyfin_track_metadata,
 )
+from services.media_factory import get_media_server
 from services.metube import get_youtube_url_single
 from services.lastfm import enrich_with_lastfm
 from services.spotify import fetch_spotify_metadata
 from services.applemusic import fetch_applemusic_metadata
-from utils.cache_manager import library_cache, CACHE_TTLS
 from utils.http_client import get_http_client
 
 logger = logging.getLogger("playlist-pilot")
@@ -46,39 +47,25 @@ logger = logging.getLogger("playlist-pilot")
 
 async def fetch_audio_playlists(user_id: str | None = None) -> dict:
     """Fetch all playlists that contain at least one audio track."""
-    user_id = user_id or settings.jellyfin_user_id
-    resp = await jf_get(
-        f"/Users/{user_id}/Items",
-        IncludeItemTypes="Playlist",
-        Recursive="true",
-    )
-    if "error" in resp:
-        return {"playlists": [], "error": resp["error"]}
-    playlists = resp.get("Items", [])
-
-    audio_playlists = []
-    for pl in playlists:
-        pl_id = pl["Id"]
-        contents_resp = await jf_get(
-            f"/Users/{user_id}/Items",
-            ParentId=pl_id,
-            IncludeItemTypes="Audio",
-            Recursive="true",
-            Limit=1,
+    if (
+        user_id
+        and user_id != settings.media_user_id
+        and user_id != settings.jellyfin_user_id
+    ):
+        logger.warning(
+            (
+                "fetch_audio_playlists received user_id override %s, "
+                "but adapter selection currently uses configured backend "
+                "context only"
+            ),
+            user_id,
         )
-        if "error" in contents_resp:
-            logger.error(
-                "Failed to check playlist %s contents: %s",
-                pl_id,
-                contents_resp["error"],
-            )
-            continue
-        contents = contents_resp.get("Items", [])
-        if contents:
-            audio_playlists.append({"name": pl["Name"], "id": pl["Id"]})
-
-    audio_playlists.sort(key=lambda p: p["name"].lower())
-    return {"playlists": audio_playlists}
+    playlists = await get_media_server().list_audio_playlists()
+    return {
+        "playlists": [
+            {"name": playlist["name"], "id": playlist["id"]} for playlist in playlists
+        ]
+    }
 
 
 async def get_playlist_id_by_name(name: str) -> str | None:
@@ -134,39 +121,7 @@ async def get_playlist_tracks(playlist_id: str) -> list[str]:
 
 async def get_full_audio_library(force_refresh: bool = False) -> list[str]:
     """Return the user's full audio library with caching."""
-    cache_key = f"library:{settings.jellyfin_user_id}"
-    if not force_refresh:
-        cached = library_cache.get(cache_key)
-        if cached is not None:
-            return cached
-
-    items: list[str] = []
-    start_index = 0
-    limit = settings.library_scan_limit
-    while True:
-        response = await jf_get(
-            f"/Users/{settings.jellyfin_user_id}/Items",
-            Recursive="true",
-            IncludeItemTypes="Audio",
-            StartIndex=start_index,
-            Limit=limit,
-        )
-        chunk = response.get("Items", [])
-        for item in chunk:
-            if isinstance(item, dict):
-                song = item.get("Name")
-                artist = item.get("AlbumArtist")
-                if isinstance(song, str) and isinstance(artist, str):
-                    song = song.strip()
-                    artist = artist.strip()
-                    if song and artist:
-                        items.append(f"{song} - {artist}")
-        if len(chunk) < limit:
-            break
-        start_index += limit
-
-    library_cache.set(cache_key, items, expire=CACHE_TTLS["full_library"])
-    return items
+    return await fetch_full_audio_library(force_refresh=force_refresh)
 
 
 def parse_suggestion_line(line: str) -> tuple[str, str]:

@@ -111,6 +111,54 @@ def test_save_and_load_persists_apple_credentials(tmp_path, monkeypatch):
     assert loaded.apple_client_secret == "xyz"
 
 
+def test_load_settings_migrates_legacy_jellyfin_fields(tmp_path, monkeypatch):
+    """Legacy Jellyfin settings should populate generic media fields."""
+
+    settings_file = tmp_path / "settings.json"
+    settings_file.write_text(
+        (
+            '{"jellyfin_url": "http://jf", "jellyfin_api_key": "key", '
+            '"jellyfin_user_id": "user"}'
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config, "SETTINGS_FILE", settings_file)
+
+    settings = config.load_settings()
+
+    assert settings.media_backend == "jellyfin"
+    assert settings.media_url == "http://jf"
+    assert settings.media_api_key == "key"
+    assert settings.media_user_id == "user"
+
+
+def test_validate_settings_accepts_generic_jellyfin_fields():
+    """Generic media fields should satisfy Jellyfin validation."""
+
+    s = config.AppSettings(
+        media_backend="jellyfin",
+        media_url="http://jf",
+        media_api_key="key",
+        media_user_id="user",
+        openai_api_key="o",
+    )
+
+    s.validate_settings()
+
+
+def test_validate_settings_accepts_legacy_jellyfin_fields_during_transition():
+    """Legacy Jellyfin fields should remain valid during migration."""
+
+    s = config.AppSettings(
+        jellyfin_url="http://jf",
+        jellyfin_api_key="key",
+        jellyfin_user_id="user",
+        openai_api_key="o",
+    )
+
+    s.validate_settings()
+
+
 @pytest.mark.parametrize(
     "apple_client_id, apple_client_secret, missing",
     [

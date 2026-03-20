@@ -57,6 +57,12 @@ class AppSettings(BaseModel):
     jellyfin_url: str = ""
     jellyfin_api_key: str = ""
     jellyfin_user_id: str = ""
+    media_backend: str = "jellyfin"
+    media_url: str = ""
+    media_username: str = ""
+    media_password: str = ""
+    media_api_key: str = ""
+    media_user_id: str = ""
     openai_api_key: str = ""
     lastfm_api_key: str = ""
     spotify_client_id: str = ""
@@ -148,12 +154,26 @@ class AppSettings(BaseModel):
             ValueError: If any required field is missing or empty.
         """
         missing = []
-        if not self.jellyfin_url.strip():
-            missing.append("Jellyfin URL")
-        if not self.jellyfin_api_key.strip():
-            missing.append("Jellyfin API Key")
-        if not self.jellyfin_user_id.strip():
-            missing.append("Jellyfin User ID")
+        backend = self.media_backend.strip().lower() or "jellyfin"
+        if backend == "jellyfin":
+            media_url = self.media_url.strip() or self.jellyfin_url.strip()
+            media_api_key = self.media_api_key.strip() or self.jellyfin_api_key.strip()
+            media_user_id = self.media_user_id.strip() or self.jellyfin_user_id.strip()
+            if not media_url:
+                missing.append("Jellyfin URL")
+            if not media_api_key:
+                missing.append("Jellyfin API Key")
+            if not media_user_id:
+                missing.append("Jellyfin User ID")
+        elif backend == "navidrome":
+            if not self.media_url.strip():
+                missing.append("Media Server URL")
+            if not self.media_username.strip():
+                missing.append("Media Server Username")
+            if not self.media_password.strip():
+                missing.append("Media Server Password")
+        else:
+            missing.append(f"Unsupported media backend: {self.media_backend}")
         if not self.openai_api_key.strip():
             missing.append("OpenAI API Key")
         if self.apple_client_id.strip() and not self.apple_client_secret.strip():
@@ -185,6 +205,22 @@ def load_settings() -> AppSettings:
                     json.dump(data, f)
             # Normalize keys to lowercase for compatibility
             normalized = {k.lower(): v for k, v in data.items()}
+            if (
+                normalized.get("jellyfin_url")
+                or normalized.get("jellyfin_api_key")
+                or normalized.get("jellyfin_user_id")
+            ) and not normalized.get("media_backend"):
+                normalized["media_backend"] = "jellyfin"
+            if not normalized.get("media_url") and normalized.get("jellyfin_url"):
+                normalized["media_url"] = normalized["jellyfin_url"]
+            if not normalized.get("media_api_key") and normalized.get(
+                "jellyfin_api_key"
+            ):
+                normalized["media_api_key"] = normalized["jellyfin_api_key"]
+            if not normalized.get("media_user_id") and normalized.get(
+                "jellyfin_user_id"
+            ):
+                normalized["media_user_id"] = normalized["jellyfin_user_id"]
             return AppSettings(**normalized)
 
         raise IsADirectoryError(

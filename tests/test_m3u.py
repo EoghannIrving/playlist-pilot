@@ -156,9 +156,7 @@ def _roundtrip(monkeypatch, tmp_path, path_template):
             {"text": "Title - Artist", "in_jellyfin": True, "album": "Album"}
         ]
     }
-    m3u_file = _run_async(
-        m3u.export_history_entry_as_m3u(entry, "url", "key")
-    )
+    m3u_file = _run_async(m3u.export_history_entry_as_m3u(entry, "url", "key"))
     _run_async(m3u.import_m3u_as_history_entry(str(m3u_file)))
     hist = history.load_user_history("user")
     assert hist

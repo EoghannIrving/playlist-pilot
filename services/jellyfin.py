@@ -10,11 +10,27 @@ from urllib.parse import quote_plus
 import httpx
 
 from config import settings
-from utils.cache_manager import jellyfin_track_cache, CACHE_TTLS
+from services.media_server import MediaServer, NormalizedPlaylist, NormalizedUser
+from utils.cache_manager import jellyfin_track_cache, library_cache, CACHE_TTLS
 from utils.http_client import get_http_client
 from utils.integration_watchdog import record_failure, record_success
 
 logger = logging.getLogger("playlist-pilot")
+
+
+def _jellyfin_url() -> str:
+    """Return the active Jellyfin base URL."""
+    return settings.media_url or settings.jellyfin_url
+
+
+def _jellyfin_api_key() -> str:
+    """Return the active Jellyfin API key."""
+    return settings.media_api_key or settings.jellyfin_api_key
+
+
+def _jellyfin_user_id() -> str:
+    """Return the active Jellyfin user ID."""
+    return settings.media_user_id or settings.jellyfin_user_id
 
 
 def normalize_search_term(term):
@@ -22,11 +38,137 @@ def normalize_search_term(term):
     return term.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
 
 
+class JellyfinAdapter(MediaServer):
+    """Media-server adapter for Jellyfin."""
+
+    def backend_name(self) -> str:
+        return "jellyfin"
+
+    def requires_user_id(self) -> bool:
+        return True
+
+    def supports_lyrics(self) -> bool:
+        return True
+
+    def supports_path_resolution(self) -> bool:
+        return True
+
+    async def test_connection(self) -> dict:
+        """Verify Jellyfin connectivity using current settings."""
+        url = _jellyfin_url().rstrip("/")
+        key = _jellyfin_api_key()
+        headers = {
+            "X-Emby-Token": key,
+            "Accept": "application/json",
+            "User-Agent": "PlaylistPilotTest/1.0",
+        }
+        try:
+            client = get_http_client(short=True)
+            response = await client.get(f"{url}/System/Info", headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "success": any(k.lower() == "version" for k in data),
+                "status": response.status_code,
+                "data": data,
+            }
+        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            logger.error("Jellyfin connection test failed: %s", exc)
+            return {"success": False, "error": str(exc)}
+
+    async def list_users(self) -> list[NormalizedUser]:
+        """Return Jellyfin users in normalized form."""
+        users = await fetch_jellyfin_users()
+        return [{"id": user_id, "name": name} for name, user_id in users.items()]
+
+    async def list_audio_playlists(self) -> list[NormalizedPlaylist]:
+        """Return all Jellyfin audio playlists in normalized form."""
+        user_id = _jellyfin_user_id()
+        resp = await jf_get(
+            f"/Users/{user_id}/Items",
+            IncludeItemTypes="Playlist",
+            Recursive="true",
+        )
+        if "error" in resp:
+            return []
+        playlists = resp.get("Items", [])
+        audio_playlists: list[NormalizedPlaylist] = []
+        for playlist in playlists:
+            playlist_id = playlist["Id"]
+            contents_resp = await jf_get(
+                f"/Users/{user_id}/Items",
+                ParentId=playlist_id,
+                IncludeItemTypes="Audio",
+                Recursive="true",
+                Limit=1,
+            )
+            if "error" in contents_resp:
+                logger.error(
+                    "Failed to check playlist %s contents: %s",
+                    playlist_id,
+                    contents_resp["error"],
+                )
+                continue
+            if contents_resp.get("Items", []):
+                audio_playlists.append(
+                    {
+                        "id": playlist_id,
+                        "name": playlist["Name"],
+                        "track_count": None,
+                        "backend": self.backend_name(),
+                    }
+                )
+        audio_playlists.sort(key=lambda playlist: playlist["name"].lower())
+        return audio_playlists
+
+    async def get_playlist_tracks(self, playlist_id: str) -> list[dict]:
+        return await fetch_tracks_for_playlist_id(playlist_id)
+
+    async def search_track(self, title: str, artist: str) -> bool:
+        return await search_jellyfin_for_track(title, artist)
+
+    async def get_track_metadata(self, title: str, artist: str) -> dict | None:
+        return await fetch_jellyfin_track_metadata(title, artist)
+
+    async def get_full_audio_library(self, force_refresh: bool = False) -> list[str]:
+        return await fetch_full_audio_library(force_refresh=force_refresh)
+
+    async def get_lyrics(self, item_id: str) -> str | None:
+        return await fetch_lyrics_for_item(item_id)
+
+    async def create_playlist(self, name: str, track_ids: list[str]) -> dict | None:
+        playlist_id = await create_jellyfin_playlist(name, track_ids)
+        if not playlist_id:
+            return None
+        return {"id": playlist_id}
+
+    async def update_playlist(
+        self, playlist_id: str, track_ids: list[str]
+    ) -> dict | None:
+        logger.warning(
+            "Jellyfin playlist update not implemented for playlist %s",
+            playlist_id,
+        )
+        return None
+
+    async def delete_playlist(self, playlist_id: str) -> bool:
+        logger.warning(
+            "Jellyfin playlist delete not implemented for playlist %s",
+            playlist_id,
+        )
+        return False
+
+    async def resolve_track_path(self, title: str, artist: str) -> str | None:
+        return await resolve_jellyfin_path(
+            title, artist, _jellyfin_url(), _jellyfin_api_key()
+        )
+
+
 async def fetch_jellyfin_users():
     """Return a mapping of Jellyfin user names to IDs."""
     try:
-        url = f"{settings.jellyfin_url.rstrip('/')}/Users"
-        headers = {"X-Emby-Token": settings.jellyfin_api_key}
+        url = f"{_jellyfin_url().rstrip('/')}/Users"
+        headers = {"X-Emby-Token": _jellyfin_api_key()}
         client = get_http_client()
         resp = await client.get(
             url,
@@ -56,13 +198,13 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
     try:
         client = get_http_client()
         response = await client.get(
-            f"{settings.jellyfin_url}/Items",
+            f"{_jellyfin_url()}/Items",
             params={
                 "IncludeItemTypes": "Audio",
                 "Recursive": "true",
                 "SearchTerm": title_cleaned,
-                "api_key": settings.jellyfin_api_key,
-                "userId": settings.jellyfin_user_id,
+                "api_key": _jellyfin_api_key(),
+                "userId": _jellyfin_user_id(),
             },
         )
         response.raise_for_status()
@@ -100,9 +242,7 @@ async def search_jellyfin_for_track(title: str, artist: str) -> bool:
 
 async def jf_get(path, **params):
     """Helper to perform a GET request against the Jellyfin API."""
-    url = (
-        f"{settings.jellyfin_url.rstrip('/')}{path}?api_key={settings.jellyfin_api_key}"
-    )
+    url = f"{_jellyfin_url().rstrip('/')}{path}?api_key={_jellyfin_api_key()}"
     if params:
         query = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
         url += f"&{query}"
@@ -127,14 +267,14 @@ async def fetch_tracks_for_playlist_id(
     Reads .lrc files directly from disk if present,
     otherwise attempts Jellyfin Lyrics API fetch if HasLyrics is true.
     """
-    url = f"{settings.jellyfin_url}/Playlists/{playlist_id}/Items"
+    url = f"{_jellyfin_url()}/Playlists/{playlist_id}/Items"
     params: dict[str, Any] = {
-        "UserId": settings.jellyfin_user_id,
+        "UserId": _jellyfin_user_id(),
         "Fields": (
             "Name,AlbumArtist,Artists,Album,ProductionYear,PremiereDate,"
             "Genres,RunTimeTicks,Genres,UserData,HasLyrics,Path,Tags,PlaylistItemId"
         ),
-        "api_key": settings.jellyfin_api_key,
+        "api_key": _jellyfin_api_key(),
     }
     if isinstance(limit, int) and limit > 0:
         params["Limit"] = limit
@@ -161,6 +301,43 @@ async def fetch_tracks_for_playlist_id(
         return []
 
 
+async def fetch_full_audio_library(force_refresh: bool = False) -> list[str]:
+    """Return the active Jellyfin user's full audio library."""
+    cache_key = f"library:{_jellyfin_user_id()}"
+    if not force_refresh:
+        cached = library_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+    items: list[str] = []
+    start_index = 0
+    limit = settings.library_scan_limit
+    while True:
+        response = await jf_get(
+            f"/Users/{_jellyfin_user_id()}/Items",
+            Recursive="true",
+            IncludeItemTypes="Audio",
+            StartIndex=start_index,
+            Limit=limit,
+        )
+        chunk = response.get("Items", [])
+        for item in chunk:
+            if isinstance(item, dict):
+                song = item.get("Name")
+                artist = item.get("AlbumArtist")
+                if isinstance(song, str) and isinstance(artist, str):
+                    song = song.strip()
+                    artist = artist.strip()
+                    if song and artist:
+                        items.append(f"{song} - {artist}")
+        if len(chunk) < limit:
+            break
+        start_index += limit
+
+    library_cache.set(cache_key, items, expire=CACHE_TTLS["full_library"])
+    return items
+
+
 async def fetch_lyrics_for_item(item_id: str) -> str | None:
     """
     Fetch raw lyrics JSON for a given Jellyfin audio item ID.
@@ -171,8 +348,8 @@ async def fetch_lyrics_for_item(item_id: str) -> str | None:
     Returns:
         str or None: JSON text if available.
     """
-    url = f"{settings.jellyfin_url}/Items/{item_id}/Lyrics"
-    params = {"api_key": settings.jellyfin_api_key}
+    url = f"{_jellyfin_url()}/Items/{item_id}/Lyrics"
+    params = {"api_key": _jellyfin_api_key()}
     try:
         client = get_http_client(short=True)
         response = await client.get(
@@ -256,13 +433,13 @@ async def fetch_jellyfin_track_metadata(title: str, artist: str) -> dict | None:
     try:
         client = get_http_client()
         response = await client.get(
-            f"{settings.jellyfin_url}/Items",
+            f"{_jellyfin_url()}/Items",
             params={
                 "IncludeItemTypes": "Audio",
                 "Recursive": "true",
                 "SearchTerm": title_cleaned,
-                "api_key": settings.jellyfin_api_key,
-                "userId": settings.jellyfin_user_id,
+                "api_key": _jellyfin_api_key(),
+                "userId": _jellyfin_user_id(),
             },
         )
         response.raise_for_status()
@@ -374,10 +551,10 @@ async def create_jellyfin_playlist(
     Returns:
         str | None: PlaylistId if created successfully, else None.
     """
-    user_id = user_id or settings.jellyfin_user_id
+    user_id = user_id or _jellyfin_user_id()
 
-    url = f"{settings.jellyfin_url}/Playlists"
-    headers = {"X-Emby-Token": settings.jellyfin_api_key}
+    url = f"{_jellyfin_url()}/Playlists"
+    headers = {"X-Emby-Token": _jellyfin_api_key()}
 
     payload = {"Name": name, "UserId": user_id, "Ids": track_item_ids}
 
@@ -409,8 +586,8 @@ async def create_jellyfin_playlist(
 
 async def get_full_item(item_id: str) -> dict | None:
     """Fetch the full Jellyfin item JSON for the given ID."""
-    url = f"{settings.jellyfin_url.rstrip('/')}/Users/{settings.jellyfin_user_id}/Items/{item_id}"
-    headers = {"X-Emby-Token": settings.jellyfin_api_key}
+    url = f"{_jellyfin_url().rstrip('/')}/Users/{_jellyfin_user_id()}/Items/{item_id}"
+    headers = {"X-Emby-Token": _jellyfin_api_key()}
     try:
         client = get_http_client()
         resp = await client.get(
@@ -428,8 +605,8 @@ async def get_full_item(item_id: str) -> dict | None:
 
 async def update_item_metadata(item_id: str, full_item: dict) -> bool:
     """Update a Jellyfin item with the provided metadata."""
-    url = f"{settings.jellyfin_url.rstrip('/')}/Items/{item_id}"
-    headers = {"X-Emby-Token": settings.jellyfin_api_key}
+    url = f"{_jellyfin_url().rstrip('/')}/Items/{item_id}"
+    headers = {"X-Emby-Token": _jellyfin_api_key()}
     logger.info("Updating Item Metadata - Url:%s", url)
     try:
         client = get_http_client()

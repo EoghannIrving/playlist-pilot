@@ -1,9 +1,11 @@
 """Tests for helper functions in ``core.playlist``."""
 
 import ast
+import asyncio
 from pathlib import Path
 
-from core.playlist import normalize_track  # add import
+import core.playlist as playlist_module
+from core.playlist import normalize_track
 
 
 def _load_extract_year():
@@ -60,3 +62,24 @@ def test_normalize_track_handles_artist_dict_entries():
     normalized = normalize_track(raw)
     assert normalized.artist == "Dict Artist"
     assert normalized.title == "Dict Song"
+
+
+def test_fetch_audio_playlists_uses_media_server_factory(monkeypatch):
+    """Playlist fetches should go through the media-server factory."""
+
+    class DummyServer:
+        async def list_audio_playlists(self):
+            return [
+                {
+                    "id": "pl1",
+                    "name": "Alpha",
+                    "track_count": None,
+                    "backend": "jellyfin",
+                }
+            ]
+
+    monkeypatch.setattr(playlist_module, "get_media_server", lambda: DummyServer())
+
+    result = asyncio.run(playlist_module.fetch_audio_playlists())
+
+    assert result == {"playlists": [{"name": "Alpha", "id": "pl1"}]}
