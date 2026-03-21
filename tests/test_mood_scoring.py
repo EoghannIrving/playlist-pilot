@@ -110,6 +110,23 @@ def test_combine_mood_scores_context_can_resolve_80s_rock_tracks():
     assert confidence > 0.4
 
 
+def test_mood_scores_from_context_support_modern_folk_tracks():
+    """Modern folk and celtic tracks should not collapse to zero context."""
+    scores = mood_scores_from_context(["folk", "celtic"], 2024, 100)
+    assert scores["nostalgic"] >= 1.3
+    assert scores["uplifting"] >= 1.2
+    assert scores["romantic"] >= 0.4
+
+
+def test_combine_mood_scores_context_can_resolve_modern_folk_tracks():
+    """Strong folk/celtic context should produce a usable mood for sparse metadata tracks."""
+    empty = {m: 0.0 for m in mood_scores_from_lastfm_tags([])}
+    context = mood_scores_from_context(["folk", "celtic"], 2024, 100)
+    mood, confidence = combine_mood_scores(empty, empty, None, context)
+    assert mood in {"nostalgic", "uplifting"}
+    assert confidence > 0.4
+
+
 def test_map_lyrics_mood_to_internal_mood_supports_broader_labels():
     """Broader GPT lyric labels should map to internal moods cleanly."""
     assert map_lyrics_mood_to_internal_mood("wistful") == "nostalgic"

@@ -70,6 +70,8 @@ def test_normalize_genre_supports_common_navidrome_subgenres():
     assert playlist_module.normalize_genre("synth-pop") == "synthpop"
     assert playlist_module.filter_valid_genre(["sophisti-pop"]) == "pop"
     assert playlist_module.filter_valid_genre(["new wave revival"]) == "new wave"
+    assert playlist_module.normalize_genre("celtic") == "folk"
+    assert playlist_module.normalize_genre("folk rock") == "folk"
 
 
 def test_fetch_audio_playlists_uses_media_server_factory(monkeypatch):

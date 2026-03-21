@@ -574,11 +574,27 @@ def mood_scores_from_context(
         else:
             scores["uplifting"] += 0.4
 
-    if {"folk", "world"} & normalized_genres:
-        scores["nostalgic"] += 0.8
-        scores["uplifting"] += 0.3
+    folkish_genres = {
+        "folk",
+        "folk rock",
+        "acoustic",
+        "singer-songwriter",
+        "celtic",
+        "celtic folk",
+        "maritime",
+        "scottish folk",
+        "world",
+    }
+    if folkish_genres & normalized_genres:
+        scores["nostalgic"] += 0.9
+        scores["uplifting"] += 0.5
         if bpm and bpm <= 110:
-            scores["romantic"] += 0.2
+            scores["romantic"] += 0.4
+        if numeric_year and numeric_year >= 2000:
+            scores["uplifting"] += 0.4
+        if {"celtic", "celtic folk", "maritime", "scottish folk"} & normalized_genres:
+            scores["nostalgic"] += 0.4
+            scores["uplifting"] += 0.3
 
     if "rock" in normalized_genres:
         if bpm and bpm >= 110:

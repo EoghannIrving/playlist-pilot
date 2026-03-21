@@ -410,7 +410,24 @@ async def _classify_mood(
             lyrics_mood,
         )
         lyrics_scores = build_lyrics_scores(lyrics_mood) if lyrics_mood else None
-    return combine_mood_scores(tag_scores, bpm_scores, lyrics_scores, context_scores)
+    mood_result = combine_mood_scores(
+        tag_scores, bpm_scores, lyrics_scores, context_scores
+    )
+    logger.info(
+        (
+            "Mood diagnostics for %s - %s: "
+            "tags=%s bpm=%s lyrics=%s context=%s final=%s confidence=%.2f"
+        ),
+        parsed.artist,
+        parsed.title,
+        {k: round(v, 2) for k, v in tag_scores.items() if v},
+        {k: round(v, 2) for k, v in bpm_scores.items() if v},
+        {k: round(v, 2) for k, v in (lyrics_scores or {}).items() if v},
+        {k: round(v, 2) for k, v in context_scores.items() if v},
+        mood_result[0],
+        mood_result[1],
+    )
+    return mood_result
 
 
 async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
@@ -539,6 +556,15 @@ GENRE_SYNONYMS = {
     "hard rock": "rock",
     "indie rock": "indie",
     "indie pop": "indie",
+    "folk rock": "folk",
+    "indie folk": "folk",
+    "acoustic pop": "folk",
+    "singer songwriter": "folk",
+    "singer-songwriter": "folk",
+    "celtic": "folk",
+    "celtic folk": "folk",
+    "scottish folk": "folk",
+    "maritime": "folk",
     "garage rock": "rock",
     "post-punk": "punk",
     # EDM/Electronic
