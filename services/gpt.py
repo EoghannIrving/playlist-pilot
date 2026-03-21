@@ -158,6 +158,39 @@ def build_prompt_context(
     }
 
 
+def build_mode_instruction_block(context: dict) -> str:
+    """Return the mode-specific instruction block for GPT suggestions."""
+    if context["playlist_mode"] == "strict_decade" and context["decade_window"]:
+        start_year, end_year = context["decade_window"]
+        return (
+            "Mode-specific rules (strict_decade):\n"
+            f"- This playlist is explicitly decade-scoped to {start_year}-{end_year}.\n"
+            f"- Suggest tracks released inside {start_year}-{end_year} only.\n"
+            "- Prefer era, scene, instrumentation, and production adjacency "
+            "over mood-only similarity.\n"
+            "- Do not use later vibe-match substitutions, modern indie "
+            "stand-ins, or nostalgic lookbacks from other decades.\n"
+            "- Favor tracks that sound plausibly at home beside the source "
+            "playlist, not just thematically similar.\n"
+            "- Rank strongest same-decade fit first, even if a more famous "
+            "out-of-era track feels broadly compatible.\n"
+        )
+
+    return (
+        "Mode-specific rules (profile_match):\n"
+        "- Prioritize genre, mood, scene, production style, and "
+        "listening-flow fit over broad popularity.\n"
+        "- Use the source playlist's strongest clusters as the primary anchor.\n"
+        "- Prefer artists, scenes, and sonic palettes plausibly adjacent "
+        "to the reference playlist.\n"
+        "- Avoid generic prestige picks or streaming-era melancholy tracks "
+        "unless the source clearly supports them.\n"
+        "- A cross-era suggestion is acceptable only when it still feels "
+        "like a natural extension of the playlist's identity.\n"
+        "- Rank strongest profile fit first, not broad recognition.\n"
+    )
+
+
 def _build_gpt_prompt(
     existing_tracks: list[str],
     count: int,
@@ -238,6 +271,7 @@ def _build_gpt_prompt(
             f"- Prefer tracks released between {start_year} and {end_year}.\n"
             f"- Do not suggest tracks released outside {start_year}-{end_year}.\n\n"
         )
+    mode_instruction_block = build_mode_instruction_block(context)
 
     intro = (
         "The user has provided a playlist which has the following "
@@ -257,16 +291,7 @@ def _build_gpt_prompt(
             "- Only include songs that are publicly verifiable and recognizable.\n"
             "- Avoid remixes, covers, live-only performances, or "
             "obscure/independent tracks unless they had commercial release.\n\n"
-            "Fit rules:\n"
-            "- Prioritize era, scene, production style, and emotional fit "
-            "over generic similarity.\n"
-            "- If the playlist has a clear decade center, keep most "
-            "suggestions in that decade or an adjacent one.\n"
-            "- Prefer artists, scenes, and sonic palettes plausibly adjacent "
-            "to the reference playlist.\n"
-            "- Avoid generic modern indie or atmospheric recommendations "
-            "unless the reference playlist clearly supports them.\n"
-            "- Rank strongest fit first, not broad popularity.\n\n"
+            f"{mode_instruction_block}\n"
             "Formatting rules:\n"
             "- Return each song on a single line.\n"
             "- Use the **exact** format:\n"

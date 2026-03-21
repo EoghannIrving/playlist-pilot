@@ -540,6 +540,64 @@ def test_build_prompt_context_strict_decade():
     assert "Suggestion mode: strict_decade" in prompt
     assert "Target decade window: 1980-1989" in prompt
     assert "Stay inside 1980-1989." in prompt
+    assert "Mode-specific rules (strict_decade):" in prompt
+    assert "Do not use later vibe-match substitutions" in prompt
+
+
+def test_build_prompt_context_profile_match():
+    """Prompt context should emit a different instruction block for profile mode."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    context = gpt_mod.build_prompt_context(
+        summary={
+            "dominant_genre": "indie",
+            "mood_profile": {"chill": "70%", "romantic": "30%"},
+            "tempo_avg": 96,
+            "decades": {"2000s": "60%", "2010s": "40%"},
+        },
+        profile_summary="A mellow indie mix.",
+        playlist_name="Late Night Mix",
+    )
+    prompt = gpt_mod._build_gpt_prompt(  # pylint: disable=protected-access
+        ["Chasing Cars - Snow Patrol"],
+        10,
+        summary={
+            "dominant_genre": "indie",
+            "mood_profile": {"chill": "70%", "romantic": "30%"},
+            "tempo_avg": 96,
+            "decades": {"2000s": "60%", "2010s": "40%"},
+            "avg_popularity": 60,
+        },
+        profile_summary="A mellow indie mix.",
+        playlist_name="Late Night Mix",
+    )
+
+    assert context["playlist_mode"] == "profile_match"
+    assert context["decade_window"] is None
+    assert "Suggestion mode: profile_match" in prompt
+    assert "Mode-specific rules (profile_match):" in prompt
+    assert "Avoid generic prestige picks or streaming-era melancholy tracks" in prompt
+    assert "Suggest tracks released inside" not in prompt
+    assert "Do not use later vibe-match substitutions" not in prompt
 
 
 def test_gpt_suggest_validated_rejects_out_of_decade_candidates(monkeypatch):
