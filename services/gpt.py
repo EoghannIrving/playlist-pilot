@@ -10,6 +10,7 @@ import asyncio
 import json
 import re
 import unicodedata
+import math
 
 import openai
 from openai import OpenAI, AsyncOpenAI
@@ -19,6 +20,37 @@ from utils.text_utils import strip_markdown
 from services.lastfm import get_lastfm_track_info
 
 logger = logging.getLogger("playlist-pilot")
+
+GENRE_FAMILIES = {
+    "rock": {
+        "rock",
+        "classic rock",
+        "hard rock",
+        "soft rock",
+        "pop rock",
+        "alternative rock",
+        "indie rock",
+    },
+    "pop": {"pop", "synthpop", "dance pop", "electropop", "sophisti-pop", "art pop"},
+    "new wave": {"new wave", "synthpop", "post-punk", "new romantic"},
+    "indie": {"indie", "indie rock", "indie pop", "alternative"},
+    "hip hop": {"hip hop", "rap", "rnb", "trap"},
+    "folk": {"folk", "folk rock", "singer-songwriter", "acoustic"},
+    "ambient": {"ambient", "downtempo", "dream pop", "chillout"},
+    "country": {"country", "country pop", "americana"},
+    "jazz": {"jazz", "smooth jazz", "vocal jazz", "swing"},
+    "classical": {"classical", "orchestral", "instrumental"},
+}
+
+MOOD_TAG_ALIASES = {
+    "chill": {"chill", "calm", "soft", "dreamy", "mellow", "downtempo", "ambient"},
+    "romantic": {"romantic", "love", "tender", "warm", "intimate"},
+    "party": {"party", "dance", "club", "anthemic", "celebratory"},
+    "happy": {"happy", "uplifting", "joyful", "bright", "feel good"},
+    "sad": {"sad", "melancholy", "melancholic", "heartbreak", "sorrowful"},
+    "energetic": {"energetic", "driving", "upbeat", "powerful", "anthemic"},
+    "nostalgic": {"nostalgic", "wistful", "retro", "throwback"},
+}
 
 
 def get_sync_openai_client() -> OpenAI:
@@ -272,7 +304,7 @@ async def gpt_suggest_validated(
     Returns:
         list[dict]: Validated GPT suggestions (title, artist, text, popularity)
     """
-    # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
+    # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments,too-many-statements
     prompt = _build_gpt_prompt(
         existing_tracks,
         count * 3,
@@ -314,15 +346,18 @@ async def gpt_suggest_validated(
             return None
 
         track["popularity"] = int(track_data.get("listeners", 0))
+        track["tags"] = extract_tag_names(track_data.get("toptags"))
         if not track.get("year"):
             track["year"] = extract_year_from_releasedate(
                 track_data.get("releasedate", "")
             )
+        track["decade"] = year_to_decade(track.get("year"))
+        track["fit_score"] = score_candidate_fit(track, summary, decade_window)
         return track
 
+    decade_window = detect_strict_decade_window(playlist_name or "")
     validated = await asyncio.gather(*[validate_and_score(t) for t in suggestions_raw])
     suggestions_raw = [track for track in validated if track]
-    decade_window = detect_strict_decade_window(playlist_name or "")
     normalized_exclude_pairs = (
         {normalize_track_key(title, artist) for title, artist in exclude_pairs}
         if exclude_pairs
@@ -347,6 +382,14 @@ async def gpt_suggest_validated(
             continue
         accepted_keys.add(key)
         filtered_suggestions.append(track)
+
+    filtered_suggestions.sort(
+        key=lambda track: (
+            track.get("fit_score", 0.0),
+            track.get("popularity", 0),
+        ),
+        reverse=True,
+    )
 
     logger.info(
         "✅ %d valid suggestions after validation and filtering",
@@ -441,6 +484,114 @@ def year_in_window(year: int | None, window: tuple[int, int]) -> bool:
         return False
     start_year, end_year = window
     return start_year <= year <= end_year
+
+
+def extract_tag_names(raw_tags: dict | list | None) -> list[str]:
+    """Extract normalized tag names from a Last.fm tag payload."""
+    if not raw_tags:
+        return []
+    if isinstance(raw_tags, dict):
+        raw_tags = raw_tags.get("tag", [])
+    if isinstance(raw_tags, dict):
+        raw_tags = [raw_tags]
+    names = []
+    for tag in raw_tags:
+        if isinstance(tag, dict) and tag.get("name"):
+            names.append(str(tag["name"]).strip().lower())
+    return list(dict.fromkeys(names))
+
+
+def year_to_decade(year: int | None) -> str | None:
+    """Convert a year to a display decade like ``1980s``."""
+    if year is None:
+        return None
+    return f"{year - (year % 10)}s"
+
+
+def _score_genre_fit(candidate_tags: set[str], summary: dict | str | None) -> float:
+    """Score genre fit against the source playlist summary."""
+    if not isinstance(summary, dict):
+        return 0.5
+    dominant = str(summary.get("dominant_genre") or "").strip().lower()
+    top_genres = {
+        str(name).strip().lower()
+        for name in (summary.get("genre_distribution") or {}).keys()
+        if str(name).strip() and str(name).strip().lower() != "unknown"
+    }
+    if not dominant and not top_genres:
+        return 0.5
+    if dominant and dominant in candidate_tags:
+        return 1.0
+    if top_genres & candidate_tags:
+        return 0.85
+
+    candidate_family_matches = set()
+    for genre, family in GENRE_FAMILIES.items():
+        if genre in top_genres or genre == dominant:
+            candidate_family_matches |= family & candidate_tags
+    return 0.7 if candidate_family_matches else 0.2
+
+
+def _score_mood_fit(candidate_tags: set[str], summary: dict | str | None) -> float:
+    """Score mood fit against the source playlist summary."""
+    if not isinstance(summary, dict):
+        return 0.5
+    moods = {
+        str(name).strip().lower()
+        for name in (summary.get("mood_profile") or {}).keys()
+        if str(name).strip() and str(name).strip().lower() != "unknown"
+    }
+    if not moods:
+        return 0.5
+    for mood in moods:
+        aliases = MOOD_TAG_ALIASES.get(mood, {mood})
+        if aliases & candidate_tags:
+            return 1.0
+    return 0.3
+
+
+def _score_popularity_fit(track: dict, summary: dict | str | None) -> float:
+    """Score popularity fit using Last.fm listeners on a log scale."""
+    if not isinstance(summary, dict):
+        return 0.5
+    avg_listeners = summary.get("avg_listeners") or 0
+    listeners = track.get("popularity") or 0
+    if not avg_listeners or not listeners:
+        return 0.5
+    delta = abs(math.log10(listeners + 1) - math.log10(avg_listeners + 1))
+    return max(0.0, 1.0 - min(delta / 2.0, 1.0))
+
+
+def _score_decade_fit(track: dict, summary: dict | str | None, decade_window) -> float:
+    """Score decade fit from explicit window first, then source summary decades."""
+    if decade_window:
+        return 1.0 if year_in_window(track.get("year"), decade_window) else 0.0
+    if not isinstance(summary, dict):
+        return 0.5
+    candidate_decade = track.get("decade")
+    source_decades = {
+        str(name).strip()
+        for name in (summary.get("decades") or {}).keys()
+        if str(name).strip()
+    }
+    if not source_decades or not candidate_decade:
+        return 0.5
+    return 1.0 if candidate_decade in source_decades else 0.3
+
+
+def score_candidate_fit(
+    track: dict,
+    summary: dict | str | None = None,
+    decade_window: tuple[int, int] | None = None,
+) -> float:
+    """Compute a deterministic fit score for a candidate suggestion."""
+    candidate_tags = set(track.get("tags") or [])
+    score = 0.0
+    score += 0.35 * _score_decade_fit(track, summary, decade_window)
+    score += 0.25 * _score_genre_fit(candidate_tags, summary)
+    score += 0.20 * _score_mood_fit(candidate_tags, summary)
+    score += 0.20 * _score_popularity_fit(track, summary)
+    return round(score * 100, 2)
 
 
 def strip_number_prefix(line: str) -> str:

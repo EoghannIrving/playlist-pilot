@@ -442,6 +442,9 @@ def test_gpt_suggest_validated_rejects_source_and_batch_duplicates(monkeypatch):
             "text": "Only You - Yazoo - Keep",
             "year": None,
             "popularity": 100,
+            "tags": [],
+            "decade": None,
+            "fit_score": 50.0,
         }
     ]
 
@@ -533,5 +536,125 @@ def test_gpt_suggest_validated_rejects_out_of_decade_candidates(monkeypatch):
             "text": "I Want to Break Free - Queen - The Works - 1984 - Keep",
             "year": 1984,
             "popularity": 100,
+            "tags": [],
+            "decade": "1980s",
+            "fit_score": 67.5,
         }
     ]
+
+
+def test_gpt_suggest_validated_reranks_by_fit_score(monkeypatch):
+    """Candidates should be ordered by deterministic playlist fit, not raw GPT order."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    async def fake_completion(
+        _prompt, temperature=0.7
+    ):  # pylint: disable=unused-argument
+        return (
+            "Dance Tune - Pop Star - Album - 1986 - First from GPT\n"
+            "Rock Anthem - Guitar Hero - Album - 1984 - Better fit"
+        )
+
+    async def fake_track_info(title, _artist):
+        payloads = {
+            "Dance Tune": {
+                "listeners": "5000000",
+                "releasedate": "1 Jan 1986",
+                "toptags": {"tag": [{"name": "dance pop"}]},
+            },
+            "Rock Anthem": {
+                "listeners": "1200",
+                "releasedate": "1 Jan 1984",
+                "toptags": {"tag": [{"name": "rock"}, {"name": "chill"}]},
+            },
+        }
+        return payloads[title]
+
+    monkeypatch.setattr(gpt_mod, "cached_chat_completion", fake_completion)
+    monkeypatch.setattr(gpt_mod, "get_lastfm_track_info", fake_track_info)
+
+    result = asyncio.run(
+        gpt_mod.gpt_suggest_validated(
+            existing_tracks=["Only You - Yazoo"],
+            count=10,
+            summary={
+                "dominant_genre": "rock",
+                "mood_profile": {"chill": "100%"},
+                "decades": {"1980s": "100%"},
+                "avg_listeners": 1000,
+            },
+        )
+    )
+
+    assert [track["title"] for track in result] == ["Rock Anthem", "Dance Tune"]
+    assert result[0]["fit_score"] > result[1]["fit_score"]
+    assert result[0]["decade"] == "1980s"
+    assert result[1]["decade"] == "1980s"
+    assert result[0]["popularity"] == 1200
+    assert result[1]["popularity"] == 5000000
+
+
+def test_score_candidate_fit_prefers_matching_genre_and_mood():
+    """Fit scoring should reward candidates that match the source genre and mood."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    summary = {
+        "dominant_genre": "rock",
+        "mood_profile": {"chill": "100%"},
+        "decades": {"1980s": "100%"},
+        "avg_listeners": 1000,
+    }
+    stronger = {
+        "tags": ["rock", "chill"],
+        "year": 1984,
+        "decade": "1980s",
+        "popularity": 900,
+    }
+    weaker = {
+        "tags": ["dance pop"],
+        "year": 1984,
+        "decade": "1980s",
+        "popularity": 900,
+    }
+
+    assert gpt_mod.score_candidate_fit(stronger, summary) > gpt_mod.score_candidate_fit(
+        weaker, summary
+    )

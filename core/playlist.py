@@ -813,6 +813,7 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
             "youtube_url": youtube_url,
             "in_library": in_library,
             "in_jellyfin": in_library,
+            "fit_score": suggestion.get("fit_score"),
             **enriched.dict(),
         }
 
@@ -826,17 +827,27 @@ async def enrich_and_score_suggestions(suggestions_raw: list[dict]) -> list[dict
     parsed_raw = await asyncio.gather(*[enrich_suggestion(s) for s in suggestions_raw])
     suggestions = [s for s in parsed_raw if s is not None]
 
-    suggestions.sort(key=lambda s: not s.get("in_library", s.get("in_jellyfin")))
-
     add_combined_popularity(suggestions, w_lfm=0.3, w_jf=0.7)
+    suggestions.sort(
+        key=lambda s: (
+            not s.get("in_library", s.get("in_jellyfin")),
+            -(s.get("fit_score") or 0),
+            -(s.get("combined_popularity") or 0),
+        )
+    )
     for track in suggestions:
         raw_lfm = track.get("popularity")
         raw_jf = track.get("play_count", track.get("jellyfin_play_count"))
         combined = track.get("combined_popularity")
         logger.info(
-            "%s - %s | Combined: %s | Last.fm: %s, Play Count: %s",
+            "%s - %s | Fit: %s | Combined: %s | Last.fm: %s, Play Count: %s",
             track["title"],
             track["artist"],
+            (
+                f"{track.get('fit_score'):.2f}"
+                if isinstance(track.get("fit_score"), (int, float))
+                else track.get("fit_score")
+            ),
             f"{combined:.1f}" if isinstance(combined, (int, float)) else combined,
             raw_lfm,
             raw_jf,
