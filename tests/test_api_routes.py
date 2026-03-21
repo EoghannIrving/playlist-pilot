@@ -447,6 +447,16 @@ def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
     async def fake_enrich_and_score_suggestions(_suggestions):
         return []
 
+    def fake_persist_history_and_m3u(
+        _suggestions,
+        _playlist_name,
+        source_backend=None,
+        source_playlist_id=None,
+    ):
+        captured["persist_source_backend"] = source_backend
+        captured["persist_source_playlist_id"] = source_playlist_id
+        return Path("/tmp/test.m3u")
+
     monkeypatch.setattr(analysis_routes, "_build_suggest_payload", fake_build_payload)
     monkeypatch.setattr(analysis_routes, "summarize_tracks", fake_summarize_tracks)
     monkeypatch.setattr(
@@ -460,7 +470,7 @@ def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
     monkeypatch.setattr(
         analysis_routes,
         "persist_history_and_m3u",
-        lambda _suggestions, _playlist_name: Path("/tmp/test.m3u"),
+        fake_persist_history_and_m3u,
     )
     monkeypatch.setattr(
         analysis_routes.templates,
@@ -479,6 +489,8 @@ def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
     assert captured["gpt_profile_summary"] == "Profile summary"
     assert captured["gpt_suggestion_count"] == 10
     assert captured["gpt_playlist_name"] == "80s"
+    assert captured["persist_source_backend"] == "navidrome"
+    assert captured["persist_source_playlist_id"] == "playlist-123"
     assert result["Dominant_Genre"] == "new wave"
     assert result["source_backend"] == "navidrome"
     assert result["source_playlist_id"] == "playlist-123"

@@ -76,6 +76,30 @@ def test_persist_history_and_load(monkeypatch, tmp_path):
     assert "id" in history[0]
 
 
+def test_persist_history_and_load_with_source_playlist_metadata(monkeypatch, tmp_path):
+    """History entries should preserve source playlist context for later actions."""
+    monkeypatch.setattr(constants, "USER_DATA_DIR", tmp_path)
+    monkeypatch.setattr(settings, "jellyfin_user_id", "user", raising=False)
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+    sys.modules["utils.cache_manager"] = _make_cache_stub()
+    sys.modules.pop("core.m3u", None)
+    sys.modules.pop("core.history", None)
+    from core.m3u import persist_history_and_m3u
+    from core.history import load_user_history
+
+    suggestions = [{"text": "Song - Artist - Album - 2020 - Reason"}]
+    persist_history_and_m3u(
+        suggestions,
+        "Mix",
+        source_backend="navidrome",
+        source_playlist_id="playlist-123",
+    )
+
+    history = load_user_history("user")
+    assert history[0]["source_backend"] == "navidrome"
+    assert history[0]["source_playlist_id"] == "playlist-123"
+
+
 def test_enrich_suggestion_incomplete():
     """enrich_suggestion returns None for incomplete input."""
     sys.modules["utils.cache_manager"] = _make_cache_stub()

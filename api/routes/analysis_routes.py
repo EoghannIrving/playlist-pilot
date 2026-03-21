@@ -504,7 +504,12 @@ async def suggest_from_analyzed(
     )
 
     start = perf_counter()
-    m3u_path = persist_history_and_m3u(parsed_suggestions, playlist_name)
+    m3u_path = persist_history_and_m3u(
+        parsed_suggestions,
+        playlist_name,
+        source_backend=source_backend,
+        source_playlist_id=source_playlist_id,
+    )
     logger.debug("\u23f1\ufe0f History save: %.2fs", perf_counter() - start)
 
     if request.headers.get("x-requested-with") == "XMLHttpRequest" or (

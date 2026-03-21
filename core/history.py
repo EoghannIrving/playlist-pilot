@@ -36,7 +36,13 @@ def user_history_path(user_id: str) -> Path:
     return USER_DATA_DIR / f"{user_id}.json"
 
 
-def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None:
+def save_user_history(
+    user_id: str,
+    label: str,
+    suggestions: list[dict],
+    source_backend: str | None = None,
+    source_playlist_id: str | None = None,
+) -> None:
     """
     Append a new labeled suggestion set to a user's history file.
 
@@ -61,7 +67,12 @@ def save_user_history(user_id: str, label: str, suggestions: list[dict]) -> None
     else:
         data = []
 
-    data.append({"id": uuid.uuid4().hex, "label": label, "suggestions": suggestions})
+    entry = {"id": uuid.uuid4().hex, "label": label, "suggestions": suggestions}
+    if source_backend:
+        entry["source_backend"] = source_backend
+    if source_playlist_id:
+        entry["source_playlist_id"] = source_playlist_id
+    data.append(entry)
 
     try:
         with open(history_file, "w", encoding="utf-8") as f:

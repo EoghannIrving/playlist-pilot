@@ -93,12 +93,23 @@ def write_m3u(tracks: list[str]) -> Path:
     return p
 
 
-def persist_history_and_m3u(suggestions: list[dict], playlist_name: str) -> Path:
+def persist_history_and_m3u(
+    suggestions: list[dict],
+    playlist_name: str,
+    source_backend: str | None = None,
+    source_playlist_id: str | None = None,
+) -> Path:
     """Save generated playlist suggestions to history and disk."""
     playlist_clean = playlist_name.strip('"').strip("'")
     label = f"{playlist_clean} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     user_id = _history_user_id()
-    save_user_history(user_id, label, suggestions)
+    save_user_history(
+        user_id,
+        label,
+        suggestions,
+        source_backend=source_backend,
+        source_playlist_id=source_playlist_id,
+    )
     return write_m3u([s["text"] for s in suggestions])
 
 

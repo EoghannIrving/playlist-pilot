@@ -114,6 +114,19 @@
                       </a>
                     {% endif %}
                   </div>
+                  {% if entry.source_backend == 'navidrome' and entry.source_playlist_id and (track.in_library or track.in_jellyfin) and track.server_track_id %}
+                    <div class="mt-2">
+                      <button
+                        type="button"
+                        class="history-add-to-playlist-button px-2 py-1 text-sm rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200 disabled:bg-gray-200 disabled:text-gray-500"
+                        data-playlist-id="{{ entry.source_playlist_id }}"
+                        data-track-id="{{ track.server_track_id }}"
+                      >
+                        Add to Playlist
+                      </button>
+                      <span class="history-add-to-playlist-status text-sm text-gray-500 ml-2"></span>
+                    </div>
+                  {% endif %}
                 </li>
               {% endfor %}
             </ul>
@@ -144,6 +157,50 @@ document.addEventListener('DOMContentLoaded', () => {
       const name = button.getAttribute('data-name');
       const tracks = JSON.parse(button.getAttribute('data-tracks'));
       confirmExportToServer(name, tracks);
+    });
+  });
+
+  document.querySelectorAll('.history-add-to-playlist-button').forEach(button => {
+    button.addEventListener('click', async () => {
+      const playlistId = button.dataset.playlistId;
+      const trackId = button.dataset.trackId;
+      const statusNode = button.parentElement.querySelector('.history-add-to-playlist-status');
+
+      button.disabled = true;
+      button.textContent = 'Adding...';
+      if (statusNode) statusNode.textContent = '';
+
+      try {
+        const response = await fetch(`/api/v1/playlists/${playlistId}/add-track`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({ track_id: trackId })
+        });
+        const data = await response.json();
+
+        if (data.status === 'added') {
+          button.textContent = 'Added';
+          if (statusNode) statusNode.textContent = 'Track added to playlist.';
+          return;
+        }
+        if (data.status === 'already_present') {
+          button.textContent = 'Already in Playlist';
+          if (statusNode) statusNode.textContent = 'Track already exists in this playlist.';
+          return;
+        }
+
+        button.disabled = false;
+        button.textContent = 'Add to Playlist';
+        if (statusNode) statusNode.textContent = data.error || 'Could not add track.';
+      } catch (_error) {
+        button.disabled = false;
+        button.textContent = 'Add to Playlist';
+        if (statusNode) statusNode.textContent = 'Network error while adding track.';
+      }
     });
   });
 
