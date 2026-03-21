@@ -799,6 +799,7 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
         parsed = {
             "title": suggestion["title"],
             "artist": suggestion["artist"],
+            "year": str(suggestion.get("year") or ""),
             "play_count": play_count,
             "jellyfin_play_count": play_count,
             "Genres": genres,
@@ -814,7 +815,8 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
             "in_library": in_library,
             "in_jellyfin": in_library,
             "fit_score": suggestion.get("fit_score"),
-            **enriched.dict(),
+            "fit_breakdown": suggestion.get("fit_breakdown"),
+            **enriched.model_dump(),
         }
 
     except Exception as exc:  # pylint: disable=broad-exception-caught

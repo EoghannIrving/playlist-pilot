@@ -3,6 +3,7 @@
 import ast
 import asyncio
 from pathlib import Path
+from core.models import EnrichedTrack
 
 import core.playlist as playlist_module
 from core.playlist import normalize_track
@@ -90,3 +91,52 @@ def test_fetch_audio_playlists_uses_media_server_factory(monkeypatch):
     result = asyncio.run(playlist_module.fetch_audio_playlists())
 
     assert result == {"playlists": [{"name": "Alpha", "id": "pl1"}]}
+
+
+def test_enrich_suggestion_preserves_gpt_year_for_decade(monkeypatch):
+    """Suggestion enrichment should pass the GPT-parsed year into track enrichment."""
+
+    async def fake_fetch_metadata(_title, _artist):
+        return None
+
+    async def fake_youtube(_query):
+        return ("video-id", "https://youtube.example/watch?v=video-id")
+
+    async def fake_enrich_track(parsed):
+        assert parsed["year"] == "1984"
+        return EnrichedTrack(
+            title=parsed["title"],
+            artist=parsed["artist"],
+            year=parsed["year"],
+            genre="rock",
+            mood="Chill",
+            mood_confidence=0.8,
+            tempo=120,
+            decade="1980s",
+            duration=242,
+            popularity=100,
+            FinalYear="1984",
+        )
+
+    monkeypatch.setattr(
+        playlist_module, "fetch_jellyfin_track_metadata", fake_fetch_metadata
+    )
+    monkeypatch.setattr(playlist_module, "get_youtube_url_single", fake_youtube)
+    monkeypatch.setattr(playlist_module, "enrich_track", fake_enrich_track)
+
+    suggestion = {
+        "title": "Dancing in the Dark",
+        "artist": "Bruce Springsteen",
+        "text": "Dancing in the Dark - Bruce Springsteen - Born in the U.S.A. - 1984 - Reason",
+        "year": 1984,
+        "fit_score": 91.0,
+        "fit_breakdown": {"fit_score": 91.0},
+    }
+
+    result = asyncio.run(playlist_module.enrich_suggestion(suggestion))
+
+    assert result is not None
+    assert result["FinalYear"] == "1984"
+    assert result["decade"] == "1980s"
+    assert result["fit_score"] == 91.0
+    assert result["fit_breakdown"] == {"fit_score": 91.0}
