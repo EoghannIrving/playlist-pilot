@@ -421,6 +421,90 @@ Tasks:
 
 Exit criteria:
 
+- Surviving candidates are no longer returned in raw GPT order.
+- Better-fit candidates rank ahead of weaker vibe matches inside the same valid pool.
+
+### Phase 5: Tighten Prompt Control And Add Observability
+
+Goal: make the generator more predictable and make tuning failures easy to diagnose.
+
+Tasks:
+
+- Refactor the GPT prompt into explicit structured sections:
+  - playlist mode
+  - decade window
+  - dominant genre
+  - top moods
+  - average BPM
+  - explicit avoid rules
+- Add mode-specific prompt blocks:
+  - `strict_decade`
+  - `profile_match`
+- For `strict_decade`, instruct the model to:
+  - stay inside the target decade
+  - avoid post-decade vibe substitutions
+  - prefer era, scene, and production adjacency over mood-only matches
+- For `profile_match`, instruct the model to:
+  - prioritize genre, mood, scene, and production fit
+  - avoid generic prestige or streaming-era melancholy picks unless the source supports them
+- Keep hard constraints in the prompt aligned with deterministic filters already enforced in code.
+- Add structured logging for each suggestion run capturing:
+  - playlist name
+  - playlist mode
+  - decade window
+  - summary used for prompting
+  - GPT raw candidate count
+  - rejected counts by reason
+  - accepted count
+- Add per-candidate fit breakdown logging for accepted suggestions:
+  - `decade_score`
+  - `genre_score`
+  - `mood_score`
+  - `popularity_score`
+  - final `fit_score`
+- Add warning logs when a supposedly enriched playlist still produces weak summary values such as:
+  - `dominant_genre = Unknown`
+  - empty moods
+  - `tempo_avg = 0`
+  - empty decades
+- Add tests that verify:
+  - playlist mode is reflected in the built prompt
+  - strict decade prompts include explicit decade constraints
+  - debug logging emits rejection counts and fit-score breakdowns
+
+Implementation notes:
+
+- Keep the results page user-facing output unchanged by default.
+- Start with server logs only; do not add a visible debug panel yet.
+- If UI inspection is later needed, gate it behind a development-only flag.
+
+Exit criteria:
+
+- The prompt explicitly reflects playlist mode and decade scope when applicable.
+- Logs make it possible to explain why a candidate was rejected or why it ranked highly.
+- Suggestion runs can be tuned from logs without reproducing issues manually in code.
+
+### Phase 5 Delivery Slice
+
+Recommended first implementation slice:
+
+1. Add a `build_prompt_context()` helper in `services/gpt.py`.
+2. Log playlist mode, decade window, and summary before GPT is called.
+3. Add rejection-count logging in a single structured block.
+4. Add fit-score breakdown logging for accepted candidates.
+5. Add tests for prompt context and logging.
+
+Definition of done for the first slice:
+
+- Running one suggestion request produces a single readable log trail from:
+  - prompt context
+  - GPT candidate count
+  - rejection counts
+  - accepted candidates with score breakdowns
+- Prompt text clearly differs between `strict_decade` and `profile_match`.
+
+Exit criteria:
+
 - Suggestions are ranked by playlist fit, not just by GPT ordering.
 - Same-era, same-scene candidates beat generic modern “vibe” picks.
 

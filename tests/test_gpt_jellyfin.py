@@ -4,6 +4,7 @@ import sys
 import types
 import importlib
 import asyncio
+import logging
 import pytest
 
 
@@ -444,6 +445,13 @@ def test_gpt_suggest_validated_rejects_source_and_batch_duplicates(monkeypatch):
             "popularity": 100,
             "tags": [],
             "decade": None,
+            "fit_breakdown": {
+                "decade_score": 0.5,
+                "genre_score": 0.5,
+                "mood_score": 0.5,
+                "popularity_score": 0.5,
+                "fit_score": 50.0,
+            },
             "fit_score": 50.0,
         }
     ]
@@ -476,6 +484,62 @@ def test_detect_strict_decade_window():
     assert gpt_mod.detect_strict_decade_window("1980s essentials") == (1980, 1989)
     assert gpt_mod.detect_strict_decade_window("2000s mix") == (2000, 2009)
     assert gpt_mod.detect_strict_decade_window("Road Trip") is None
+
+
+def test_build_prompt_context_strict_decade():
+    """Prompt context should reflect strict decade mode and summary inputs."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    context = gpt_mod.build_prompt_context(
+        summary={
+            "dominant_genre": "new wave",
+            "mood_profile": {"romantic": "60%", "chill": "40%"},
+            "tempo_avg": 102,
+            "decades": {"1980s": "100%"},
+        },
+        profile_summary="An 80s synth-driven playlist.",
+        playlist_name="80s",
+    )
+    prompt = gpt_mod._build_gpt_prompt(  # pylint: disable=protected-access
+        ["Only You - Yazoo"],
+        10,
+        summary={
+            "dominant_genre": "new wave",
+            "mood_profile": {"romantic": "60%", "chill": "40%"},
+            "tempo_avg": 102,
+            "decades": {"1980s": "100%"},
+            "avg_popularity": 55,
+        },
+        profile_summary="An 80s synth-driven playlist.",
+        playlist_name="80s",
+    )
+
+    assert context["playlist_mode"] == "strict_decade"
+    assert context["decade_window"] == (1980, 1989)
+    assert context["dominant_genre"] == "new wave"
+    assert context["moods"] == ["romantic", "chill"]
+    assert "Suggestion mode: strict_decade" in prompt
+    assert "Target decade window: 1980-1989" in prompt
+    assert "Stay inside 1980-1989." in prompt
 
 
 def test_gpt_suggest_validated_rejects_out_of_decade_candidates(monkeypatch):
@@ -538,9 +602,95 @@ def test_gpt_suggest_validated_rejects_out_of_decade_candidates(monkeypatch):
             "popularity": 100,
             "tags": [],
             "decade": "1980s",
+            "fit_breakdown": {
+                "decade_score": 1.0,
+                "genre_score": 0.5,
+                "mood_score": 0.5,
+                "popularity_score": 0.5,
+                "fit_score": 67.5,
+            },
             "fit_score": 67.5,
         }
     ]
+
+
+def test_gpt_suggest_validated_logs_prompt_context_and_fit_breakdown(
+    monkeypatch, caplog
+):
+    """Suggestion runs should log prompt context, rejection counts, and fit breakdowns."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    async def fake_completion(
+        _prompt, temperature=0.7
+    ):  # pylint: disable=unused-argument
+        return (
+            "Only You - Yazoo - Album - 1982 - Duplicate source\n"
+            "I Want to Break Free - Queen - The Works - 1984 - Keep"
+        )
+
+    async def fake_track_info(title, _artist):
+        payloads = {
+            "Only You": {
+                "listeners": "500",
+                "releasedate": "1 Jan 1982",
+                "toptags": {"tag": [{"name": "synthpop"}, {"name": "romantic"}]},
+            },
+            "I Want to Break Free": {
+                "listeners": "1000",
+                "releasedate": "1 Jan 1984",
+                "toptags": {"tag": [{"name": "rock"}, {"name": "chill"}]},
+            },
+        }
+        return payloads[title]
+
+    monkeypatch.setattr(gpt_mod, "cached_chat_completion", fake_completion)
+    monkeypatch.setattr(gpt_mod, "get_lastfm_track_info", fake_track_info)
+
+    with caplog.at_level(logging.INFO, logger="playlist-pilot"):
+        result = asyncio.run(
+            gpt_mod.gpt_suggest_validated(
+                existing_tracks=["Only You - Yazoo"],
+                count=10,
+                summary={
+                    "dominant_genre": "rock",
+                    "mood_profile": {"chill": "100%"},
+                    "tempo_avg": 100,
+                    "decades": {"1980s": "100%"},
+                    "avg_listeners": 1000,
+                },
+                exclude_pairs={("Only You", "Yazoo")},
+                playlist_name="80s",
+            )
+        )
+
+    assert len(result) == 1
+    assert "Suggestion prompt context:" in caplog.text
+    assert "Suggestion pipeline summary:" in caplog.text
+    assert "rejected_duplicate_source=1" in caplog.text
+    assert "Accepted suggestion: I Want to Break Free - Queen" in caplog.text
+    assert "decade_score" in caplog.text
+    assert "genre_score" in caplog.text
+    assert "mood_score" in caplog.text
+    assert "popularity_score" in caplog.text
 
 
 def test_gpt_suggest_validated_reranks_by_fit_score(monkeypatch):

@@ -4,6 +4,8 @@ gpt.py
 Handles GPT prompt generation, caching, and result validation for playlist suggestions.
 """
 
+# pylint: disable=too-many-lines
+
 import hashlib
 import logging
 import asyncio
@@ -89,6 +91,73 @@ def describe_popularity(score: float) -> str:
     return "Obscure or local"
 
 
+def detect_playlist_mode(playlist_name: str | None) -> str:
+    """Return the suggestion mode implied by the playlist name."""
+    return (
+        "strict_decade"
+        if detect_strict_decade_window(playlist_name or "")
+        else "profile_match"
+    )
+
+
+def build_prompt_context(
+    summary: dict | str | None = None,
+    profile_summary: str | None = None,
+    playlist_name: str | None = None,
+) -> dict:
+    """Build structured context for prompt generation and suggestion logging."""
+    decade_window = detect_strict_decade_window(playlist_name or "")
+    playlist_mode = detect_playlist_mode(playlist_name)
+    dominant_genre = "Unknown"
+    moods: list[str] = []
+    avg_bpm = 0
+    decades: list[str] = []
+
+    if isinstance(summary, dict):
+        dominant_genre = str(summary.get("dominant_genre") or "Unknown")
+        moods = list(summary.get("mood_profile", {}).keys())
+        avg_bpm = int(summary.get("tempo_avg") or 0)
+        decades = list(summary.get("decades", {}).keys())
+        if dominant_genre == "Unknown" or not moods or avg_bpm == 0 or not decades:
+            logger.warning(
+                "Weak suggestion summary input: dominant_genre=%s moods=%s tempo_avg=%s decades=%s",
+                dominant_genre,
+                moods,
+                avg_bpm,
+                decades,
+            )
+
+    avoid_rules = [
+        "Do not include tracks already on the source playlist.",
+        "Prefer strongest fit over broad popularity.",
+    ]
+    if playlist_mode == "strict_decade" and decade_window:
+        start_year, end_year = decade_window
+        avoid_rules.extend(
+            [
+                f"Stay inside {start_year}-{end_year}.",
+                "Avoid post-decade vibe substitutions.",
+            ]
+        )
+    else:
+        avoid_rules.append(
+            "Avoid generic prestige or streaming-era melancholy picks unless clearly supported."
+        )
+
+    return {
+        "playlist_name": (playlist_name or "").strip(),
+        "playlist_mode": playlist_mode,
+        "decade_window": decade_window,
+        "dominant_genre": dominant_genre,
+        "moods": moods,
+        "avg_bpm": avg_bpm,
+        "decades": decades,
+        "profile_summary": (profile_summary or "").strip(),
+        "summary": summary,
+        "avoid_rules": avoid_rules,
+    }
+
+
 def _build_gpt_prompt(
     existing_tracks: list[str],
     count: int,
@@ -106,8 +175,9 @@ def _build_gpt_prompt(
     Returns:
         str: The GPT prompt text.
     """
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals,too-many-branches
     base = "\n".join(existing_tracks)
+    context = build_prompt_context(summary, profile_summary, playlist_name)
     if summary:
         if isinstance(summary, str):
             summary_block = summary
@@ -130,15 +200,35 @@ def _build_gpt_prompt(
     else:
         summary_block = ""
 
-    if profile_summary:
-        profile_block = f"\nPlaylist profile summary:\n{profile_summary.strip()}\n"
+    if context["profile_summary"]:
+        profile_block = f"\nPlaylist profile summary:\n{context['profile_summary']}\n"
     else:
         profile_block = ""
 
-    decade_window = detect_strict_decade_window(playlist_name or "")
+    decade_window = context["decade_window"]
     playlist_block = (
         f'Playlist name: "{playlist_name.strip()}"\n\n' if playlist_name else ""
     )
+    prompt_context_lines = [
+        "Prompt context:",
+        f"- Suggestion mode: {context['playlist_mode']}",
+        f"- Dominant genre: {context['dominant_genre']}",
+    ]
+    if context["moods"]:
+        prompt_context_lines.append(f"- Top moods: {', '.join(context['moods'])}")
+    if context["avg_bpm"]:
+        prompt_context_lines.append(f"- Avg BPM: {context['avg_bpm']}")
+    if context["decades"]:
+        prompt_context_lines.append(
+            f"- Source decades: {', '.join(context['decades'])}"
+        )
+    if decade_window:
+        prompt_context_lines.append(
+            f"- Target decade window: {decade_window[0]}-{decade_window[1]}"
+        )
+    prompt_context_lines.append(f"- Avoid rules: {'; '.join(context['avoid_rules'])}")
+    prompt_context_block = "\n".join(prompt_context_lines)
+
     decade_constraint_block = ""
     if decade_window:
         start_year, end_year = decade_window
@@ -153,6 +243,7 @@ def _build_gpt_prompt(
         "The user has provided a playlist which has the following "
         f"characteristics:\n{summary_block}\n\n"
         f"{playlist_block}"
+        f"{prompt_context_block}\n\n"
         f"{profile_block}"
         f"Reference Playlist:\n{base}\n\n"
         f"Suggest exactly {count} additional **real and relevant** songs "
@@ -305,12 +396,26 @@ async def gpt_suggest_validated(
         list[dict]: Validated GPT suggestions (title, artist, text, popularity)
     """
     # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments,too-many-statements
+    prompt_context = build_prompt_context(summary, profile_summary, playlist_name)
     prompt = _build_gpt_prompt(
         existing_tracks,
         count * 3,
         summary,
         profile_summary,
         playlist_name=playlist_name,
+    )
+    logger.info(
+        (
+            "Suggestion prompt context: playlist=%s mode=%s decade_window=%s "
+            "source_tracks=%d dominant_genre=%s moods=%s avg_bpm=%s"
+        ),
+        prompt_context["playlist_name"],
+        prompt_context["playlist_mode"],
+        prompt_context["decade_window"],
+        len(existing_tracks),
+        prompt_context["dominant_genre"],
+        prompt_context["moods"],
+        prompt_context["avg_bpm"],
     )
     logger.debug("Sending GPT prompt:\n%s...", prompt[:500])
     result = await cached_chat_completion(prompt)
@@ -352,10 +457,12 @@ async def gpt_suggest_validated(
                 track_data.get("releasedate", "")
             )
         track["decade"] = year_to_decade(track.get("year"))
-        track["fit_score"] = score_candidate_fit(track, summary, decade_window)
+        fit_breakdown = score_candidate_fit_breakdown(track, summary, decade_window)
+        track["fit_breakdown"] = fit_breakdown
+        track["fit_score"] = fit_breakdown["fit_score"]
         return track
 
-    decade_window = detect_strict_decade_window(playlist_name or "")
+    decade_window = prompt_context["decade_window"]
     validated = await asyncio.gather(*[validate_and_score(t) for t in suggestions_raw])
     suggestions_raw = [track for track in validated if track]
     normalized_exclude_pairs = (
@@ -392,15 +499,29 @@ async def gpt_suggest_validated(
     )
 
     logger.info(
-        "✅ %d valid suggestions after validation and filtering",
+        (
+            "Suggestion pipeline summary: playlist=%s mode=%s decade_window=%s "
+            "raw_candidates=%d validated=%d accepted=%d "
+            "rejected_duplicate_source=%d rejected_duplicate_batch=%d "
+            "rejected_decade=%d"
+        ),
+        prompt_context["playlist_name"],
+        prompt_context["playlist_mode"],
+        decade_window,
+        len(raw_lines),
+        len(suggestions_raw),
         len(filtered_suggestions),
+        rejected_duplicate_source,
+        rejected_duplicate_batch,
+        rejected_decade,
     )
-    if rejected_duplicate_source or rejected_duplicate_batch or rejected_decade:
+    for track in filtered_suggestions[:count]:
         logger.info(
-            "Rejected suggestions: duplicate_source=%d duplicate_batch=%d decade=%d",
-            rejected_duplicate_source,
-            rejected_duplicate_batch,
-            rejected_decade,
+            "Accepted suggestion: %s - %s | fit=%s | breakdown=%s",
+            track["title"],
+            track["artist"],
+            track.get("fit_score"),
+            track.get("fit_breakdown"),
         )
     return filtered_suggestions[:count]
 
@@ -585,13 +706,37 @@ def score_candidate_fit(
     decade_window: tuple[int, int] | None = None,
 ) -> float:
     """Compute a deterministic fit score for a candidate suggestion."""
+    return score_candidate_fit_breakdown(track, summary, decade_window)["fit_score"]
+
+
+def score_candidate_fit_breakdown(
+    track: dict,
+    summary: dict | str | None = None,
+    decade_window: tuple[int, int] | None = None,
+) -> dict:
+    """Return weighted fit-score components for a candidate suggestion."""
     candidate_tags = set(track.get("tags") or [])
-    score = 0.0
-    score += 0.35 * _score_decade_fit(track, summary, decade_window)
-    score += 0.25 * _score_genre_fit(candidate_tags, summary)
-    score += 0.20 * _score_mood_fit(candidate_tags, summary)
-    score += 0.20 * _score_popularity_fit(track, summary)
-    return round(score * 100, 2)
+    decade_score = _score_decade_fit(track, summary, decade_window)
+    genre_score = _score_genre_fit(candidate_tags, summary)
+    mood_score = _score_mood_fit(candidate_tags, summary)
+    popularity_score = _score_popularity_fit(track, summary)
+    fit_score = round(
+        (
+            0.35 * decade_score
+            + 0.25 * genre_score
+            + 0.20 * mood_score
+            + 0.20 * popularity_score
+        )
+        * 100,
+        2,
+    )
+    return {
+        "decade_score": round(decade_score, 3),
+        "genre_score": round(genre_score, 3),
+        "mood_score": round(mood_score, 3),
+        "popularity_score": round(popularity_score, 3),
+        "fit_score": fit_score,
+    }
 
 
 def strip_number_prefix(line: str) -> str:
