@@ -117,10 +117,14 @@ def _build_gpt_prompt(
             "- Avoid remixes, covers, live-only performances, or "
             "obscure/independent tracks unless they had commercial release.\n\n"
             "Fit rules:\n"
-            "- Prioritize era, scene, production style, and emotional fit over generic similarity.\n"
-            "- If the playlist has a clear decade center, keep most suggestions in that decade or an adjacent one.\n"
-            "- Prefer artists, scenes, and sonic palettes plausibly adjacent to the reference playlist.\n"
-            "- Avoid generic modern indie or atmospheric recommendations unless the reference playlist clearly supports them.\n"
+            "- Prioritize era, scene, production style, and emotional fit "
+            "over generic similarity.\n"
+            "- If the playlist has a clear decade center, keep most "
+            "suggestions in that decade or an adjacent one.\n"
+            "- Prefer artists, scenes, and sonic palettes plausibly adjacent "
+            "to the reference playlist.\n"
+            "- Avoid generic modern indie or atmospheric recommendations "
+            "unless the reference playlist clearly supports them.\n"
             "- Rank strongest fit first, not broad popularity.\n\n"
             "Formatting rules:\n"
             "- Return each song on a single line.\n"
@@ -248,6 +252,7 @@ async def gpt_suggest_validated(
     Returns:
         list[dict]: Validated GPT suggestions (title, artist, text, popularity)
     """
+    # pylint: disable=too-many-locals
     prompt = _build_gpt_prompt(existing_tracks, count * 3, summary, profile_summary)
     logger.debug("Sending GPT prompt:\n%s...", prompt[:500])
     result = await cached_chat_completion(prompt)

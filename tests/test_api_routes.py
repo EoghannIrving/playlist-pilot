@@ -12,7 +12,13 @@ from starlette.datastructures import UploadFile
 from api.schemas import AnalysisExportRequest
 from api.forms import SettingsForm
 from api.routes import settings_routes, analysis_routes
-from api.schemas import VerifyEntryRequest, ExportTrackMetadataRequest, TrackMetadata
+from api.schemas import (
+    VerifyEntryRequest,
+    ExportTrackMetadataRequest,
+    TrackMetadata,
+    SuggestFromAnalyzedRequest,
+    SuggestedSeedTrack,
+)
 
 
 def _extract_health_check():
@@ -388,3 +394,84 @@ def test_export_track_metadata_navidrome_album_conflict(monkeypatch):
     )
 
     assert response.status_code == 409
+
+
+def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
+    """Suggestion generation should keep enriched track fields past request parsing."""
+
+    captured = {}
+
+    async def fake_build_payload(_request):
+        return SuggestFromAnalyzedRequest(
+            playlist_name="80s",
+            text_summary="Profile summary",
+            tracks=[
+                SuggestedSeedTrack(
+                    title="Only You",
+                    artist="Yazoo",
+                    genre="new wave",
+                    mood="romantic",
+                    tempo=100,
+                    decade="1980s",
+                    popularity=12345,
+                    combined_popularity=81.2,
+                    FinalYear="1982",
+                    in_library=True,
+                )
+            ],
+        )
+
+    def fake_summarize_tracks(tracks):
+        captured["summary_tracks"] = tracks
+        return {
+            "dominant_genre": "new wave",
+            "mood_profile": {"romantic": "100%"},
+            "tempo_avg": 100,
+            "decades": {"1980s": "100%"},
+            "avg_popularity": 80,
+        }
+
+    async def fake_fetch_gpt_suggestions(
+        tracks, summary, suggestion_count, profile_summary=""
+    ):
+        captured["gpt_tracks"] = tracks
+        captured["gpt_summary"] = summary
+        captured["gpt_profile_summary"] = profile_summary
+        captured["gpt_suggestion_count"] = suggestion_count
+        return []
+
+    async def fake_enrich_and_score_suggestions(_suggestions):
+        return []
+
+    monkeypatch.setattr(analysis_routes, "_build_suggest_payload", fake_build_payload)
+    monkeypatch.setattr(analysis_routes, "summarize_tracks", fake_summarize_tracks)
+    monkeypatch.setattr(
+        analysis_routes, "fetch_gpt_suggestions", fake_fetch_gpt_suggestions
+    )
+    monkeypatch.setattr(
+        analysis_routes,
+        "enrich_and_score_suggestions",
+        fake_enrich_and_score_suggestions,
+    )
+    monkeypatch.setattr(
+        analysis_routes,
+        "persist_history_and_m3u",
+        lambda _suggestions, _playlist_name: Path("/tmp/test.m3u"),
+    )
+    monkeypatch.setattr(
+        analysis_routes.templates,
+        "TemplateResponse",
+        lambda _template, context: context,
+    )
+
+    request = types.SimpleNamespace(headers={"accept": "text/html"})
+    result = asyncio.run(analysis_routes.suggest_from_analyzed(request))
+
+    assert captured["summary_tracks"][0]["genre"] == "new wave"
+    assert captured["summary_tracks"][0]["mood"] == "romantic"
+    assert captured["summary_tracks"][0]["tempo"] == 100
+    assert captured["summary_tracks"][0]["decade"] == "1980s"
+    assert captured["gpt_tracks"][0]["FinalYear"] == "1982"
+    assert captured["gpt_profile_summary"] == "Profile summary"
+    assert captured["gpt_suggestion_count"] == 10
+    assert result["Dominant_Genre"] == "new wave"

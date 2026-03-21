@@ -464,7 +464,7 @@ async def suggest_from_analyzed(
     ``Accept`` header includes ``application/json``."""
 
     payload = await _build_suggest_payload(request)
-    tracks = [t.dict() for t in payload.tracks]
+    tracks = [t.model_dump() for t in payload.tracks]
     playlist_name = payload.playlist_name
     text_summary = payload.text_summary or ""
 

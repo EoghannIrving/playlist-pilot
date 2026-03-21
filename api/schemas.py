@@ -107,6 +107,23 @@ class TrackRef(BaseModel):
     title: str
 
 
+class SuggestedSeedTrack(BaseModel):
+    """Enriched analyzed-track payload preserved for suggestion generation."""
+
+    artist: str
+    title: str
+    album: Optional[str] = None
+    genre: Optional[str] = None
+    mood: Optional[str] = None
+    tempo: Optional[int] = None
+    decade: Optional[str] = None
+    popularity: Optional[int] = None
+    combined_popularity: Optional[float] = None
+    FinalYear: Optional[str] = None
+    in_library: Optional[bool] = None
+    in_jellyfin: Optional[bool] = None
+
+
 class OrderSuggestionResponse(BaseModel):
     """Response model for GPT ordering suggestions."""
 
@@ -116,7 +133,7 @@ class OrderSuggestionResponse(BaseModel):
 class SuggestFromAnalyzedRequest(BaseModel):
     """Request model for generating suggestions from analyzed tracks."""
 
-    tracks: List[TrackRef]
+    tracks: List[SuggestedSeedTrack]
     playlist_name: str
     text_summary: Optional[str] = None
 
