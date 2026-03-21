@@ -313,24 +313,32 @@ def add_combined_popularity(
 
 MOOD_TAGS = {
     "happy": {"happy", "fun", "cheerful", "feel good", "sunny"},
-    "sad": {"sad", "melancholy", "emotional", "heartbreak", "blue"},
-    "chill": {"chill", "relaxing", "calm", "downtempo", "smooth"},
-    "intense": {"aggressive", "intense", "dark", "heavy", "angry", "epic"},
-    "romantic": {"romantic", "love", "sensual"},
+    "sad": {"sad", "melancholy", "emotional", "heartbreak", "blue", "somber"},
+    "chill": {"chill", "relaxing", "calm", "downtempo", "smooth", "laid-back"},
+    "intense": {"aggressive", "intense", "dark", "heavy", "angry", "epic", "dramatic"},
+    "romantic": {
+        "romantic",
+        "love",
+        "sensual",
+        "tender",
+        "dreamy",
+        "ballad",
+        "yearning",
+    },
     "dark": {"dark", "gothic", "ominous"},
-    "uplifting": {"uplifting", "inspiring", "empowering", "anthem"},
-    "nostalgic": {"nostalgic", "retro", "vintage"},
+    "uplifting": {"uplifting", "inspiring", "empowering", "anthem", "soaring"},
+    "nostalgic": {"nostalgic", "retro", "vintage", "wistful", "reflective"},
     "party": {"party", "club", "dance"},
 }
 
 
 def mood_scores_from_bpm_data(data: dict) -> dict:
     """Infer mood scores from BPM-related audio features."""
-    # pylint: disable=too-many-branches, too-many-statements
+    # pylint: disable=too-many-branches, too-many-statements,too-many-boolean-expressions
     bpm = data.get("bpm")
     key = (data.get("key") or "").lower()
-    dance = data.get("danceability", 0)
-    acoustic = data.get("acousticness", 0)
+    dance = data.get("danceability")
+    acoustic = data.get("acousticness")
     year = data.get("year")
 
     scores = {mood: 0.0 for mood in MOOD_TAGS}
@@ -344,43 +352,79 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
     )
 
     # --- Primary rules (high-confidence) ---
-    if bpm and 110 <= bpm <= 140 and dance > 65 and acoustic < 40:
+    if (
+        bpm
+        and dance is not None
+        and acoustic is not None
+        and 110 <= bpm <= 140
+        and dance > 65
+        and acoustic < 40
+    ):
         scores["party"] += 1.0
         logger.debug(
             "  +1.0 party (strong match: bpm 110–140, high danceability, low acousticness)"
         )
 
-    if bpm and bpm < 95 and acoustic > 50 and dance < 55:
+    if (
+        bpm
+        and dance is not None
+        and acoustic is not None
+        and bpm < 95
+        and acoustic > 50
+        and dance < 55
+    ):
         scores["chill"] += 1.0
         logger.debug("  +1.0 chill (strong match: slow, acoustic, low danceability)")
 
-    if bpm and bpm > 125 and acoustic < 30 and dance > 55:
+    if (
+        bpm
+        and dance is not None
+        and acoustic is not None
+        and bpm > 125
+        and acoustic < 30
+        and dance > 55
+    ):
         scores["intense"] += 1.0
         logger.debug("  +1.0 intense (strong match: fast, synthetic, danceable)")
 
-    if bpm and bpm < 95 and acoustic > 55 and "m" not in key:
+    if bpm and acoustic is not None and bpm < 95 and acoustic > 55 and "m" not in key:
         scores["romantic"] += 1.0
         logger.debug("  +1.0 romantic (strong match: slow, acoustic, major key)")
 
-    if bpm and bpm > 95 and "m" not in key and acoustic < 50 and dance > 55:
+    if (
+        bpm
+        and dance is not None
+        and acoustic is not None
+        and bpm > 95
+        and "m" not in key
+        and acoustic < 50
+        and dance > 55
+    ):
         scores["uplifting"] += 1.0
         logger.debug(
             "  +1.0 uplifting (strong match: upbeat, major key, synthetic, danceable)"
         )
 
-    if year and year < 2005 and acoustic > 45 and bpm and bpm < 105:
+    if (
+        bpm
+        and acoustic is not None
+        and year
+        and year < 2005
+        and acoustic > 45
+        and bpm < 105
+    ):
         scores["nostalgic"] += 1.0
         logger.debug("  +1.0 nostalgic (strong match: pre-2005, mellow, acoustic)")
 
-    if bpm and bpm < 115 and "m" in key and acoustic < 40:
+    if bpm and acoustic is not None and bpm < 115 and "m" in key and acoustic < 40:
         scores["dark"] += 1.0
         logger.debug("  +1.0 dark (strong match: slow, minor key, synthetic)")
 
-    if bpm and bpm > 105 and "m" not in key and dance > 55:
+    if bpm and dance is not None and bpm > 105 and "m" not in key and dance > 55:
         scores["happy"] += 1.0
         logger.debug("  +1.0 happy (strong match: fast, major key, danceable)")
 
-    if bpm and bpm < 90 and "m" in key and dance < 55:
+    if bpm and dance is not None and bpm < 90 and "m" in key and dance < 55:
         scores["sad"] += 1.0
         logger.debug("  +1.0 sad (strong match: slow, minor key, low danceability)")
 
@@ -403,22 +447,21 @@ def mood_scores_from_bpm_data(data: dict) -> dict:
             scores["sad"] += 0.5
             logger.debug("  +0.5 sad (fallback: bpm < 80)")
 
-    if acoustic > 60:
+    if acoustic is not None and acoustic > 60:
         scores["chill"] += 0.5
         scores["romantic"] += 0.5
         logger.debug("  +0.5 chill, +0.5 romantic (fallback: acousticness > 60)")
-    elif acoustic < 20:
+    elif acoustic is not None and acoustic < 20:
         scores["intense"] += 0.5
         logger.debug("  +0.5 intense (fallback: acousticness < 20)")
 
-    if dance > 70:
+    if dance is not None and dance > 70:
         scores["party"] += 0.5
         scores["happy"] += 0.5
         logger.debug("  +0.5 party, +0.5 happy (fallback: danceability > 70)")
-    elif dance < 30:
+    elif dance is not None and dance < 30:
         scores["sad"] += 0.5
-        scores["chill"] += 0.5
-        logger.debug("  +0.5 sad, +0.5 chill (fallback: danceability < 30)")
+        logger.debug("  +0.5 sad (fallback: danceability < 30)")
     return scores
 
 
@@ -522,6 +565,9 @@ def combine_mood_scores(
     signal_sources = sum(1 for total in (tag_sum, bpm_sum, lyrics_sum) if total > 0)
     if not filtered or top_score < 0.3:
         logger.info("← Final Mood: unknown (no strong scores)\n")
+        return "unknown", 0.0
+    if signal_sources == 1 and top_score < 1.25:
+        logger.info("← Final Mood: unknown (single weak source)\n")
         return "unknown", 0.0
     if signal_sources == 1 and len(non_zero_moods) == 1 and top_score < 2.0:
         logger.info("← Final Mood: unknown (single weak signal)\n")

@@ -53,3 +53,29 @@ def test_combine_mood_scores_single_weak_signal_returns_unknown():
     mood, confidence = combine_mood_scores(tags, empty)
     assert mood == "unknown"
     assert confidence == 0.0
+
+
+def test_mood_scores_from_bpm_data_missing_audio_features_do_not_fabricate_chill():
+    """Missing danceability/acousticness should not create fallback chill scores."""
+    scores = mood_scores_from_bpm_data({"bpm": 100, "year": 1984})
+    assert scores["chill"] == 0.0
+    assert scores["sad"] == 0.0
+    assert scores["uplifting"] == 0.5
+
+
+def test_mood_scores_from_lastfm_tags_support_romantic_and_nostalgic_language():
+    """Broader descriptive tags should feed specific moods instead of generic chill."""
+    tags = ["dreamy", "tender", "wistful", "reflective"]
+    scores = mood_scores_from_lastfm_tags(tags)
+    assert scores["romantic"] >= 2.0
+    assert scores["nostalgic"] >= 2.0
+    assert scores["chill"] == 0.0
+
+
+def test_combine_mood_scores_prefers_romantic_over_generic_chill():
+    """Specific romantic evidence should beat weak chill-style fallback cues."""
+    tag_scores = mood_scores_from_lastfm_tags(["dreamy", "tender"])
+    bpm_scores = mood_scores_from_bpm_data({"bpm": 100, "year": 1984})
+    mood, confidence = combine_mood_scores(tag_scores, bpm_scores)
+    assert mood == "romantic"
+    assert confidence > 0.5
