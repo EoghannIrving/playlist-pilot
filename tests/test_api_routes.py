@@ -432,12 +432,13 @@ def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
         }
 
     async def fake_fetch_gpt_suggestions(
-        tracks, summary, suggestion_count, profile_summary=""
+        tracks, summary, suggestion_count, profile_summary="", playlist_name=""
     ):
         captured["gpt_tracks"] = tracks
         captured["gpt_summary"] = summary
         captured["gpt_profile_summary"] = profile_summary
         captured["gpt_suggestion_count"] = suggestion_count
+        captured["gpt_playlist_name"] = playlist_name
         return []
 
     async def fake_enrich_and_score_suggestions(_suggestions):
@@ -474,4 +475,5 @@ def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
     assert captured["gpt_tracks"][0]["FinalYear"] == "1982"
     assert captured["gpt_profile_summary"] == "Profile summary"
     assert captured["gpt_suggestion_count"] == 10
+    assert captured["gpt_playlist_name"] == "80s"
     assert result["Dominant_Genre"] == "new wave"

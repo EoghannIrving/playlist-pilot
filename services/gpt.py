@@ -62,6 +62,7 @@ def _build_gpt_prompt(
     count: int,
     summary: dict | str | None = None,
     profile_summary: str | None = None,
+    playlist_name: str | None = None,
 ) -> str:
     """
     Constructs a tailored GPT prompt based a user selected playlist.
@@ -73,6 +74,7 @@ def _build_gpt_prompt(
     Returns:
         str: The GPT prompt text.
     """
+    # pylint: disable=too-many-locals
     base = "\n".join(existing_tracks)
     if summary:
         if isinstance(summary, str):
@@ -101,9 +103,24 @@ def _build_gpt_prompt(
     else:
         profile_block = ""
 
+    decade_window = detect_strict_decade_window(playlist_name or "")
+    playlist_block = (
+        f'Playlist name: "{playlist_name.strip()}"\n\n' if playlist_name else ""
+    )
+    decade_constraint_block = ""
+    if decade_window:
+        start_year, end_year = decade_window
+        decade_constraint_block = (
+            "Decade constraint:\n"
+            f"- This playlist is explicitly scoped to {start_year}-{end_year}.\n"
+            f"- Prefer tracks released between {start_year} and {end_year}.\n"
+            f"- Do not suggest tracks released outside {start_year}-{end_year}.\n\n"
+        )
+
     intro = (
         "The user has provided a playlist which has the following "
         f"characteristics:\n{summary_block}\n\n"
+        f"{playlist_block}"
         f"{profile_block}"
         f"Reference Playlist:\n{base}\n\n"
         f"Suggest exactly {count} additional **real and relevant** songs "
@@ -136,6 +153,7 @@ def _build_gpt_prompt(
             "  • Bullet points\n"
             "  • Extra commentary\n"
             "  • Fake, unreleased, or AI-generated music\n"
+            f"\n{decade_constraint_block}"
         )
     )
 
@@ -242,6 +260,7 @@ async def gpt_suggest_validated(
     summary: dict | str | None = None,
     profile_summary: str | None = None,
     exclude_pairs: set[tuple[str, str]] | None = None,
+    playlist_name: str | None = None,
 ) -> list[dict]:
     """
     Main interface to request playlist suggestions from GPT.
@@ -253,8 +272,14 @@ async def gpt_suggest_validated(
     Returns:
         list[dict]: Validated GPT suggestions (title, artist, text, popularity)
     """
-    # pylint: disable=too-many-locals
-    prompt = _build_gpt_prompt(existing_tracks, count * 3, summary, profile_summary)
+    # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
+    prompt = _build_gpt_prompt(
+        existing_tracks,
+        count * 3,
+        summary,
+        profile_summary,
+        playlist_name=playlist_name,
+    )
     logger.debug("Sending GPT prompt:\n%s...", prompt[:500])
     result = await cached_chat_completion(prompt)
     response_content = result.strip()
@@ -269,7 +294,14 @@ async def gpt_suggest_validated(
             continue
         try:
             title, artist = parse_gpt_line(line)
-            suggestions_raw.append({"title": title, "artist": artist, "text": line})
+            suggestions_raw.append(
+                {
+                    "title": title,
+                    "artist": artist,
+                    "text": line,
+                    "year": extract_year_from_suggestion_line(line),
+                }
+            )
         except ValueError as exc:
             logger.warning("⚠️ Failed to parse line: '%s' → %s", line, exc)
 
@@ -282,10 +314,15 @@ async def gpt_suggest_validated(
             return None
 
         track["popularity"] = int(track_data.get("listeners", 0))
+        if not track.get("year"):
+            track["year"] = extract_year_from_releasedate(
+                track_data.get("releasedate", "")
+            )
         return track
 
     validated = await asyncio.gather(*[validate_and_score(t) for t in suggestions_raw])
     suggestions_raw = [track for track in validated if track]
+    decade_window = detect_strict_decade_window(playlist_name or "")
     normalized_exclude_pairs = (
         {normalize_track_key(title, artist) for title, artist in exclude_pairs}
         if exclude_pairs
@@ -295,6 +332,7 @@ async def gpt_suggest_validated(
     filtered_suggestions: list[dict] = []
     rejected_duplicate_source = 0
     rejected_duplicate_batch = 0
+    rejected_decade = 0
 
     for track in suggestions_raw:
         key = normalize_track_key(track["title"], track["artist"])
@@ -304,6 +342,9 @@ async def gpt_suggest_validated(
         if key in accepted_keys:
             rejected_duplicate_batch += 1
             continue
+        if decade_window and not year_in_window(track.get("year"), decade_window):
+            rejected_decade += 1
+            continue
         accepted_keys.add(key)
         filtered_suggestions.append(track)
 
@@ -311,11 +352,12 @@ async def gpt_suggest_validated(
         "✅ %d valid suggestions after validation and filtering",
         len(filtered_suggestions),
     )
-    if rejected_duplicate_source or rejected_duplicate_batch:
+    if rejected_duplicate_source or rejected_duplicate_batch or rejected_decade:
         logger.info(
-            "Rejected suggestions: duplicate_source=%d duplicate_batch=%d",
+            "Rejected suggestions: duplicate_source=%d duplicate_batch=%d decade=%d",
             rejected_duplicate_source,
             rejected_duplicate_batch,
+            rejected_decade,
         )
     return filtered_suggestions[:count]
 
@@ -325,6 +367,7 @@ async def fetch_gpt_suggestions(
     summary: dict | str | None,
     count: int,
     profile_summary: str = "",
+    playlist_name: str = "",
 ) -> list[dict]:
     """Wrapper to request suggestions from GPT based on seed tracks."""
     seed_lines = [
@@ -342,7 +385,62 @@ async def fetch_gpt_suggestions(
         summary,
         profile_summary=profile_summary,
         exclude_pairs=exclude_pairs,
+        playlist_name=playlist_name,
     )
+
+
+def detect_strict_decade_window(playlist_name: str) -> tuple[int, int] | None:
+    """Return an exact decade window for explicit decade playlist names."""
+    normalized = (playlist_name or "").strip().lower()
+    match = re.search(r"\b((?:19|20)?\d{2})s\b", normalized)
+    if not match:
+        return None
+
+    token = match.group(1)
+    if len(token) == 2:
+        decade_start = 1900 + int(token)
+    else:
+        decade_start = int(token)
+
+    if decade_start < 1900 or decade_start > 2090 or decade_start % 10 != 0:
+        return None
+    return (decade_start, decade_start + 9)
+
+
+def extract_year_from_suggestion_line(line: str) -> int | None:
+    """Extract the explicit year segment from a GPT suggestion line if present."""
+    parts = [part.strip() for part in re.sub(r"[\u2013\u2014]", "-", line).split(" - ")]
+    if len(parts) < 4:
+        return None
+    return parse_year(parts[3])
+
+
+def extract_year_from_releasedate(releasedate: str) -> int | None:
+    """Extract a 4-digit year from a Last.fm release-date string."""
+    match = re.search(r"\b(19\d{2}|20\d{2})\b", releasedate or "")
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def parse_year(value: str | int | None) -> int | None:
+    """Parse a 4-digit year when available."""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value if 1900 <= value <= 2099 else None
+    match = re.fullmatch(r"(19\d{2}|20\d{2})", str(value).strip())
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def year_in_window(year: int | None, window: tuple[int, int]) -> bool:
+    """Return whether a parsed year falls inside the inclusive window."""
+    if year is None:
+        return False
+    start_year, end_year = window
+    return start_year <= year <= end_year
 
 
 def strip_number_prefix(line: str) -> str:

@@ -440,6 +440,98 @@ def test_gpt_suggest_validated_rejects_source_and_batch_duplicates(monkeypatch):
             "title": "Only You",
             "artist": "Yazoo",
             "text": "Only You - Yazoo - Keep",
+            "year": None,
+            "popularity": 100,
+        }
+    ]
+
+
+def test_detect_strict_decade_window():
+    """Explicit decade playlist names should map to exact decade windows."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    assert gpt_mod.detect_strict_decade_window("80s") == (1980, 1989)
+    assert gpt_mod.detect_strict_decade_window("1980s essentials") == (1980, 1989)
+    assert gpt_mod.detect_strict_decade_window("2000s mix") == (2000, 2009)
+    assert gpt_mod.detect_strict_decade_window("Road Trip") is None
+
+
+def test_gpt_suggest_validated_rejects_out_of_decade_candidates(monkeypatch):
+    """Strict decade playlists should reject suggestions outside the detected decade."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    async def fake_completion(
+        _prompt, temperature=0.7
+    ):  # pylint: disable=unused-argument
+        return (
+            "I Want to Break Free - Queen - The Works - 1984 - Keep\n"
+            "Chasing Cars - Snow Patrol - Eyes Open - 2006 - Reject\n"
+            "The Night We Met - Lord Huron - Strange Trails - 2015 - Reject"
+        )
+
+    async def fake_track_info(title, _artist):
+        releasedates = {
+            "I Want to Break Free": "28 Feb 1984",
+            "Chasing Cars": "6 Jun 2006",
+            "The Night We Met": "9 Apr 2015",
+        }
+        return {"listeners": "100", "releasedate": releasedates[title]}
+
+    monkeypatch.setattr(gpt_mod, "cached_chat_completion", fake_completion)
+    monkeypatch.setattr(gpt_mod, "get_lastfm_track_info", fake_track_info)
+
+    result = asyncio.run(
+        gpt_mod.gpt_suggest_validated(
+            existing_tracks=["Only You - Yazoo"],
+            count=10,
+            playlist_name="80s",
+        )
+    )
+
+    assert result == [
+        {
+            "title": "I Want to Break Free",
+            "artist": "Queen",
+            "text": "I Want to Break Free - Queen - The Works - 1984 - Keep",
+            "year": 1984,
             "popularity": 100,
         }
     ]

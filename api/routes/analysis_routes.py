@@ -476,7 +476,11 @@ async def suggest_from_analyzed(
     start = perf_counter()
     logger.debug("Requesting GPT Response using text summary")
     suggestions_raw = await fetch_gpt_suggestions(
-        tracks, summary, suggestion_count, profile_summary=text_summary
+        tracks,
+        summary,
+        suggestion_count,
+        profile_summary=text_summary,
+        playlist_name=playlist_name,
     )
     logger.debug("\u23f1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
     logger.info(
