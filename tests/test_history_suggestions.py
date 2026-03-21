@@ -82,7 +82,7 @@ def test_enrich_suggestion_incomplete():
     sys.modules.pop("core.playlist", None)
     from core import playlist
 
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         playlist.enrich_suggestion({"text": "Bad", "title": "", "artist": ""})
     )
     assert result is None
@@ -102,7 +102,7 @@ def test_enrich_suggestion_service_failures(monkeypatch):
     monkeypatch.setattr(playlist, "get_youtube_url_single", fail)
     monkeypatch.setattr(playlist, "enrich_track", fail)
 
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         playlist.enrich_suggestion(
             {
                 "text": "Title - Artist - Album - 2020 - Reason",
@@ -139,9 +139,7 @@ def test_lastfm_info_failure(monkeypatch):
     monkeypatch.setattr(lastfm, "lastfm_cache", DummyCache())
     monkeypatch.setattr(lastfm, "CACHE_TTLS", {"lastfm": 1})
 
-    result = asyncio.get_event_loop().run_until_complete(
-        lastfm.get_lastfm_track_info("Song", "Artist")
-    )
+    result = asyncio.run(lastfm.get_lastfm_track_info("Song", "Artist"))
     assert result is None
 
 
@@ -167,7 +165,5 @@ def test_lastfm_info_skipped_without_key(monkeypatch):
     monkeypatch.setattr(lastfm, "CACHE_TTLS", {"lastfm": 1})
     monkeypatch.setattr(lastfm.settings, "lastfm_api_key", "", raising=False)
 
-    result = asyncio.get_event_loop().run_until_complete(
-        lastfm.get_lastfm_track_info("Song", "Artist")
-    )
+    result = asyncio.run(lastfm.get_lastfm_track_info("Song", "Artist"))
     assert result is None

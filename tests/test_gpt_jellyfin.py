@@ -358,3 +358,88 @@ def test_extract_remaining_handles_dashes():
 
     text = "Song - DJ - Mix - explanation"
     assert extract(text, "Song", "DJ - Mix") == "explanation"
+
+
+def test_normalize_track_key_strips_version_suffixes():
+    """Duplicate comparison should ignore common version suffixes."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    assert gpt_mod.normalize_track_key(
+        "The Whole of the Moon (video version)", "The Waterboys"
+    ) == gpt_mod.normalize_track_key("The Whole of the Moon", "The Waterboys")
+
+
+def test_gpt_suggest_validated_rejects_source_and_batch_duplicates(monkeypatch):
+    """Suggestions should reject source-playlist and repeated normalized duplicates."""
+    openai_stub = types.ModuleType("openai")
+
+    class Dummy:  # pylint: disable=too-few-public-methods
+        """Simple OpenAI client stub used for import."""
+
+        def __init__(self, **_kwargs):
+            return
+
+    openai_stub.OpenAI = Dummy
+    openai_stub.AsyncOpenAI = Dummy
+    openai_stub.OpenAIError = Exception
+    sys.modules["openai"] = openai_stub
+
+    cache_stub = types.ModuleType("utils.cache_manager")
+    cache_stub.prompt_cache = DummyCache()
+    cache_stub.lastfm_cache = DummyCache()
+    cache_stub.CACHE_TTLS = {"prompt": 1}
+    sys.modules["utils.cache_manager"] = cache_stub
+
+    gpt_mod = importlib.import_module("services.gpt")
+
+    async def fake_completion(
+        _prompt, temperature=0.7
+    ):  # pylint: disable=unused-argument
+        return (
+            "The Whole of the Moon (video version) - The Waterboys - Reason\n"
+            "The Whole of the Moon - The Waterboys - Another reason\n"
+            "Only You - Yazoo - Keep\n"
+            "Only You - Yazoo - Duplicate in batch"
+        )
+
+    async def fake_track_info(_title, _artist):
+        return {"listeners": "100"}
+
+    monkeypatch.setattr(gpt_mod, "cached_chat_completion", fake_completion)
+    monkeypatch.setattr(gpt_mod, "get_lastfm_track_info", fake_track_info)
+
+    result = asyncio.run(
+        gpt_mod.gpt_suggest_validated(
+            existing_tracks=["The Whole of the Moon - The Waterboys"],
+            count=10,
+            exclude_pairs={("The Whole of the Moon", "The Waterboys")},
+        )
+    )
+
+    assert result == [
+        {
+            "title": "Only You",
+            "artist": "Yazoo",
+            "text": "Only You - Yazoo - Keep",
+            "popularity": 100,
+        }
+    ]

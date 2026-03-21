@@ -9,6 +9,7 @@ import logging
 import asyncio
 import json
 import re
+import unicodedata
 
 import openai
 from openai import OpenAI, AsyncOpenAI
@@ -285,18 +286,38 @@ async def gpt_suggest_validated(
 
     validated = await asyncio.gather(*[validate_and_score(t) for t in suggestions_raw])
     suggestions_raw = [track for track in validated if track]
-    if exclude_pairs:
-        suggestions_raw = [
-            track
-            for track in suggestions_raw
-            if (track["title"], track["artist"]) not in exclude_pairs
-        ]
+    normalized_exclude_pairs = (
+        {normalize_track_key(title, artist) for title, artist in exclude_pairs}
+        if exclude_pairs
+        else set()
+    )
+    accepted_keys: set[tuple[str, str]] = set()
+    filtered_suggestions: list[dict] = []
+    rejected_duplicate_source = 0
+    rejected_duplicate_batch = 0
+
+    for track in suggestions_raw:
+        key = normalize_track_key(track["title"], track["artist"])
+        if key in normalized_exclude_pairs:
+            rejected_duplicate_source += 1
+            continue
+        if key in accepted_keys:
+            rejected_duplicate_batch += 1
+            continue
+        accepted_keys.add(key)
+        filtered_suggestions.append(track)
 
     logger.info(
         "✅ %d valid suggestions after validation and filtering",
-        len(suggestions_raw),
+        len(filtered_suggestions),
     )
-    return suggestions_raw[:count]
+    if rejected_duplicate_source or rejected_duplicate_batch:
+        logger.info(
+            "Rejected suggestions: duplicate_source=%d duplicate_batch=%d",
+            rejected_duplicate_source,
+            rejected_duplicate_batch,
+        )
+    return filtered_suggestions[:count]
 
 
 async def fetch_gpt_suggestions(
@@ -327,6 +348,39 @@ async def fetch_gpt_suggestions(
 def strip_number_prefix(line: str) -> str:
     """Remove any leading numbering from a playlist line."""
     return re.sub(r"^\d+[).\-\s]*", "", line).strip()
+
+
+_TITLE_SUFFIX_RE = re.compile(
+    r"\s*[\(\[]?(?:\d{4}\s+)?"
+    r"(?:remaster(?:ed)?|radio edit|single version|video version|live|"
+    r"mono version|stereo version|edit)"
+    r"[\)\]]?\s*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _normalize_track_component(value: str) -> str:
+    """Normalize a title or artist component for duplicate comparison."""
+    normalized = (
+        unicodedata.normalize("NFKD", value or "")
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+    normalized = normalized.lower().replace("&", " and ")
+    normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.strip()
+
+
+def _normalize_track_title(title: str) -> str:
+    """Normalize a title and strip common version suffixes."""
+    cleaned = _TITLE_SUFFIX_RE.sub("", title or "")
+    return _normalize_track_component(cleaned)
+
+
+def normalize_track_key(title: str, artist: str) -> tuple[str, str]:
+    """Return a canonical `(title, artist)` key for duplicate detection."""
+    return _normalize_track_title(title), _normalize_track_component(artist)
 
 
 def _extract_remaining(text: str, title: str, artist: str) -> str:
