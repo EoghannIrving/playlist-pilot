@@ -170,6 +170,14 @@ class JellyfinAdapter(MediaServer):
         )
         return False
 
+    async def add_track_to_playlist(self, playlist_id: str, track_id: str) -> dict:
+        logger.warning(
+            "Jellyfin direct add-to-playlist not implemented for playlist %s",
+            playlist_id,
+        )
+        del track_id
+        return {"status": "unsupported"}
+
     async def resolve_track_path(self, title: str, artist: str) -> str | None:
         return await resolve_jellyfin_path(
             title, artist, _jellyfin_url(), _jellyfin_api_key()

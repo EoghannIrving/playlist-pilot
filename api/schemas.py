@@ -136,6 +136,8 @@ class SuggestFromAnalyzedRequest(BaseModel):
     tracks: List[SuggestedSeedTrack]
     playlist_name: str
     text_summary: Optional[str] = None
+    source_backend: Optional[str] = None
+    source_playlist_id: Optional[str] = None
 
 
 class SuggestFromAnalyzedResponse(BaseModel):
@@ -200,3 +202,18 @@ class ExportTrackMetadataResponse(BaseModel):
     action: Optional[str] = None
     current_album: Optional[str] = None
     suggested_album: Optional[str] = None
+
+
+class AddTrackToPlaylistRequest(BaseModel):
+    """Request model for adding a library track to a server playlist."""
+
+    track_id: str
+
+
+class AddTrackToPlaylistResponse(BaseModel):
+    """Response model for add-to-playlist actions."""
+
+    status: str
+    playlist_id: Optional[str] = None
+    track_id: Optional[str] = None
+    error: Optional[str] = None

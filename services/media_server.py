@@ -106,5 +106,9 @@ class MediaServer(ABC):
         """Delete a playlist."""
 
     @abstractmethod
+    async def add_track_to_playlist(self, playlist_id: str, track_id: str) -> dict:
+        """Add a single track to a playlist and return status metadata."""
+
+    @abstractmethod
     async def resolve_track_path(self, title: str, artist: str) -> str | None:
         """Return the filesystem path for a track when supported."""

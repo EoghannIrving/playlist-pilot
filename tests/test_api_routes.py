@@ -18,6 +18,7 @@ from api.schemas import (
     TrackMetadata,
     SuggestFromAnalyzedRequest,
     SuggestedSeedTrack,
+    AddTrackToPlaylistRequest,
 )
 
 
@@ -405,6 +406,8 @@ def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
         return SuggestFromAnalyzedRequest(
             playlist_name="80s",
             text_summary="Profile summary",
+            source_backend="navidrome",
+            source_playlist_id="playlist-123",
             tracks=[
                 SuggestedSeedTrack(
                     title="Only You",
@@ -477,3 +480,51 @@ def test_suggest_from_analyzed_preserves_enriched_track_metadata(monkeypatch):
     assert captured["gpt_suggestion_count"] == 10
     assert captured["gpt_playlist_name"] == "80s"
     assert result["Dominant_Genre"] == "new wave"
+    assert result["source_backend"] == "navidrome"
+    assert result["source_playlist_id"] == "playlist-123"
+
+
+def test_add_track_to_server_playlist_navidrome(monkeypatch):
+    """Navidrome add-to-playlist actions should proxy through the media adapter."""
+
+    class DummyServer:
+        def backend_name(self):
+            return "navidrome"
+
+        async def add_track_to_playlist(self, playlist_id, track_id):
+            assert playlist_id == "playlist-123"
+            assert track_id == "track-456"
+            return {"status": "added", "playlist_id": playlist_id}
+
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+
+    result = asyncio.run(
+        analysis_routes.add_track_to_server_playlist(
+            "playlist-123",
+            AddTrackToPlaylistRequest(track_id="track-456"),
+        )
+    )
+
+    assert result.status == "added"
+    assert result.playlist_id == "playlist-123"
+    assert result.track_id == "track-456"
+
+
+def test_add_track_to_server_playlist_rejects_unsupported_backend(monkeypatch):
+    """Direct add-to-playlist should be rejected for non-Navidrome backends."""
+
+    class DummyServer:
+        def backend_name(self):
+            return "jellyfin"
+
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+
+    result = asyncio.run(
+        analysis_routes.add_track_to_server_playlist(
+            "playlist-123",
+            AddTrackToPlaylistRequest(track_id="track-456"),
+        )
+    )
+
+    assert result.status == "unsupported"
+    assert "Navidrome" in (result.error or "")

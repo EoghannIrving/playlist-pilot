@@ -65,6 +65,8 @@ from api.schemas import (
     SuggestFromAnalyzedResponse,
     ImportM3URequest,
     ImportM3UResponse,
+    AddTrackToPlaylistRequest,
+    AddTrackToPlaylistResponse,
 )
 
 logger = logging.getLogger("playlist-pilot")
@@ -97,6 +99,8 @@ async def _build_suggest_payload(
         tracks=tracks,
         playlist_name=form_data.get("playlist_name", ""),
         text_summary=form_data.get("text_summary"),
+        source_backend=form_data.get("source_backend"),
+        source_playlist_id=form_data.get("source_playlist_id"),
     )
 
 
@@ -369,6 +373,7 @@ async def analyze_selected_playlist(
                 break
 
         playlist_id_to_use = playlist_id
+        source_backend = settings.media_backend
     else:
         history = load_sorted_history()
         entry = history[int(playlist_id)]
@@ -380,6 +385,7 @@ async def analyze_selected_playlist(
         )
         playlist_name = f"{clean_label} Suggestions"
         playlist_id_to_use = None
+        source_backend = None
         start = perf_counter()
         enriched = []
         for t in tracks:
@@ -438,6 +444,7 @@ async def analyze_selected_playlist(
             "removal_suggestions": removal_suggestions,
             "playlist_name": playlist_name,
             "playlist_id": playlist_id_to_use,
+            "source_backend": source_backend,
         },
     )
 
@@ -467,6 +474,8 @@ async def suggest_from_analyzed(
     tracks = [t.model_dump() for t in payload.tracks]
     playlist_name = payload.playlist_name
     text_summary = payload.text_summary or ""
+    source_backend = payload.source_backend
+    source_playlist_id = payload.source_playlist_id
 
     start = perf_counter()
     summary = summarize_tracks(tracks)
@@ -519,12 +528,43 @@ async def suggest_from_analyzed(
             "download_link": f"/download/{m3u_path.name}",
             "count": suggestion_count,
             "playlist_name": playlist_name,
+            "source_backend": source_backend,
+            "source_playlist_id": source_playlist_id,
             "Dominant_Genre": summary["dominant_genre"],
             "Moods": summary["mood_profile"].keys(),
             "Average_BPM": int(summary["tempo_avg"]),
             "Popularity": int(summary["avg_popularity"]),
             "Decades": summary["decades"].keys(),
         },
+    )
+
+
+@router.post(
+    "/api/v1/playlists/{playlist_id}/add-track",
+    response_model=AddTrackToPlaylistResponse,
+    tags=["Suggestions"],
+)
+async def add_track_to_server_playlist(
+    playlist_id: str,
+    payload: AddTrackToPlaylistRequest,
+) -> AddTrackToPlaylistResponse:
+    """Add an in-library suggestion directly to the active server playlist."""
+    media_server = get_media_server()
+    if media_server.backend_name() != "navidrome":
+        return AddTrackToPlaylistResponse(
+            status="unsupported",
+            playlist_id=playlist_id,
+            track_id=payload.track_id,
+            error="Direct add-to-playlist is currently supported only for Navidrome.",
+        )
+
+    result = await media_server.add_track_to_playlist(playlist_id, payload.track_id)
+    status = result.get("status", "error")
+    return AddTrackToPlaylistResponse(
+        status=status,
+        playlist_id=str(result.get("playlist_id") or playlist_id),
+        track_id=payload.track_id,
+        error=result.get("error"),
     )
 
 

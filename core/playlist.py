@@ -802,6 +802,7 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
             "year": str(suggestion.get("year") or ""),
             "play_count": play_count,
             "jellyfin_play_count": play_count,
+            "Id": jellyfin_data.get("Id") if jellyfin_data else None,
             "Genres": genres,
             "RunTimeTicks": duration_ticks,
         }
@@ -814,6 +815,16 @@ async def enrich_suggestion(suggestion: dict) -> dict | None:
             "youtube_url": youtube_url,
             "in_library": in_library,
             "in_jellyfin": in_library,
+            "server_track_id": (
+                suggestion.get("server_track_id")
+                or suggestion.get("backend_item_id")
+                or (jellyfin_data.get("backend_item_id") if jellyfin_data else None)
+                or (jellyfin_data.get("Id") if jellyfin_data else None)
+            ),
+            "server_backend": (
+                suggestion.get("server_backend")
+                or (jellyfin_data.get("backend") if jellyfin_data else None)
+            ),
             "fit_score": suggestion.get("fit_score"),
             "fit_breakdown": suggestion.get("fit_breakdown"),
             **enriched.model_dump(),

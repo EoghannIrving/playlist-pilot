@@ -348,6 +348,36 @@ class NavidromeAdapter(MediaServer):
         )
         return False
 
+    async def add_track_to_playlist(self, playlist_id: str, track_id: str) -> dict:
+        """Add a single track to a Navidrome playlist without duplicating entries."""
+        try:
+            existing_tracks = await self.get_playlist_tracks(playlist_id)
+            existing_ids = {
+                str(track.get("Id", "")).strip()
+                for track in existing_tracks
+                if isinstance(track, dict)
+            }
+            if track_id in existing_ids:
+                return {"status": "already_present"}
+
+            data = await self._get(
+                "updatePlaylist",
+                playlistId=playlist_id,
+                songIdToAdd=track_id,
+            )
+            playlist = data.get("playlist", {})
+            if isinstance(playlist, dict) and playlist.get("id"):
+                return {"status": "added", "playlist_id": playlist["id"]}
+            return {"status": "added", "playlist_id": playlist_id}
+        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            logger.error(
+                "Failed to add track %s to Navidrome playlist %s: %s",
+                track_id,
+                playlist_id,
+                exc,
+            )
+            return {"status": "error", "error": str(exc)}
+
     async def resolve_track_path(self, title: str, artist: str) -> str | None:
         """Resolve a Navidrome track path via metadata lookup."""
         metadata = await self.get_track_metadata(title, artist)

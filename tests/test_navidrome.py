@@ -260,3 +260,90 @@ def test_navidrome_get_playlist_tracks_hydrates_sparse_entries(monkeypatch):
 
     asyncio.run(main())
     asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+def test_navidrome_add_track_to_playlist_skips_duplicates(monkeypatch):
+    """Adding a track already on the playlist should be treated as a no-op."""
+    monkeypatch.setattr(settings, "media_url", "http://nav", raising=False)
+    monkeypatch.setattr(settings, "media_username", "user", raising=False)
+    monkeypatch.setattr(settings, "media_password", "pass", raising=False)
+
+    async def main():
+        with respx.mock(assert_all_called=True) as mock:
+            mock.get("http://nav/rest/getPlaylist.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "playlist": {
+                            "entry": [
+                                {
+                                    "id": "track-1",
+                                    "title": "Song",
+                                    "artist": "Artist",
+                                    "album": "Album",
+                                    "genre": "Rock",
+                                    "year": 1984,
+                                    "duration": 200,
+                                }
+                            ]
+                        },
+                    }
+                },
+            )
+            result = await NavidromeAdapter().add_track_to_playlist(
+                "playlist-1", "track-1"
+            )
+            assert result == {"status": "already_present"}
+
+    asyncio.run(main())
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+
+def test_navidrome_add_track_to_playlist_updates_playlist(monkeypatch):
+    """Adding a new track should call Navidrome's updatePlaylist endpoint."""
+    monkeypatch.setattr(settings, "media_url", "http://nav", raising=False)
+    monkeypatch.setattr(settings, "media_username", "user", raising=False)
+    monkeypatch.setattr(settings, "media_password", "pass", raising=False)
+
+    async def main():
+        with respx.mock(assert_all_called=True) as mock:
+            mock.get("http://nav/rest/getPlaylist.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "playlist": {
+                            "entry": [
+                                {
+                                    "id": "track-1",
+                                    "title": "Song",
+                                    "artist": "Artist",
+                                    "album": "Album",
+                                    "genre": "Rock",
+                                    "year": 1984,
+                                    "duration": 200,
+                                }
+                            ]
+                        },
+                    }
+                },
+            )
+            route = mock.get("http://nav/rest/updatePlaylist.view").respond(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "playlist": {"id": "playlist-1"},
+                    }
+                },
+            )
+            result = await NavidromeAdapter().add_track_to_playlist(
+                "playlist-1", "track-2"
+            )
+            assert result == {"status": "added", "playlist_id": "playlist-1"}
+            assert route.calls[0].request.url.params["playlistId"] == "playlist-1"
+            assert route.calls[0].request.url.params["songIdToAdd"] == "track-2"
+
+    asyncio.run(main())
+    asyncio.set_event_loop(asyncio.new_event_loop())

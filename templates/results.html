@@ -7,6 +7,9 @@
   <div class="bg-white dark:bg-gray-800 p-4 rounded shadow text-gray-700 dark:text-gray-200 space-y-1 mb-6">
     <p>🎯 <strong>{{ count }}</strong> tracks requested.</p>
     <p>💿 Based on Playlist: <strong>{{ playlist_name or '—' }}</strong></p>
+    {% if source_backend == 'navidrome' and source_playlist_id %}
+      <p>➕ <strong>Direct Add:</strong> In-library suggestions can be added directly to this Navidrome playlist.</p>
+    {% endif %}
   </div>
 
 
@@ -52,6 +55,20 @@
     </div>
   {% endif %}
 
+  {% if source_backend == 'navidrome' and source_playlist_id and s.in_library and s.server_track_id %}
+    <div class="mb-3">
+      <button
+        type="button"
+        class="add-to-playlist-button px-2 py-1 text-sm rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200 disabled:bg-gray-200 disabled:text-gray-500"
+        data-playlist-id="{{ source_playlist_id }}"
+        data-track-id="{{ s.server_track_id }}"
+      >
+        Add to Playlist
+      </button>
+      <span class="add-to-playlist-status text-sm text-gray-500 ml-2"></span>
+    </div>
+  {% endif %}
+
   <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700 dark:text-gray-300">
     {% if s.genre %}<li>🎵 <strong>Genre:</strong> {{ s.genre }}</li>{% endif %}
     {% if s.mood %}<li>🧠 <strong>Mood:</strong> {{ macros.mood_badge(s.mood, s.mood_confidence) }}</li>{% endif %}
@@ -94,5 +111,51 @@
     {% endfor %}
   </ul>
 </main>
+
+<script>
+document.querySelectorAll('.add-to-playlist-button').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const playlistId = button.dataset.playlistId;
+    const trackId = button.dataset.trackId;
+    const statusNode = button.parentElement.querySelector('.add-to-playlist-status');
+
+    button.disabled = true;
+    button.textContent = 'Adding...';
+    if (statusNode) statusNode.textContent = '';
+
+    try {
+      const response = await fetch(`/api/v1/playlists/${playlistId}/add-track`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ track_id: trackId })
+      });
+      const data = await response.json();
+
+      if (data.status === 'added') {
+        button.textContent = 'Added';
+        if (statusNode) statusNode.textContent = 'Track added to playlist.';
+        return;
+      }
+      if (data.status === 'already_present') {
+        button.textContent = 'Already in Playlist';
+        if (statusNode) statusNode.textContent = 'Track already exists in this playlist.';
+        return;
+      }
+
+      button.disabled = false;
+      button.textContent = 'Add to Playlist';
+      if (statusNode) statusNode.textContent = data.error || 'Could not add track.';
+    } catch (_error) {
+      button.disabled = false;
+      button.textContent = 'Add to Playlist';
+      if (statusNode) statusNode.textContent = 'Network error while adding track.';
+    }
+  });
+});
+</script>
 
 {% endblock %}
