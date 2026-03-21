@@ -19,6 +19,7 @@ from config import settings, get_global_min_lfm, get_global_max_lfm
 from core.analysis import (
     mood_scores_from_bpm_data,
     mood_scores_from_lastfm_tags,
+    mood_scores_from_context,
     combine_mood_scores,
     normalize_popularity,
     combined_popularity_score,
@@ -29,7 +30,7 @@ from core.analysis import (
 from core.models import Track, EnrichedTrack
 from services.getsongbpm import get_cached_bpm
 from services.gpt import analyze_mood_from_lyrics
-from services.jellyfin import jf_get
+from services.jellyfin import jf_get, read_lrc_for_track, strip_lrc_timecodes
 from services.media_factory import get_media_server
 from services.metube import get_youtube_url_single
 from services.lastfm import enrich_with_lastfm
@@ -378,22 +379,31 @@ def _duration_from_ticks(ticks: int, bpm_data: dict) -> int:
 
 
 async def _classify_mood(
-    parsed: Track, tags: list[str], bpm_data: dict
+    parsed: Track,
+    tags: list[str],
+    bpm_data: dict,
+    context_genres: list[str] | None = None,
+    context_year: str | int | None = None,
 ) -> tuple[str, float]:
     """Return mood label and confidence score for a track."""
     logger.debug("Enriching track: %s", parsed.title)
     tag_scores = mood_scores_from_lastfm_tags(tags)
     bpm_scores = mood_scores_from_bpm_data(bpm_data or {})
+    context_scores = mood_scores_from_context(
+        context_genres,
+        context_year,
+        bpm_data.get("bpm"),
+    )
     lyrics_scores = None
     if settings.lyrics_enabled:
-        lyrics = get_lyrics_for_enrich(parsed.model_dump())
+        lyrics = await resolve_lyrics_for_enrich(parsed)
         lyrics_mood = (
             await asyncio.to_thread(analyze_mood_from_lyrics, lyrics)
             if lyrics
             else None
         )
         lyrics_scores = build_lyrics_scores(lyrics_mood) if lyrics_mood else None
-    return combine_mood_scores(tag_scores, bpm_scores, lyrics_scores)
+    return combine_mood_scores(tag_scores, bpm_scores, lyrics_scores, context_scores)
 
 
 async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
@@ -440,10 +450,23 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         bpm_data.get("year"),
         lastfm.get("releasedate", ""),
     )
-    mood_data = await _classify_mood(parsed, lastfm["tags"], bpm_data)
     selected_genre = (
         _select_genre(parsed.Genres or [], lastfm.get("genre_tags", lastfm["tags"]))
         or "Unknown"
+    )
+    context_genres = [
+        genre
+        for genre in dict.fromkeys(
+            [selected_genre, *(parsed.Genres or []), *lastfm.get("genre_tags", [])]
+        )
+        if genre and genre.lower() != "unknown"
+    ]
+    mood_data = await _classify_mood(
+        parsed,
+        lastfm["tags"],
+        bpm_data,
+        context_genres=context_genres,
+        context_year=year_info[0] or parsed.year or bpm_data.get("year"),
     )
     duration_seconds = _duration_from_ticks(parsed.RunTimeTicks, bpm_data)
     tempo = bpm_data.get("bpm") or parsed.tempo
@@ -746,6 +769,67 @@ def get_lyrics_for_enrich(track: dict) -> str | None:
         track.get("artist"),
         track.get("title"),
     )
+    return None
+
+
+async def resolve_lyrics_for_enrich(parsed: Track | dict) -> str | None:
+    """Resolve lyrics for enrichment from metadata, local sidecars, or backend APIs."""
+    parsed = _ensure_track(parsed)
+    track = parsed.model_dump()
+
+    lyrics = get_lyrics_for_enrich(track)
+    if lyrics:
+        return lyrics
+
+    track_path = track.get("Path")
+    if isinstance(track_path, str) and track_path.strip():
+        lrc_contents = read_lrc_for_track(track_path.strip())
+        if lrc_contents:
+            logger.debug(
+                "Loaded lyrics from local .lrc sidecar for %s - %s",
+                parsed.artist,
+                parsed.title,
+            )
+            return strip_lrc_timecodes(lrc_contents).strip()
+
+    item_id = next(
+        (
+            str(value).strip()
+            for value in (
+                track.get("Id"),
+                track.get("PlaylistItemId"),
+                track.get("backend_item_id"),
+            )
+            if isinstance(value, str) and str(value).strip()
+        ),
+        "",
+    )
+    if not item_id:
+        return None
+
+    server = get_media_server()
+    if not server.supports_lyrics():
+        return None
+
+    try:
+        backend_lyrics = await server.get_lyrics(item_id)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "Failed to resolve backend lyrics for %s - %s (%s): %s",
+            parsed.artist,
+            parsed.title,
+            item_id,
+            exc,
+        )
+        return None
+
+    if isinstance(backend_lyrics, str) and backend_lyrics.strip():
+        logger.debug(
+            "Loaded lyrics from backend for %s - %s",
+            parsed.artist,
+            parsed.title,
+        )
+        return backend_lyrics.strip()
     return None
 
 

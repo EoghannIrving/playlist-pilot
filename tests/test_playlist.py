@@ -140,3 +140,63 @@ def test_enrich_suggestion_preserves_gpt_year_for_decade(monkeypatch):
     assert result["decade"] == "1980s"
     assert result["fit_score"] == 91.0
     assert result["fit_breakdown"] == {"fit_score": 91.0}
+
+
+def test_resolve_lyrics_for_enrich_prefers_local_lrc_sidecar(monkeypatch):
+    """Local .lrc files should be used when inline lyrics are missing."""
+
+    class DummyServer:
+        def supports_lyrics(self):
+            return True
+
+        async def get_lyrics(self, _item_id):
+            return "backend lyrics"
+
+    monkeypatch.setattr(playlist_module, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        playlist_module,
+        "read_lrc_for_track",
+        lambda path: "[00:01.00]Only you\n[00:02.00]Give me all your love",
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "strip_lrc_timecodes",
+        lambda text: "Only you\nGive me all your love",
+    )
+
+    track = {
+        "title": "Only You",
+        "artist": "Yazoo",
+        "Path": "/music/Yazoo/Only You.flac",
+        "Id": "song-1",
+    }
+
+    result = asyncio.run(playlist_module.resolve_lyrics_for_enrich(track))
+
+    assert result == "Only you\nGive me all your love"
+
+
+def test_resolve_lyrics_for_enrich_falls_back_to_backend(monkeypatch):
+    """Backend lyrics should be used when no local sidecar is present."""
+
+    class DummyServer:
+        def supports_lyrics(self):
+            return True
+
+        async def get_lyrics(self, item_id):
+            assert item_id == "song-2"
+            return "Backend lyric line"
+
+    monkeypatch.setattr(playlist_module, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(playlist_module, "read_lrc_for_track", lambda path: None)
+
+    track = {
+        "title": "Breakout",
+        "artist": "Swing Out Sister",
+        "Id": "song-2",
+        "Path": "/music/Swing Out Sister/Breakout.flac",
+    }
+
+    result = asyncio.run(playlist_module.resolve_lyrics_for_enrich(track))
+
+    assert result == "Backend lyric line"

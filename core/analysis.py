@@ -480,6 +480,7 @@ MOOD_WEIGHTS = {
 
 
 DEFAULT_LYRICS_CONFIDENCE = 1  # Confidence assigned to GPT-derived mood
+CONTEXT_WEIGHT = 0.8
 
 MOOD_MAPPING = {
     "happy": "happy",
@@ -514,32 +515,101 @@ def build_lyrics_scores(lyrics_mood: str) -> dict:
     return scores
 
 
+def mood_scores_from_context(
+    genres: list[str] | None,
+    year: str | int | None,
+    bpm: int | None = None,
+) -> dict:
+    """Infer light mood priors from genre, era, and tempo context."""
+    scores = {mood: 0.0 for mood in MOOD_TAGS}
+    normalized_genres = {str(genre).strip().lower() for genre in (genres or []) if genre}
+
+    try:
+        numeric_year = int(year) if year else None
+    except (TypeError, ValueError):
+        numeric_year = None
+
+    if numeric_year and numeric_year < 2000:
+        scores["nostalgic"] += 0.5
+        if bpm and 85 <= bpm <= 115:
+            scores["nostalgic"] += 0.3
+
+    if {"new wave", "synthpop"} & normalized_genres:
+        scores["romantic"] += 0.9
+        scores["nostalgic"] += 0.6
+        if bpm and bpm <= 112:
+            scores["romantic"] += 0.5
+        elif bpm and bpm >= 110:
+            scores["uplifting"] += 0.3
+
+    if "pop" in normalized_genres:
+        if numeric_year and numeric_year < 2000:
+            scores["nostalgic"] += 0.4
+        if bpm and bpm <= 110:
+            scores["romantic"] += 0.4
+        else:
+            scores["uplifting"] += 0.4
+
+    if {"folk", "world"} & normalized_genres:
+        scores["nostalgic"] += 0.8
+        scores["uplifting"] += 0.3
+        if bpm and bpm <= 110:
+            scores["romantic"] += 0.2
+
+    if "rock" in normalized_genres:
+        if bpm and bpm >= 110:
+            scores["uplifting"] += 0.6
+            if numeric_year and numeric_year < 2000:
+                scores["nostalgic"] += 0.3
+        else:
+            scores["nostalgic"] += 0.5
+
+    return scores
+
+
 # Updated combine_mood_scores()
 def combine_mood_scores(
     tag_scores: dict,
     bpm_scores: dict,
     lyrics_scores: dict | None = None,
+    context_scores: dict | None = None,
 ) -> tuple[str, float]:
     """Merge mood scores from tags, BPM analysis and optional lyrics."""
     # pylint: disable=too-many-locals
     logger.debug(
-        "\n→ Combining mood scores from Last.fm tags, BPM data, and Lyrics mood:"
+        "\n→ Combining mood scores from Last.fm tags, BPM data, lyrics, and context:"
     )
     logger.debug("  Raw Tag Scores: %s", tag_scores)
     logger.debug("  Raw BPM Scores: %s", bpm_scores)
     logger.debug("  Raw Lyrics Scores: %s", lyrics_scores)
+    logger.debug("  Raw Context Scores: %s", context_scores)
 
     tag_sum = sum(tag_scores.values())
     bpm_sum = sum(bpm_scores.values())
     lyrics_sum = sum(lyrics_scores.values()) if lyrics_scores else 0
+    context_sum = sum(context_scores.values()) if context_scores else 0
 
     # Boost single-source if no other contributors
-    if tag_sum > 0 and bpm_sum == 0 and lyrics_sum == 0:
+    if tag_sum > 0 and bpm_sum == 0 and lyrics_sum == 0 and context_sum == 0:
         tag_scores = {m: s * 1.5 for m, s in tag_scores.items()}
-    if bpm_sum > 0 and tag_sum == 0 and lyrics_sum == 0:
+    if bpm_sum > 0 and tag_sum == 0 and lyrics_sum == 0 and context_sum == 0:
         bpm_scores = {m: s * 1.5 for m, s in bpm_scores.items()}
-    if lyrics_sum > 0 and tag_sum == 0 and bpm_sum == 0 and lyrics_scores:
+    if (
+        lyrics_sum > 0
+        and tag_sum == 0
+        and bpm_sum == 0
+        and context_sum == 0
+        and lyrics_scores
+    ):
         lyrics_scores = {m: s * 1.5 for m, s in lyrics_scores.items()}
+    if (
+        context_sum > 0
+        and tag_sum == 0
+        and bpm_sum == 0
+        and lyrics_sum == 0
+        and context_scores
+    ):
+        context_scores = {m: s * 1.2 for m, s in context_scores.items()}
 
     # Combine with weighting:
     combined = {}
@@ -552,6 +622,7 @@ def combine_mood_scores(
             tags_weight * tag_scores.get(mood, 0)
             + bpm_weight * bpm_scores.get(mood, 0)
             + (lyrics_weight * lyrics_scores.get(mood, 0) if lyrics_scores else 0)
+            + (CONTEXT_WEIGHT * context_scores.get(mood, 0) if context_scores else 0)
         )
         weighted = score * MOOD_WEIGHTS.get(mood, 1.0)
         combined[mood] = weighted
@@ -562,7 +633,9 @@ def combine_mood_scores(
     logger.debug("Filtered mood scores: %s", filtered)
     top_score = max(filtered.values(), default=0.0)
     non_zero_moods = [mood for mood, score in combined.items() if score > 0]
-    signal_sources = sum(1 for total in (tag_sum, bpm_sum, lyrics_sum) if total > 0)
+    signal_sources = sum(
+        1 for total in (tag_sum, bpm_sum, lyrics_sum, context_sum) if total > 0
+    )
     if not filtered or top_score < 0.3:
         logger.info("← Final Mood: unknown (no strong scores)\n")
         return "unknown", 0.0

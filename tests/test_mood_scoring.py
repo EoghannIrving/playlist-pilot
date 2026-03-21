@@ -1,9 +1,10 @@
 """Tests for mood scoring helpers in ``core.analysis``."""
 
 from core.analysis import (
-    mood_scores_from_lastfm_tags,
-    mood_scores_from_bpm_data,
     combine_mood_scores,
+    mood_scores_from_bpm_data,
+    mood_scores_from_context,
+    mood_scores_from_lastfm_tags,
 )
 
 
@@ -79,3 +80,29 @@ def test_combine_mood_scores_prefers_romantic_over_generic_chill():
     mood, confidence = combine_mood_scores(tag_scores, bpm_scores)
     assert mood == "romantic"
     assert confidence > 0.5
+
+
+def test_mood_scores_from_context_support_80s_new_wave_ballads():
+    """Genre and era context should provide a useful prior for sparse-tag 80s tracks."""
+    scores = mood_scores_from_context(["new wave", "pop"], 1982, 100)
+    assert scores["romantic"] >= 1.4
+    assert scores["nostalgic"] >= 1.0
+    assert scores["chill"] == 0.0
+
+
+def test_combine_mood_scores_uses_context_when_tags_and_lyrics_are_sparse():
+    """Context should prevent good 80s fits from collapsing to unknown."""
+    empty = {m: 0.0 for m in mood_scores_from_lastfm_tags([])}
+    context = mood_scores_from_context(["new wave", "pop"], 1982, 100)
+    mood, confidence = combine_mood_scores(empty, empty, None, context)
+    assert mood == "romantic"
+    assert confidence > 0.5
+
+
+def test_combine_mood_scores_context_can_resolve_80s_rock_tracks():
+    """Rock-era context should surface a useful mood without reverting to chill."""
+    empty = {m: 0.0 for m in mood_scores_from_lastfm_tags([])}
+    context = mood_scores_from_context(["rock"], 1985, 120)
+    mood, confidence = combine_mood_scores(empty, empty, None, context)
+    assert mood == "nostalgic"
+    assert confidence > 0.4
