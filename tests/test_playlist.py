@@ -202,3 +202,56 @@ def test_resolve_lyrics_for_enrich_falls_back_to_backend(monkeypatch):
     result = asyncio.run(playlist_module.resolve_lyrics_for_enrich(track))
 
     assert result == "Backend lyric line"
+
+
+def test_classify_mood_uses_context_fallback_for_unresolved_track(monkeypatch):
+    """Unknown moods with usable context should get one constrained fallback pass."""
+    monkeypatch.setattr(playlist_module.settings, "lyrics_enabled", True)
+    call_count = {"count": 0}
+
+    def fake_combine(tag_scores, bpm_scores, lyrics_scores=None, context_scores=None):
+        del tag_scores, bpm_scores, context_scores
+        call_count["count"] += 1
+        if call_count["count"] == 1:
+            return ("unknown", 0.0)
+        if lyrics_scores and lyrics_scores.get("nostalgic"):
+            return ("nostalgic", 0.62)
+        return ("unknown", 0.0)
+
+    monkeypatch.setattr(playlist_module, "combine_mood_scores", fake_combine)
+    monkeypatch.setattr(
+        playlist_module,
+        "resolve_lyrics_for_enrich",
+        lambda parsed: asyncio.sleep(0, result="Take me home across the sea"),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "analyze_mood_from_lyrics",
+        lambda lyrics: None,
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "analyze_mood_from_track_context",
+        lambda title, artist, genres, year, lyrics: "nostalgic",
+    )
+
+    parsed = playlist_module.Track(
+        title="Home",
+        artist="Nathan Evans",
+        year="2024",
+        Genres=["folk"],
+    )
+
+    mood, confidence = asyncio.run(
+        playlist_module._classify_mood(
+            parsed,
+            tags=[],
+            bpm_data={"bpm": 100},
+            context_genres=["folk", "celtic"],
+            context_year="2024",
+        )
+    )
+
+    assert mood == "nostalgic"
+    assert confidence > 0.3
+    assert call_count["count"] == 2

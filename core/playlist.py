@@ -29,7 +29,7 @@ from core.analysis import (
 )
 from core.models import Track, EnrichedTrack
 from services.getsongbpm import get_cached_bpm
-from services.gpt import analyze_mood_from_lyrics
+from services.gpt import analyze_mood_from_lyrics, analyze_mood_from_track_context
 from services.jellyfin import jf_get, read_lrc_for_track, strip_lrc_timecodes
 from services.media_factory import get_media_server
 from services.metube import get_youtube_url_single
@@ -395,6 +395,7 @@ async def _classify_mood(
         bpm_data.get("bpm"),
     )
     lyrics_scores = None
+    lyrics = None
     if settings.lyrics_enabled:
         lyrics = await resolve_lyrics_for_enrich(parsed)
         lyrics_mood = (
@@ -413,6 +414,40 @@ async def _classify_mood(
     mood_result = combine_mood_scores(
         tag_scores, bpm_scores, lyrics_scores, context_scores
     )
+    if mood_result[0] == "unknown" and (
+        lyrics or any(value > 0 for value in context_scores.values())
+    ):
+        fallback_mood = await asyncio.to_thread(
+            analyze_mood_from_track_context,
+            parsed.title,
+            parsed.artist,
+            context_genres or [],
+            context_year,
+            lyrics,
+        )
+        fallback_scores = build_lyrics_scores(fallback_mood) if fallback_mood else None
+        if fallback_scores:
+            mood_result = combine_mood_scores(
+                tag_scores,
+                bpm_scores,
+                fallback_scores,
+                context_scores,
+            )
+            if mood_result[0] == "unknown":
+                mapped = next(
+                    (mood for mood, score in fallback_scores.items() if score > 0),
+                    "unknown",
+                )
+                if mapped != "unknown":
+                    mood_result = (mapped, 0.45 if lyrics else 0.35)
+            logger.info(
+                "Mood fallback for %s - %s: raw=%s final=%s confidence=%.2f",
+                parsed.artist,
+                parsed.title,
+                fallback_mood,
+                mood_result[0],
+                mood_result[1],
+            )
     logger.info(
         (
             "Mood diagnostics for %s - %s: "

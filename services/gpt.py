@@ -1074,3 +1074,54 @@ def analyze_mood_from_lyrics(lyrics: str) -> str | None:
     except openai.OpenAIError as exc:  # type: ignore[attr-defined]
         logger.warning("Lyrics mood analysis failed: %s", exc)
         return None
+
+
+def analyze_mood_from_track_context(
+    title: str,
+    artist: str,
+    genres: list[str] | None = None,
+    year: str | int | None = None,
+    lyrics: str | None = None,
+) -> str | None:
+    """Use GPT as a final constrained fallback for unresolved track moods."""
+    genre_text = ", ".join(genre for genre in (genres or []) if genre) or "unknown"
+    year_text = str(year).strip() if year else "unknown"
+    lyrics_excerpt = ""
+    if lyrics:
+        compact = " ".join(lyrics.split())
+        lyrics_excerpt = compact[:700]
+
+    prompt = (
+        "You are an expert music analyst.\n\n"
+        "Classify the overall mood of this song.\n"
+        "Respond with exactly one label from this list only:\n"
+        "happy, sad, chill, intense, romantic, dark, uplifting, nostalgic, party\n\n"
+        "Use the available metadata and lyrics excerpt. Prefer the closest label from "
+        "the allowed list, even if the more natural description would be something "
+        "like wistful, reflective, dramatic, or yearning.\n\n"
+        f"Title: {title}\n"
+        f"Artist: {artist}\n"
+        f"Genres: {genre_text}\n"
+        f"Year: {year_text}\n"
+    )
+    if lyrics_excerpt:
+        prompt += f"Lyrics excerpt:\n{lyrics_excerpt}\n"
+
+    try:
+        result = cached_chat_completion_sync(prompt, temperature=0.2)
+        mood = result.strip().lower()
+        logger.debug(
+            "Context fallback mood classification for %s - %s: %s",
+            artist,
+            title,
+            mood,
+        )
+        return mood
+    except openai.OpenAIError as exc:  # type: ignore[attr-defined]
+        logger.warning(
+            "Context fallback mood analysis failed for %s - %s: %s",
+            artist,
+            title,
+            exc,
+        )
+        return None
