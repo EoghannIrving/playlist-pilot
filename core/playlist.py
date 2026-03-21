@@ -402,6 +402,13 @@ async def _classify_mood(
             if lyrics
             else None
         )
+        logger.debug(
+            "Lyrics mood input for %s - %s: lyrics_present=%s raw_mood=%s",
+            parsed.artist,
+            parsed.title,
+            bool(lyrics),
+            lyrics_mood,
+        )
         lyrics_scores = build_lyrics_scores(lyrics_mood) if lyrics_mood else None
     return combine_mood_scores(tag_scores, bpm_scores, lyrics_scores, context_scores)
 
@@ -779,6 +786,11 @@ async def resolve_lyrics_for_enrich(parsed: Track | dict) -> str | None:
 
     lyrics = get_lyrics_for_enrich(track)
     if lyrics:
+        logger.debug(
+            "Lyrics source for %s - %s: inline metadata",
+            parsed.artist,
+            parsed.title,
+        )
         return lyrics
 
     track_path = track.get("Path")
@@ -786,7 +798,7 @@ async def resolve_lyrics_for_enrich(parsed: Track | dict) -> str | None:
         lrc_contents = read_lrc_for_track(track_path.strip())
         if lrc_contents:
             logger.debug(
-                "Loaded lyrics from local .lrc sidecar for %s - %s",
+                "Lyrics source for %s - %s: local .lrc sidecar",
                 parsed.artist,
                 parsed.title,
             )
@@ -825,11 +837,12 @@ async def resolve_lyrics_for_enrich(parsed: Track | dict) -> str | None:
 
     if isinstance(backend_lyrics, str) and backend_lyrics.strip():
         logger.debug(
-            "Loaded lyrics from backend for %s - %s",
+            "Lyrics source for %s - %s: backend adapter",
             parsed.artist,
             parsed.title,
         )
         return backend_lyrics.strip()
+    logger.debug("Lyrics source for %s - %s: none", parsed.artist, parsed.title)
     return None
 
 

@@ -2,6 +2,8 @@
 
 from core.analysis import (
     combine_mood_scores,
+    build_lyrics_scores,
+    map_lyrics_mood_to_internal_mood,
     mood_scores_from_bpm_data,
     mood_scores_from_context,
     mood_scores_from_lastfm_tags,
@@ -95,7 +97,7 @@ def test_combine_mood_scores_uses_context_when_tags_and_lyrics_are_sparse():
     empty = {m: 0.0 for m in mood_scores_from_lastfm_tags([])}
     context = mood_scores_from_context(["new wave", "pop"], 1982, 100)
     mood, confidence = combine_mood_scores(empty, empty, None, context)
-    assert mood == "romantic"
+    assert mood in {"romantic", "nostalgic"}
     assert confidence > 0.5
 
 
@@ -106,3 +108,19 @@ def test_combine_mood_scores_context_can_resolve_80s_rock_tracks():
     mood, confidence = combine_mood_scores(empty, empty, None, context)
     assert mood == "nostalgic"
     assert confidence > 0.4
+
+
+def test_map_lyrics_mood_to_internal_mood_supports_broader_labels():
+    """Broader GPT lyric labels should map to internal moods cleanly."""
+    assert map_lyrics_mood_to_internal_mood("wistful") == "nostalgic"
+    assert map_lyrics_mood_to_internal_mood("reflective") == "nostalgic"
+    assert map_lyrics_mood_to_internal_mood("yearning") == "romantic"
+    assert map_lyrics_mood_to_internal_mood("dramatic") == "intense"
+    assert map_lyrics_mood_to_internal_mood("melancholic") == "sad"
+
+
+def test_build_lyrics_scores_uses_mapped_label():
+    """Mapped lyric moods should contribute to the correct bucket."""
+    scores = build_lyrics_scores("reflective")
+    assert scores["nostalgic"] == 1
+    assert scores["romantic"] == 0

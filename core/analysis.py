@@ -486,24 +486,38 @@ MOOD_MAPPING = {
     "happy": "happy",
     "sad": "sad",
     "melancholy": "sad",
+    "melancholic": "sad",
+    "sorrowful": "sad",
     "chill": "chill",
     "relaxing": "chill",
     "calm": "chill",
+    "dreamy": "romantic",
+    "tender": "romantic",
+    "yearning": "romantic",
+    "longing": "romantic",
     "angry": "intense",
     "aggressive": "intense",
+    "dramatic": "intense",
+    "powerful": "intense",
     "romantic": "romantic",
     "dark": "dark",
     "uplifting": "uplifting",
-    "nostalgic": "nostalgic",
-    "party": "party",
     "hopeful": "uplifting",
+    "warm": "uplifting",
+    "nostalgic": "nostalgic",
+    "wistful": "nostalgic",
+    "reflective": "nostalgic",
+    "retro": "nostalgic",
+    "party": "party",
 }
 
 
 def map_lyrics_mood_to_internal_mood(lyrics_mood: str) -> str | None:
     """Convert a raw lyrics mood string to an internal mood label."""
     mood = lyrics_mood.strip().lower()
-    return MOOD_MAPPING.get(mood)
+    mapped = MOOD_MAPPING.get(mood)
+    logger.debug("Mapped lyrics mood '%s' -> %s", mood, mapped)
+    return mapped
 
 
 def build_lyrics_scores(lyrics_mood: str) -> dict:
@@ -512,6 +526,14 @@ def build_lyrics_scores(lyrics_mood: str) -> dict:
     mapped_mood = map_lyrics_mood_to_internal_mood(lyrics_mood)
     if mapped_mood:
         scores[mapped_mood] = DEFAULT_LYRICS_CONFIDENCE
+        logger.debug(
+            "Lyrics-derived mood scores: raw=%s mapped=%s confidence=%s",
+            lyrics_mood,
+            mapped_mood,
+            DEFAULT_LYRICS_CONFIDENCE,
+        )
+    else:
+        logger.debug("Lyrics-derived mood scores: raw=%s mapped=None", lyrics_mood)
     return scores
 
 
@@ -522,7 +544,9 @@ def mood_scores_from_context(
 ) -> dict:
     """Infer light mood priors from genre, era, and tempo context."""
     scores = {mood: 0.0 for mood in MOOD_TAGS}
-    normalized_genres = {str(genre).strip().lower() for genre in (genres or []) if genre}
+    normalized_genres = {
+        str(genre).strip().lower() for genre in (genres or []) if genre
+    }
 
     try:
         numeric_year = int(year) if year else None
@@ -560,7 +584,7 @@ def mood_scores_from_context(
         if bpm and bpm >= 110:
             scores["uplifting"] += 0.6
             if numeric_year and numeric_year < 2000:
-                scores["nostalgic"] += 0.3
+                scores["nostalgic"] += 0.6
         else:
             scores["nostalgic"] += 0.5
 

@@ -1055,9 +1055,11 @@ def analyze_mood_from_lyrics(lyrics: str) -> str | None:
 
     prompt = (
         "You are an expert music analyst.\n\n"
-        "Analyze the following song lyrics and classify the overall mood of the song "
-        "in one word, such as 'happy', 'sad', 'chill', 'intense', 'romantic', "
-        "'dark', 'uplifting', 'nostalgic', 'party'.\n\n"
+        "Analyze the following song lyrics and classify the overall mood of the song.\n"
+        "Respond with exactly one label from this list only:\n"
+        "happy, sad, chill, intense, romantic, dark, uplifting, nostalgic, party\n\n"
+        "Choose the closest label from that list even if another word like "
+        "'wistful', 'reflective', 'dreamy', 'melancholic', or 'dramatic' might fit.\n\n"
         "Lyrics:\n"
         "Respond with only the mood label and nothing else.\n\n"
         f"""\n{lyrics}\n"""
