@@ -116,30 +116,12 @@
 
       <div class="space-y-4">
         <label for="MODEL" class="block font-semibold required-label">Model</label>
-        {% set model_labels = {
-          "gpt-4o-mini": "🌟 Fast & cost-efficient GPT-4o (Mini)",
-          "gpt-4o": "⚡ GPT-4o – multimodal, high performance",
-          "gpt-4": "🎯 GPT-4 – high-quality reasoning",
-          "gpt-3.5-turbo": "🚀 GPT-3.5 – fastest and cheapest"
-        } %}
         <select id="MODEL" name="model" required class="w-full p-2 border border-gray-300 rounded dark:bg-gray-300 dark:text-black focus:ring-2 focus:ring-blue-500">
-          <optgroup label="Recommended">
-            {% if 'gpt-4o-mini' in models %}
-              <option value="gpt-4o-mini" {% if settings.model == 'gpt-4o-mini' or not settings.model %}selected{% endif %}>{{ model_labels['gpt-4o-mini'] }}</option>
-            {% endif %}
-            {% if 'gpt-4o' in models %}
-              <option value="gpt-4o" {% if settings.model == 'gpt-4o' %}selected{% endif %}>{{ model_labels['gpt-4o'] }}</option>
-            {% endif %}
-          </optgroup>
-          <optgroup label="Other Available Models">
-            {% if 'gpt-4' in models %}
-              <option value="gpt-4" {% if settings.model == 'gpt-4' %}selected{% endif %}>{{ model_labels['gpt-4'] }}</option>
-            {% endif %}
-            {% if 'gpt-3.5-turbo' in models %}
-              <option value="gpt-3.5-turbo" {% if settings.model == 'gpt-3.5-turbo' %}selected{% endif %}>{{ model_labels['gpt-3.5-turbo'] }}</option>
-            {% endif %}
-          </optgroup>
+          {% for model_id in models %}
+            <option value="{{ model_id }}" {% if settings.model == model_id %}selected{% elif not settings.model and loop.first %}selected{% endif %}>{{ model_id }}</option>
+          {% endfor %}
         </select>
+        <small class="text-gray-300">Available models are loaded from your OpenAI account and shown newest-first.</small>
       </div>
 
       <div class="space-y-4">

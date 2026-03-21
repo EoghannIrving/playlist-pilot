@@ -199,6 +199,29 @@ def test_update_settings_prefers_generic_media_fields(monkeypatch):
     assert settings_routes.settings.media_user_id == "media-user"
 
 
+def test_sort_openai_models_prefers_recent_general_models():
+    """Newest general GPT models should appear before older or specialized entries."""
+    models = [
+        "gpt-4o-mini",
+        "gpt-5-nano",
+        "gpt-5.2",
+        "gpt-5-mini",
+        "gpt-5.2-chat-latest",
+        "gpt-4.1",
+        "gpt-4o-realtime-preview",
+    ]
+
+    result = settings_routes._sort_openai_models(models)
+
+    assert result[:4] == [
+        "gpt-5.2-chat-latest",
+        "gpt-5.2",
+        "gpt-5-mini",
+        "gpt-5-nano",
+    ]
+    assert result[-1] == "gpt-4o-realtime-preview"
+
+
 def test_test_jellyfin_route_supports_navidrome_backend(monkeypatch):
     """The transitional test route should support Navidrome credentials."""
 

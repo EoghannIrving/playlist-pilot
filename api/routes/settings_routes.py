@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import re
 from urllib.parse import quote_plus
 
 import httpx
@@ -35,6 +36,44 @@ logger = logging.getLogger("playlist-pilot")
 
 router = APIRouter()
 api_router = APIRouter(prefix="/api/v1")
+
+
+def _model_sort_key(model_id: str) -> tuple[int, int, int, int, str]:
+    """Return a sort key that prefers recent general-purpose GPT models first."""
+    match = re.match(r"gpt-(\d+)(?:\.(\d+))?", model_id)
+    major = int(match.group(1)) if match else -1
+    minor = int(match.group(2) or 0) if match else -1
+
+    lower = model_id.lower()
+    general_penalty = 0
+    if any(
+        token in lower
+        for token in ("realtime", "audio", "transcribe", "tts", "vision", "search")
+    ):
+        general_penalty = 1
+
+    variant_priority = 3
+    if "nano" in lower:
+        variant_priority = 0
+    elif "mini" in lower:
+        variant_priority = 1
+    elif "pro" in lower:
+        variant_priority = 2
+    elif "latest" in lower:
+        variant_priority = 4
+
+    return (-major, -minor, general_penalty, -variant_priority, lower)
+
+
+def _sort_openai_models(models: list[str]) -> list[str]:
+    """Sort available GPT models with newest generally useful entries first."""
+    unique_models = []
+    seen = set()
+    for model_id in models:
+        if model_id not in seen:
+            unique_models.append(model_id)
+            seen.add(model_id)
+    return sorted(unique_models, key=_model_sort_key)
 
 
 async def _load_backend_users() -> dict[str, str]:
@@ -80,7 +119,7 @@ async def get_settings(request: Request):
         validation_message = str(ve)
         validation_error = True
     users = await _load_backend_users()
-    models = await fetch_openai_models(settings.openai_api_key)
+    models = _sort_openai_models(await fetch_openai_models(settings.openai_api_key))
     log_excerpt = get_log_excerpt()
 
     return templates.TemplateResponse(
@@ -123,7 +162,7 @@ async def update_settings(
     settings.apple_client_id = form_data.apple_client_id
     settings.apple_client_secret = form_data.apple_client_secret
     settings.model = form_data.model
-    models = await fetch_openai_models(settings.openai_api_key)
+    models = _sort_openai_models(await fetch_openai_models(settings.openai_api_key))
     settings.getsongbpm_api_key = form_data.getsongbpm_api_key
     settings.global_min_lfm = form_data.global_min_lfm
     settings.global_max_lfm = form_data.global_max_lfm
