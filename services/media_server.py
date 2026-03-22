@@ -112,3 +112,7 @@ class MediaServer(ABC):
     @abstractmethod
     async def resolve_track_path(self, title: str, artist: str) -> str | None:
         """Return the filesystem path for a track when supported."""
+
+    @abstractmethod
+    async def trigger_library_scan(self) -> dict:
+        """Trigger a backend library scan when supported."""

@@ -241,16 +241,19 @@
               </tr>
             </thead>
             {% for track in tracks %}
-            <tr class="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-700 {% if track.title in outlier_titles %}bg-red-100 dark:bg-red-800{% endif %}">
-              <td class="p-2 border-b">{{ track.title }}</td>
-              <td class="p-2 border-b">{{ track.artist }}</td>
-              <td class="p-2 border-b">
-                <span class="{% if track.genre == 'Unknown' %}text-red-600 dark:text-red-400 font-semibold{% endif %}">{{ track.genre | capitalize }}</span>
+            <tr class="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-700 {% if track.title in outlier_titles %}bg-red-100 dark:bg-red-800{% endif %}"
+                data-track-row="true"
+                data-track-title="{{ track.title }}"
+                data-track-artist="{{ track.artist }}">
+              <td class="p-2 border-b track-title-cell">{{ track.title }}</td>
+              <td class="p-2 border-b track-artist-cell">{{ track.artist }}</td>
+              <td class="p-2 border-b track-genre-cell">
+                <span class="{% if track.genre == 'Unknown' %}text-red-600 dark:text-red-400 font-semibold{% endif %} track-genre-value">{{ track.genre | capitalize }}</span>
               </td>
-              <td class="p-2 border-b">{{ macros.mood_badge(track.mood, track.mood_confidence) }}</td>
-              <td class="p-2 border-b">{{ track.tempo }}</td>
-              <td class="p-2 border-b">
-                <span {% if track.year_flag %} class="text-yellow-600 dark:text-yellow-400 font-semibold" data-tippy-content="Release year appears unreliable {{ track.year_flag }}" {% endif %}>
+              <td class="p-2 border-b track-mood-cell">{{ macros.mood_badge(track.mood, track.mood_confidence) }}</td>
+              <td class="p-2 border-b track-tempo-cell">{{ track.tempo }}</td>
+              <td class="p-2 border-b track-decade-cell">
+                <span class="track-decade-value" {% if track.year_flag %} class="text-yellow-600 dark:text-yellow-400 font-semibold track-decade-value" data-tippy-content="Release year appears unreliable {{ track.year_flag }}" {% endif %}>
                   {{ track.decade }}
                 </span>
               </td>
@@ -292,13 +295,24 @@
   </div>
 </td>
       <td class="p-2 border-b text-center align-middle">
-        <button type="button"
-                class="px-1 py-0 rounded hover:bg-blue-200 export-track-metadata"
-                data-track='{{ track | tojson | safe }}'
-                data-tippy-content="Export metadata for {{ track.title }}"
-                aria-label="Export metadata for {{ track.title }}">
-          📤
-        </button>
+        <div class="flex items-center justify-center gap-2">
+          <button type="button"
+                  class="px-1 py-0 rounded hover:bg-blue-200 export-track-metadata"
+                  data-track='{{ track | tojson | safe }}'
+                  data-tippy-content="Export metadata for {{ track.title }}"
+                  aria-label="Export metadata for {{ track.title }}">
+            📤
+          </button>
+          {% if track.Id or track.Path or track.PlaylistItemId %}
+            <button type="button"
+                    class="px-1 py-0 rounded hover:bg-emerald-200 edit-track-tags"
+                    data-track='{{ track | tojson | safe }}'
+                    data-tippy-content="Edit file tags for {{ track.title }}"
+                    aria-label="Edit file tags for {{ track.title }}">
+              ✏️
+            </button>
+          {% endif %}
+        </div>
       </td>
             </tr>
             {% endfor %}
@@ -312,7 +326,71 @@
   </div>
 </main>
 
+<div id="tag-editor-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-semibold">Edit File Tags</h2>
+      <button type="button" id="tag-editor-close" class="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">✕</button>
+    </div>
+    <form id="tag-editor-form" class="space-y-4">
+      <input type="hidden" id="tag-lookup-title">
+      <input type="hidden" id="tag-lookup-artist">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="block">
+          <span class="text-sm font-medium">Title</span>
+          <input type="text" id="tag-title" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium">Artist</span>
+          <input type="text" id="tag-artist" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium">Album</span>
+          <input type="text" id="tag-album" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium">Album Artist</span>
+          <input type="text" id="tag-album-artist" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium">Genre</span>
+          <input type="text" id="tag-genre" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium">Year</span>
+          <input type="text" id="tag-year" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium">BPM</span>
+          <input type="number" id="tag-bpm" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium">Mood</span>
+          <input type="text" id="tag-mood" class="w-full mt-1 p-2 border border-gray-300 rounded dark:bg-gray-700">
+        </label>
+      </div>
+      <label class="block">
+        <span class="text-sm font-medium">File Path</span>
+        <input type="text" id="tag-path" readonly class="w-full mt-1 p-2 border border-gray-300 rounded bg-gray-100 dark:bg-gray-900">
+      </label>
+      <p class="text-sm text-gray-500">
+        File tags are updated immediately. Your media server may need to rescan before its own UI reflects the change.
+      </p>
+      <div class="flex items-center justify-end gap-2">
+        <span id="tag-editor-status" class="text-sm text-gray-500 mr-auto"></span>
+        <button type="button" id="tag-editor-cancel" class="px-3 py-1 rounded bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+        {% if source_backend == 'navidrome' %}
+          <button type="button" id="tag-editor-save-rescan" class="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Save + Rescan</button>
+        {% endif %}
+        <button type="submit" id="tag-editor-save" class="px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700">Save Tags</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div id="toast-container" class="fixed top-4 right-4 space-y-2 z-50"></div>
 
   <script>
     window.tracks = {{ tracks | tojson | safe }};
@@ -335,9 +413,168 @@ document.addEventListener('DOMContentLoaded', () => {
     const toast = document.createElement('div');
     toast.className = `px-4 py-2 rounded shadow text-white ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`;
     toast.textContent = message;
-    document.getElementById('toast-container').appendChild(toast);
+    const container = document.getElementById('toast-container');
+    if (!container) {
+      console.error(message);
+      return;
+    }
+    container.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
   }
+
+  function yearToDecade(yearValue) {
+    const year = parseInt(String(yearValue || '').slice(0, 4), 10);
+    if (Number.isNaN(year)) return 'Unknown';
+    return `${Math.floor(year / 10) * 10}s`;
+  }
+
+  const tagEditorModal = document.getElementById('tag-editor-modal');
+  const tagEditorForm = document.getElementById('tag-editor-form');
+  const tagEditorStatus = document.getElementById('tag-editor-status');
+  const tagEditorClose = document.getElementById('tag-editor-close');
+  const tagEditorCancel = document.getElementById('tag-editor-cancel');
+  const tagEditorSaveRescan = document.getElementById('tag-editor-save-rescan');
+  let activeTrackRow = null;
+
+  function closeTagEditor() {
+    tagEditorModal.classList.add('hidden');
+    tagEditorModal.classList.remove('flex');
+    tagEditorStatus.textContent = '';
+  }
+
+  function openTagEditor() {
+    tagEditorModal.classList.remove('hidden');
+    tagEditorModal.classList.add('flex');
+  }
+
+  tagEditorClose?.addEventListener('click', closeTagEditor);
+  tagEditorCancel?.addEventListener('click', closeTagEditor);
+
+  document.querySelectorAll('.edit-track-tags').forEach(button => {
+    button.addEventListener('click', async () => {
+      const track = JSON.parse(button.dataset.track || '{}');
+      const lookupTitle = track.title || '';
+      const lookupArtist = track.artist || '';
+
+      try {
+        const response = await fetch(`/api/v1/tracks/tags?title=${encodeURIComponent(lookupTitle)}&artist=${encodeURIComponent(lookupArtist)}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Could not load file tags.');
+        }
+
+        document.getElementById('tag-lookup-title').value = lookupTitle;
+        document.getElementById('tag-lookup-artist').value = lookupArtist;
+        document.getElementById('tag-title').value = data.title || '';
+        document.getElementById('tag-artist').value = data.artist || '';
+        document.getElementById('tag-album').value = data.album || '';
+        document.getElementById('tag-album-artist').value = data.album_artist || '';
+        document.getElementById('tag-genre').value = data.genre || '';
+        document.getElementById('tag-year').value = data.year || '';
+        document.getElementById('tag-bpm').value = data.bpm ?? '';
+        document.getElementById('tag-mood').value = data.mood || '';
+        document.getElementById('tag-path').value = data.path || '';
+        activeTrackRow = button.closest('tr');
+        openTagEditor();
+      } catch (error) {
+        showToast(error.message || 'Failed to load file tags.', 'error');
+      }
+    });
+  });
+
+  async function saveTagsAndMaybeRescan(triggerRescan = false) {
+    tagEditorStatus.textContent = triggerRescan ? 'Saving and starting rescan...' : 'Saving...';
+    const payload = {
+      lookup_title: document.getElementById('tag-lookup-title').value,
+      lookup_artist: document.getElementById('tag-lookup-artist').value,
+      title: document.getElementById('tag-title').value,
+      artist: document.getElementById('tag-artist').value,
+      album: document.getElementById('tag-album').value,
+      album_artist: document.getElementById('tag-album-artist').value,
+      genre: document.getElementById('tag-genre').value,
+      year: document.getElementById('tag-year').value,
+      bpm: document.getElementById('tag-bpm').value ? Number(document.getElementById('tag-bpm').value) : null,
+      mood: document.getElementById('tag-mood').value
+    };
+
+    try {
+      const response = await fetch('/api/v1/tracks/tags', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Could not save file tags.');
+      }
+      tagEditorStatus.textContent = 'Tags saved.';
+      document.getElementById('tag-path').value = data.path || '';
+      if (activeTrackRow) {
+        activeTrackRow.dataset.trackTitle = data.title || payload.title || '';
+        activeTrackRow.dataset.trackArtist = data.artist || payload.artist || '';
+        const titleCell = activeTrackRow.querySelector('.track-title-cell');
+        const artistCell = activeTrackRow.querySelector('.track-artist-cell');
+        const genreCell = activeTrackRow.querySelector('.track-genre-value');
+        const moodCell = activeTrackRow.querySelector('.track-mood-cell');
+        const tempoCell = activeTrackRow.querySelector('.track-tempo-cell');
+        const decadeCell = activeTrackRow.querySelector('.track-decade-value');
+
+        if (titleCell) titleCell.textContent = data.title || payload.title || '';
+        if (artistCell) artistCell.textContent = data.artist || payload.artist || '';
+        if (genreCell) {
+          const genreValue = data.genre || payload.genre || 'Unknown';
+          genreCell.textContent = genreValue;
+          genreCell.classList.toggle('text-red-600', genreValue === 'Unknown');
+          genreCell.classList.toggle('dark:text-red-400', genreValue === 'Unknown');
+          genreCell.classList.toggle('font-semibold', genreValue === 'Unknown');
+        }
+        if (moodCell) {
+          const moodValue = data.mood || payload.mood || 'Unknown';
+          moodCell.textContent = moodValue;
+        }
+        if (tempoCell) {
+          tempoCell.textContent = data.bpm ?? payload.bpm ?? '';
+        }
+        if (decadeCell) {
+          decadeCell.textContent = yearToDecade(data.year || payload.year || '');
+        }
+      }
+      if (triggerRescan) {
+        const rescanResponse = await fetch('/api/v1/media-server/rescan', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        const rescanData = await rescanResponse.json();
+        if (!rescanResponse.ok) {
+          throw new Error(rescanData.detail || 'Tags saved, but Navidrome rescan failed.');
+        }
+        tagEditorStatus.textContent = 'Tags saved. Navidrome rescan started.';
+        showToast('Tags saved and Navidrome rescan started.');
+      } else {
+        tagEditorStatus.textContent = 'Tags saved.';
+        showToast('File tags saved successfully.');
+      }
+      setTimeout(closeTagEditor, 600);
+    } catch (error) {
+      tagEditorStatus.textContent = error.message || 'Save failed.';
+    }
+  }
+
+  tagEditorForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await saveTagsAndMaybeRescan(false);
+  });
+
+  tagEditorSaveRescan?.addEventListener('click', async () => {
+    await saveTagsAndMaybeRescan(true);
+  });
 
   function parsePercentValues(dataObject) {
     return Object.values(dataObject).map(v =>

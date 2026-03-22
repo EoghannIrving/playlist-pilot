@@ -34,10 +34,14 @@ from services.jellyfin import jf_get, read_lrc_for_track, strip_lrc_timecodes
 from services.media_factory import get_media_server
 from services.metube import get_youtube_url_single
 from services.lastfm import enrich_with_lastfm
+from services.listenbrainz import get_recording_tags, get_release_group_tags
+from services.musicbrainz import match_recording
 from services.spotify import fetch_spotify_metadata
 from services.applemusic import fetch_applemusic_metadata
 from utils.cache_manager import library_cache, CACHE_TTLS
+from utils.file_tags import read_track_tags
 from utils.http_client import get_http_client
+from utils.media_paths import resolve_library_audio_path
 
 logger = logging.getLogger("playlist-pilot")
 
@@ -316,6 +320,78 @@ def _select_genre(genres: list[str], tags: list[str]) -> str:
     return genre
 
 
+async def _get_musicbrainz_data(title: str, artist: str, album: str, year: str) -> dict:
+    """Resolve MusicBrainz identity and related genre/year metadata."""
+    match = await match_recording(title, artist, album=album, year=year)
+    if not match:
+        return {
+            "recording_id": "",
+            "release_group_id": "",
+            "original_year": "",
+            "genre_tags": [],
+            "score": 0.0,
+        }
+    return match
+
+
+async def _get_listenbrainz_tags(recording_id: str, release_group_id: str) -> list[str]:
+    """Return merged ListenBrainz tags for a matched MusicBrainz identity."""
+    recording_task = (
+        get_recording_tags(recording_id)
+        if recording_id
+        else asyncio.sleep(0, result=[])
+    )
+    release_group_task = (
+        get_release_group_tags(release_group_id)
+        if release_group_id
+        else asyncio.sleep(0, result=[])
+    )
+    recording_tags, release_group_tags = await asyncio.gather(
+        recording_task, release_group_task
+    )
+    return list(dict.fromkeys([*recording_tags, *release_group_tags]))
+
+
+def _merge_genre_tags(
+    backend_genres: list[str],
+    lastfm_tags: list[str],
+    musicbrainz_tags: list[str],
+    listenbrainz_tags: list[str],
+) -> tuple[str, list[str]]:
+    """Merge genre evidence from all sources into a canonical genre and context tags."""
+    weighted_sources = [
+        (listenbrainz_tags, 4),
+        (musicbrainz_tags, 3),
+        (lastfm_tags, 2),
+        (backend_genres, 1),
+    ]
+    scores: dict[str, int] = {}
+    merged_context: list[str] = []
+    for tags, weight in weighted_sources:
+        for tag in tags:
+            if not tag:
+                continue
+            merged_context.append(tag)
+            canonical = filter_valid_genre([tag])
+            if not canonical:
+                normalized = normalize_genre(tag)
+                if normalized and normalized.lower() != "unknown":
+                    canonical = normalized
+            if canonical:
+                scores[canonical] = scores.get(canonical, 0) + weight
+
+    if scores:
+        selected = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[0][0]
+    else:
+        selected = _select_genre(backend_genres, lastfm_tags)
+    context_genres = [
+        genre
+        for genre in dict.fromkeys([selected, *backend_genres, *merged_context])
+        if genre and str(genre).lower() != "unknown"
+    ]
+    return selected or "Unknown", context_genres
+
+
 async def _fetch_bpm_data(artist: str, title: str) -> dict:
     """Return cached BPM data from GetSongBPM if configured."""
     if artist and title and settings.getsongbpm_api_key:
@@ -332,12 +408,64 @@ async def _fetch_bpm_data(artist: str, title: str) -> dict:
     return {}
 
 
+async def _get_file_tag_year(parsed: Track) -> str:
+    """Return the year from the resolved audio file tags when available."""
+    file_path = getattr(parsed, "Path", None)
+    if not file_path:
+        try:
+            file_path = await get_media_server().resolve_track_path(
+                parsed.title, parsed.artist
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.debug(
+                "Failed to resolve track path for file-tag year on %s - %s: %s",
+                parsed.artist,
+                parsed.title,
+                exc,
+            )
+            return ""
+    if not file_path:
+        return ""
+
+    resolved_path = resolve_library_audio_path(str(file_path))
+    if not resolved_path:
+        return ""
+
+    try:
+        tags = await asyncio.to_thread(read_track_tags, str(resolved_path))
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logger.debug(
+            "Failed to read file tags for %s - %s from %s: %s",
+            parsed.artist,
+            parsed.title,
+            resolved_path,
+            exc,
+        )
+        return ""
+
+    return extract_year_from_string(str(tags.get("year", "")))
+
+
 def _determine_year(
-    backend_year: str, bpm_year: int | None, releasedate: str = ""
+    backend_year: str,
+    bpm_year: int | None,
+    releasedate: str = "",
+    file_tag_year: str = "",
+    musicbrainz_year: str = "",
 ) -> tuple[str | None, str]:
     """Determine the final year and flag mismatches between sources."""
     year_flag = ""
     candidates: list[tuple[str, int]] = []
+    if file_tag_year:
+        try:
+            candidates.append(("file_tags", int(file_tag_year)))
+        except (ValueError, TypeError):
+            logger.warning("Invalid file-tag year data: %s", file_tag_year)
+    if musicbrainz_year:
+        try:
+            candidates.append(("musicbrainz", int(musicbrainz_year)))
+        except (ValueError, TypeError):
+            logger.warning("Invalid MusicBrainz year data: %s", musicbrainz_year)
     if backend_year:
         try:
             candidates.append(("backend", int(backend_year)))
@@ -351,7 +479,19 @@ def _determine_year(
             candidates.append(("lastfm", int(release_year)))
         except (ValueError, TypeError):
             logger.warning("Invalid Last.fm release year data: %s", release_year)
-    final_year = str(min(year for _, year in candidates)) if candidates else None
+    year_map = dict(candidates)
+    if settings.prefer_original_release_year and "musicbrainz" in year_map:
+        final_year = str(year_map["musicbrainz"])
+    elif "file_tags" in year_map:
+        final_year = str(year_map["file_tags"])
+    elif "lastfm" in year_map:
+        final_year = str(year_map["lastfm"])
+    elif "backend" in year_map:
+        final_year = str(year_map["backend"])
+    elif "getsongbpm" in year_map:
+        final_year = str(year_map["getsongbpm"])
+    else:
+        final_year = None
     try:
         distinct_years = sorted({year for _, year in candidates})
         if len(distinct_years) > 1:
@@ -493,7 +633,10 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
     else:
         tasks.append(asyncio.sleep(0, result={}))
 
-    lastfm, bpm_data, spotify_meta, apple_meta = await asyncio.gather(*tasks)
+    file_tag_year_task = _get_file_tag_year(parsed)
+    lastfm, bpm_data, spotify_meta, apple_meta, file_tag_year = await asyncio.gather(
+        *tasks, file_tag_year_task
+    )
     meta = {**(apple_meta or {}), **(spotify_meta or {})}
 
     if need_meta:
@@ -504,22 +647,29 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         if not parsed.RunTimeTicks and meta.get("duration_ms"):
             parsed.RunTimeTicks = int(meta["duration_ms"] * 10_000)
 
+    musicbrainz_data = await _get_musicbrainz_data(
+        parsed.title,
+        parsed.artist,
+        parsed.album,
+        file_tag_year or parsed.year or "",
+    )
+    listenbrainz_tags = await _get_listenbrainz_tags(
+        str(musicbrainz_data.get("recording_id") or ""),
+        str(musicbrainz_data.get("release_group_id") or ""),
+    )
     year_info = _determine_year(
         parsed.year or "",
         bpm_data.get("year"),
         lastfm.get("releasedate", ""),
+        file_tag_year,
+        str(musicbrainz_data.get("original_year") or ""),
     )
-    selected_genre = (
-        _select_genre(parsed.Genres or [], lastfm.get("genre_tags", lastfm["tags"]))
-        or "Unknown"
+    selected_genre, context_genres = _merge_genre_tags(
+        parsed.Genres or [],
+        lastfm.get("genre_tags", lastfm["tags"]),
+        list(musicbrainz_data.get("genre_tags") or []),
+        listenbrainz_tags,
     )
-    context_genres = [
-        genre
-        for genre in dict.fromkeys(
-            [selected_genre, *(parsed.Genres or []), *lastfm.get("genre_tags", [])]
-        )
-        if genre and genre.lower() != "unknown"
-    ]
     mood_data = await _classify_mood(
         parsed,
         lastfm["tags"],
@@ -548,6 +698,9 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         year_flag=year_info[1],
         album=lastfm["album"] or parsed.album,
         FinalYear=year_info[0],
+        mb_recording_id=str(musicbrainz_data.get("recording_id") or ""),
+        mb_release_group_id=str(musicbrainz_data.get("release_group_id") or ""),
+        genre_tags=context_genres,
     )
 
 

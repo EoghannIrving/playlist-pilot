@@ -47,7 +47,8 @@ from services.jellyfin import (
 from services.lastfm import get_lastfm_tags
 from utils.helpers import get_cached_playlists, load_sorted_history, get_log_excerpt
 from utils.helpers import current_user_scope
-from utils.file_tags import write_track_tags
+from utils.file_tags import write_track_tags, read_track_tags
+from utils.media_paths import configured_library_root, resolve_library_audio_path
 from api.forms import (
     ComparePlaylistsRequest,
     HistoryDeleteRequest,
@@ -67,12 +68,68 @@ from api.schemas import (
     ImportM3UResponse,
     AddTrackToPlaylistRequest,
     AddTrackToPlaylistResponse,
+    TrackTagsResponse,
+    TriggerLibraryScanResponse,
+    UpdateTrackTagsRequest,
 )
 
 logger = logging.getLogger("playlist-pilot")
 
 
 router = APIRouter()
+
+
+def _validate_editable_audio_path(file_path: str) -> Path:
+    """Return a validated writable path inside the configured music library root."""
+    library_root = configured_library_root()
+    original_path = file_path
+    path = resolve_library_audio_path(file_path)
+    if path is None:
+        candidate = Path(file_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = library_root / candidate
+        path = candidate.resolve(strict=False)
+
+    if library_root not in path.parents and path != library_root:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Resolved file path is outside the configured music library root. "
+                f"Resolved path: {path}. Configured root: {library_root}. "
+                "Update Settings > Music Library Root to match the path visible "
+                "inside the Playlist Pilot container."
+            ),
+        )
+    if not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Resolved audio file does not exist. "
+                f"Backend path: {original_path}. "
+                f"Resolved path: {path}. "
+                f"Configured root: {library_root}."
+            ),
+        )
+    return path
+
+
+async def _resolve_track_for_tag_edit(lookup_title: str, lookup_artist: str) -> dict:
+    """Resolve a library track and validate its writable file path."""
+    metadata = await get_media_server().get_track_metadata(lookup_title, lookup_artist)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Could not resolve track metadata.")
+
+    file_path = metadata.get("Path")
+    if not file_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not resolve a writable file path for this track.",
+        )
+
+    validated_path = _validate_editable_audio_path(str(file_path))
+    resolved = dict(metadata)
+    resolved["Path"] = str(validated_path)
+    return resolved
 
 
 async def _build_suggest_payload(
@@ -492,9 +549,7 @@ async def suggest_from_analyzed(
         playlist_name=playlist_name,
     )
     logger.debug("\u23f1\ufe0f GPT suggestions: %.2fs", perf_counter() - start)
-    logger.info(
-        "\ud83d\udce5 Route received %d suggestions from GPT", len(suggestions_raw)
-    )
+    logger.info("Route received %d suggestions from GPT", len(suggestions_raw))
 
     start = perf_counter()
     logger.debug("Enriching suggestions received from GPT")
@@ -879,3 +934,71 @@ async def export_track_metadata(
     return ExportTrackMetadataResponse(
         message=f"Metadata for track '{title}' exported to Jellyfin."
     )
+
+
+@router.get(
+    "/api/v1/tracks/tags",
+    response_model=TrackTagsResponse,
+    tags=["Metadata"],
+)
+async def get_track_tags(
+    title: str = Query(...),
+    artist: str = Query(...),
+) -> TrackTagsResponse:
+    """Return the current file-backed tags for a resolved library track."""
+    resolved = await _resolve_track_for_tag_edit(title, artist)
+    try:
+        return TrackTagsResponse(**read_track_tags(resolved["Path"]))
+    except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+        logger.error("Failed to read file tags for %s - %s: %s", title, artist, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post(
+    "/api/v1/tracks/tags",
+    response_model=TrackTagsResponse,
+    tags=["Metadata"],
+)
+async def update_track_tags(
+    payload: UpdateTrackTagsRequest,
+) -> TrackTagsResponse:
+    """Write updated file-backed tags for a resolved library track."""
+    resolved = await _resolve_track_for_tag_edit(
+        payload.lookup_title,
+        payload.lookup_artist,
+    )
+    updates = payload.model_dump(exclude={"lookup_title", "lookup_artist"})
+    try:
+        write_track_tags(resolved["Path"], updates)
+        return TrackTagsResponse(**read_track_tags(resolved["Path"]))
+    except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+        logger.error(
+            "Failed to update file tags for %s - %s: %s",
+            payload.lookup_title,
+            payload.lookup_artist,
+            exc,
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post(
+    "/api/v1/media-server/rescan",
+    response_model=TriggerLibraryScanResponse,
+    tags=["Metadata"],
+)
+async def trigger_media_server_rescan() -> TriggerLibraryScanResponse:
+    """Trigger a library scan when supported by the active media server."""
+    media_server = get_media_server()
+    result = await media_server.trigger_library_scan()
+    status = result.get("status", "error")
+    if status == "error":
+        raise HTTPException(
+            status_code=500,
+            detail=result.get("error", "Failed to trigger media-server rescan."),
+        )
+    if status == "unsupported":
+        raise HTTPException(
+            status_code=400,
+            detail="Library rescan is not supported for the active media server.",
+        )
+    return TriggerLibraryScanResponse(**result)

@@ -58,6 +58,8 @@ def _setup_cache_stub(monkeypatch):
     cache_stub.jellyfin_track_cache = DummyCache()
     cache_stub.bpm_cache = DummyCache()
     cache_stub.library_cache = DummyCache()
+    cache_stub.musicbrainz_cache = DummyCache()
+    cache_stub.listenbrainz_cache = DummyCache()
     cache_stub.CACHE_TTLS = {}
     monkeypatch.setitem(sys.modules, "utils.cache_manager", cache_stub)
     return cache_stub
@@ -84,6 +86,8 @@ def test_clear_all_caches(monkeypatch):
         cache_stub.jellyfin_track_cache,
         cache_stub.bpm_cache,
         cache_stub.library_cache,
+        cache_stub.musicbrainz_cache,
+        cache_stub.listenbrainz_cache,
     ]
     assert all(c.cleared for c in caches)
 

@@ -255,3 +255,159 @@ def test_classify_mood_uses_context_fallback_for_unresolved_track(monkeypatch):
     assert mood == "nostalgic"
     assert confidence > 0.3
     assert call_count["count"] == 2
+
+
+def test_enrich_track_prefers_original_year_over_backend_compilation_year(monkeypatch):
+    """Original-year resolution should beat compilation-era backend metadata."""
+
+    async def fake_lastfm(_title, _artist):
+        return {
+            "tags": ["new wave"],
+            "genre_tags": ["new wave"],
+            "listeners": 1000,
+            "album": "Like You Do... Best of the Lightning Seeds",
+            "releasedate": "",
+        }
+
+    async def fake_bpm(_artist, _title):
+        return {"bpm": 100, "year": 2003}
+
+    monkeypatch.setattr(playlist_module, "_get_lastfm_data", fake_lastfm)
+    monkeypatch.setattr(playlist_module, "_fetch_bpm_data", fake_bpm)
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_musicbrainz_data",
+        lambda title, artist, album, year: asyncio.sleep(
+            0,
+            result={
+                "recording_id": "mb-recording",
+                "release_group_id": "mb-release-group",
+                "original_year": "1989",
+                "genre_tags": ["sophisti-pop"],
+                "score": 14.2,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_listenbrainz_tags",
+        lambda recording_id, release_group_id: asyncio.sleep(
+            0, result=["pop", "new wave"]
+        ),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "resolve_library_audio_path",
+        lambda path: Path(
+            "/Movies/Music/The Lightning Seeds/Like You Do… Best of the Lightning Seeds/08 The Lightning Seeds - Pure.flac"
+        ),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "read_track_tags",
+        lambda path: {"year": "1989", "path": path},
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "mood_scores_from_lastfm_tags",
+        lambda tags: {"uplifting": 1.0} if tags else {},
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "mood_scores_from_bpm_data",
+        lambda bpm_data: {"uplifting": 0.5} if bpm_data else {},
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "mood_scores_from_context",
+        lambda genres, year, bpm: {"uplifting": 0.3} if genres and year and bpm else {},
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "combine_mood_scores",
+        lambda tag_scores, bpm_scores, lyrics_scores=None, context_scores=None: (
+            "uplifting",
+            0.8,
+        ),
+    )
+
+    track = playlist_module.Track(
+        title="Pure",
+        artist="The Lightning Seeds",
+        album="Like You Do... Best of the Lightning Seeds",
+        year="2003",
+        Genres=["pop"],
+        Path="The Lightning Seeds/Like You Do… Best of the Lightning Seeds/01-08 - Pure.flac",
+    )
+
+    result = asyncio.run(playlist_module.enrich_track(track))
+
+    assert result.FinalYear == "1989"
+    assert result.decade == "1980s"
+    assert "file_tags: 1989" in result.year_flag
+    assert "musicbrainz: 1989" in result.year_flag
+
+
+def test_enrich_track_uses_listenbrainz_tags_for_genre_resolution(monkeypatch):
+    """ListenBrainz and MusicBrainz tags should improve genre selection."""
+
+    async def fake_lastfm(_title, _artist):
+        return {
+            "tags": ["1980s"],
+            "genre_tags": ["1980s"],
+            "listeners": 50,
+            "album": "",
+            "releasedate": "",
+        }
+
+    async def fake_bpm(_artist, _title):
+        return {"bpm": 118}
+
+    monkeypatch.setattr(playlist_module, "_get_lastfm_data", fake_lastfm)
+    monkeypatch.setattr(playlist_module, "_fetch_bpm_data", fake_bpm)
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_musicbrainz_data",
+        lambda title, artist, album, year: asyncio.sleep(
+            0,
+            result={
+                "recording_id": "mb-recording",
+                "release_group_id": "mb-release-group",
+                "original_year": "1985",
+                "genre_tags": ["synth-pop"],
+                "score": 15.0,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_listenbrainz_tags",
+        lambda recording_id, release_group_id: asyncio.sleep(
+            0, result=["new romantic", "new wave"]
+        ),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_file_tag_year",
+        lambda parsed: asyncio.sleep(0, result=""),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "combine_mood_scores",
+        lambda tag_scores, bpm_scores, lyrics_scores=None, context_scores=None: (
+            "party",
+            0.7,
+        ),
+    )
+
+    track = playlist_module.Track(
+        title="Only You",
+        artist="Yazoo",
+        Genres=[],
+        year="",
+    )
+
+    result = asyncio.run(playlist_module.enrich_track(track))
+
+    assert result.genre == "new wave"
+    assert result.FinalYear == "1985"

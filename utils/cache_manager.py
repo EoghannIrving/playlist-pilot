@@ -36,6 +36,8 @@ CACHE_NAMES = (
     "full_library",
     "spotify",
     "apple_music",
+    "musicbrainz",
+    "listenbrainz",
 )
 
 FALLBACK_BASE = Path(tempfile.gettempdir()) / "playlist_pilot_cache"
@@ -94,6 +96,12 @@ spotify_cache = Cache(CACHE_BASE / "spotify")
 
 # Cache Apple Music metadata lookups
 apple_music_cache = Cache(CACHE_BASE / "apple_music")
+
+# Cache MusicBrainz identity and release lookups
+musicbrainz_cache = Cache(CACHE_BASE / "musicbrainz")
+
+# Cache ListenBrainz metadata and tags
+listenbrainz_cache = Cache(CACHE_BASE / "listenbrainz")
 
 
 # TTL configuration (in seconds) for each named cache. This dict is shared with

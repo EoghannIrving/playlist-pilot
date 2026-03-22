@@ -174,6 +174,481 @@ The first version of the media-server interface should cover only the operations
 - export behavior is clearly defined per backend
 - unsupported features degrade gracefully instead of failing implicitly
 
+## Phase 6A: Metadata Enrichment Roadmap
+
+### Objectives
+
+- improve original release-date accuracy for decade and era analysis
+- improve genre/tag quality without depending on Last.fm alone
+- keep file tags as the highest-trust local source when available
+
+### Scope
+
+This phase is about metadata quality only.
+
+It should improve:
+
+- original year and decade resolution
+- genre and tag quality
+- source provenance and debuggability
+
+It should not change:
+
+- backend abstraction
+- playlist CRUD behavior
+- suggestion-pipeline structure beyond better metadata inputs
+
+### Problem Statement
+
+The current enrichment flow is still too dependent on whichever upstream source answers first or most completely.
+
+That creates recurring failures:
+
+- compilation and best-of releases push tracks into newer decades
+- remasters and reissues override the song's original era
+- genre quality depends too heavily on Last.fm coverage
+- obscure tracks often end up with weak or noisy tag data
+- source disagreements are hard to inspect and reason about
+
+This phase should make metadata selection intentional rather than opportunistic.
+
+### Source Strategy
+
+Use a layered metadata strategy instead of treating one external provider as authoritative.
+
+#### Original Release Date Priority
+
+1. local file tags when a real audio file can be resolved
+2. MusicBrainz earliest credible release date
+3. Last.fm release date
+4. backend metadata year
+5. GetSongBPM year as a weak fallback only
+
+#### Genre And Tag Priority
+
+1. ListenBrainz tags when a reliable MusicBrainz identity exists
+2. MusicBrainz genres and tags
+3. Last.fm track tags
+4. backend genre metadata
+
+### Metadata Domains
+
+Different sources should be trusted for different metadata domains.
+
+#### Original Release Date
+
+Best source:
+
+- MusicBrainz earliest credible release date
+
+Supporting sources:
+
+- file tags
+- Last.fm
+- backend metadata
+- GetSongBPM
+
+#### Canonical Identity
+
+Best source:
+
+- MusicBrainz recording and release-group identity
+
+Supporting sources:
+
+- file tags
+- backend metadata
+
+#### Genre And Tags
+
+Best source mix:
+
+- ListenBrainz
+- MusicBrainz
+- Last.fm
+
+Supporting source:
+
+- backend genre field
+
+### Why MusicBrainz
+
+MusicBrainz is the right free source for original release-date resolution, but only if it is used carefully.
+
+- do not treat it as a naive first-hit track search
+- use it to identify the underlying song or work
+- then choose the earliest credible release date across matched candidates
+
+This is specifically intended to avoid compilation and reissue drift such as:
+
+- backend says `2003` because the file sits on a compilation
+- the actual song first released in `1989`
+
+### Why ListenBrainz
+
+ListenBrainz is a better free complement for tags than relying on Last.fm alone, especially once a MusicBrainz identity has been resolved.
+
+- use it as a tag enrichment layer
+- do not require it to be the sole source of truth
+- merge it into existing genre normalization rather than exposing raw tag noise directly
+
+### Proposed Internal Contract
+
+Add a normalized metadata-resolution result so core logic stops caring which source produced the answer.
+
+Suggested internal shape:
+
+```python
+{
+    "mb_recording_id": str | None,
+    "mb_release_group_id": str | None,
+    "matched_title": str | None,
+    "matched_artist": str | None,
+    "original_year": str | None,
+    "year_source": str | None,
+    "year_candidates": list[dict],
+    "genre_tags": list[str],
+    "raw_tags": list[str],
+    "tag_sources": list[str],
+}
+```
+
+Suggested year-candidate entry:
+
+```python
+{
+    "source": "file_tags" | "musicbrainz" | "lastfm" | "backend" | "getsongbpm",
+    "year": 1984,
+    "confidence": float,
+    "notes": str | None,
+}
+```
+
+This should preserve source attribution for both debugging and `year_flag`.
+
+### Matching Rules
+
+The metadata pipeline should match the song identity, not the current compilation package.
+
+#### Title Normalization
+
+Strip or heavily penalize version markers such as:
+
+- `remaster`
+- `remastered`
+- `radio edit`
+- `single version`
+- `video version`
+- `live`
+- `karaoke`
+- `instrumental`
+- `demo`
+- `acoustic`
+
+#### Match Priorities
+
+1. artist match
+2. normalized title match
+3. explicit variant penalties
+4. file-tag year proximity when available
+5. album match as a weak supporting signal only
+6. duration as a weak tie-breaker only
+
+Duration should not be a primary key because too many legitimate variations exist.
+
+### Match Scoring Rules
+
+Use scoring, not first-hit selection.
+
+#### Positive Signals
+
+- exact normalized artist match
+- exact normalized title match
+- title contained within a longer version string where the extra text is low-risk
+- year close to trusted file-tag year when present
+- album match when the album itself does not look like a compilation
+
+#### Negative Signals
+
+- title contains `live`
+- title contains `karaoke`
+- title contains `instrumental`
+- title contains `tribute`
+- title contains `cover`
+- title contains `demo`
+- title contains `acoustic`
+- title contains `remaster` without evidence it is still the original recording
+- clear artist mismatch beyond simple featured-artist noise
+
+#### Compilation Heuristics
+
+Album match should be de-emphasized or penalized when the album looks like:
+
+- `greatest hits`
+- `best of`
+- `ultimate collection`
+- `anthology`
+- `essentials`
+- `singles collection`
+- `gold`
+
+#### Featured-Artist Handling
+
+Normalize artist strings so these do not create false mismatches:
+
+- `feat.`
+- `featuring`
+- `&`
+- `and`
+- `with`
+
+### Original Release-Date Selection Policy
+
+For a matched MusicBrainz candidate:
+
+1. collect associated release dates
+2. discard obvious non-original variants:
+   - live
+   - karaoke
+   - tribute
+   - instrumental-only variants
+   - remaster-only variants
+   - re-recordings when detectable
+3. prefer the earliest remaining credible date
+4. preserve the provenance in `year_flag` so disagreements remain visible
+
+### Original-Year Resolution Rules
+
+The winning year should not simply be the minimum of all candidates anymore.
+
+Suggested policy:
+
+1. If a trusted file-tag year exists, keep it as a strong candidate but not an unconditional override.
+2. Resolve MusicBrainz identity and compute earliest credible release year.
+3. If MusicBrainz agrees with file tags within a small tolerance, use that year.
+4. If MusicBrainz is earlier than backend or Last.fm and the match quality is high, prefer MusicBrainz.
+5. If file tags disagree with MusicBrainz by a large margin, keep both in `year_flag` and prefer:
+   - file tags when the path is local and tags are trusted
+   - MusicBrainz when the file clearly represents a compilation or reissue package
+6. Use Last.fm only when MusicBrainz resolution fails or confidence is low.
+7. Use backend year only as a late fallback.
+8. Keep GetSongBPM year as a weak fallback only.
+
+Recommended default:
+
+- if file tags exist, use them first for immediate local accuracy
+- if MusicBrainz finds an earlier credible original release date with high confidence, let it override for `FinalYear`
+- preserve both values in `year_flag`
+
+### Genre Resolution Rules
+
+Genre should move from single-source selection to merged evidence.
+
+Suggested flow:
+
+1. collect backend genres
+2. collect Last.fm track tags
+3. collect MusicBrainz genres and tags
+4. collect ListenBrainz tags when MBID exists
+5. normalize all tags into canonical internal genre families
+6. score those families
+7. choose the best canonical genre
+
+#### Tag Weighting
+
+Recommended weighting:
+
+- ListenBrainz tags: high
+- MusicBrainz genres: high
+- MusicBrainz freeform tags: medium
+- Last.fm track tags: medium
+- backend genres: low-to-medium
+- artist-level fallback tags: low
+
+#### Canonicalization
+
+Expand the existing normalization so these merge correctly:
+
+- `synth-pop` -> `synthpop`
+- `folk rock` -> `folk`
+- `scottish folk` -> `folk`
+- `new romantic` -> `new wave`
+- `sophisti-pop` -> `pop`
+- `alt rock` -> `rock`
+- `indie folk` -> `folk`
+- `dance-pop` -> `pop`
+
+The UI should still show canonical internal genres, not raw provider tag strings.
+
+### Conflict Handling
+
+When sources disagree:
+
+- keep the winning value user-facing
+- keep disagreement details machine-visible
+- expose disagreement in `year_flag`
+- consider a future `genre_flag` if debugging remains difficult
+
+Examples:
+
+- file tags say `1989`, MusicBrainz says `1989`, backend says `2003`
+  - use `1989`
+  - `year_flag = "file_tags: 1989 / musicbrainz: 1989 / backend: 2003"`
+
+- file tags say `2003`, MusicBrainz says `1989`, album is clearly a compilation
+  - use `1989`
+  - keep both values in `year_flag`
+
+- ListenBrainz says `new wave`, Last.fm says `pop`, backend says `rock`
+  - normalize and select based on weighted canonical-family scoring
+
+### Proposed Service Additions
+
+- `services/musicbrainz.py`
+- `services/listenbrainz.py`
+
+#### `services/musicbrainz.py`
+
+Suggested responsibilities:
+
+- search candidate recordings and releases
+- normalize and score candidates
+- return the best matched identity
+- compute earliest credible release year
+
+Suggested entry points:
+
+- `search_recording_candidates(title, artist) -> list[dict]`
+- `match_recording(title, artist, album=None, year=None) -> dict | None`
+- `get_earliest_release_year(match: dict) -> str | None`
+
+#### `services/listenbrainz.py`
+
+Suggested responsibilities:
+
+- retrieve tags for a resolved MusicBrainz identity
+- return normalized tag lists without UI formatting
+
+Suggested entry points:
+
+- `get_recording_tags(mb_recording_id: str) -> list[str]`
+- `get_release_group_tags(mb_release_group_id: str) -> list[str]`
+
+### Proposed Core Changes
+
+#### `core/playlist.py`
+
+- replace the current simple year-source merge with a layered resolver
+- add a dedicated original-release lookup step
+- keep file-tag year as highest priority when a real file is available
+- record which source supplied the winning year
+
+Suggested helpers:
+
+- `_resolve_metadata_identity(parsed: Track) -> dict`
+- `_resolve_original_year(parsed: Track, identity: dict, lastfm: dict, bpm_data: dict) -> tuple[str | None, str]`
+- `_resolve_genre_tags(parsed: Track, identity: dict, lastfm: dict) -> dict`
+
+#### Genre Resolution
+
+- merge ListenBrainz and MusicBrainz tags into the existing normalized genre flow
+- keep Last.fm as a fallback rather than the primary genre authority
+- continue to normalize subgenres into the existing internal genre families
+
+#### Caching
+
+Add dedicated caches for:
+
+- MusicBrainz candidate search
+- MusicBrainz matched recording
+- MusicBrainz earliest release year
+- ListenBrainz tags
+
+Cache keys should include normalized:
+
+- title
+- artist
+- album when present
+
+### Settings And Flags
+
+Add optional settings for staged rollout:
+
+- `musicbrainz_enabled`
+- `listenbrainz_enabled`
+- `prefer_original_release_year`
+
+Recommended defaults:
+
+- `musicbrainz_enabled = true`
+- `listenbrainz_enabled = true`
+- `prefer_original_release_year = true`
+
+### Suggested Delivery Order
+
+1. add `services/musicbrainz.py` for earliest-release lookup only
+2. add a safe matching and scoring layer for artist plus normalized-title matching
+3. use MusicBrainz earliest credible release date in year resolution
+4. add `services/listenbrainz.py` for tag enrichment keyed by MusicBrainz identity
+5. blend ListenBrainz, MusicBrainz, and Last.fm tags into genre normalization
+6. add tests for compilation, remaster, and live-version edge cases
+
+### PR Breakdown
+
+#### PR 1: MusicBrainz Original-Year Foundation
+
+- add `services/musicbrainz.py`
+- add candidate scoring and earliest-release resolution
+- thread MusicBrainz year into `core/playlist.py`
+- add tests for compilation and remaster drift
+
+#### PR 2: ListenBrainz Tag Enrichment
+
+- add `services/listenbrainz.py`
+- merge ListenBrainz and MusicBrainz tags into genre resolution
+- add tag-normalization regressions
+
+#### PR 3: Flags, Caching, And Debugging
+
+- add config flags
+- add cache keys and invalidation rules
+- improve `year_flag` detail
+- add debug logging for source disagreements
+
+### Test Plan
+
+Add focused tests for:
+
+- compilation album returns original song year
+- remaster does not force newer decade
+- live version is rejected when original studio version exists
+- title normalization strips version markers correctly
+- ListenBrainz tags improve genre selection when Last.fm is sparse
+- MusicBrainz unavailable path falls back cleanly
+- ListenBrainz unavailable path falls back cleanly
+- `year_flag` preserves all disagreement details
+
+### Risks
+
+- MusicBrainz match scoring could still pick the wrong song where titles are generic
+- ListenBrainz tag coverage may be uneven on obscure tracks
+- over-aggressive original-year preference could conflict with deliberately retagged local files
+
+### Mitigations
+
+- keep file tags and MusicBrainz both visible in `year_flag`
+- use score thresholds and fail closed when identity confidence is low
+- keep rollout behind settings flags
+- preserve current fallback sources when the new pipeline cannot resolve confidently
+
+### Acceptance Criteria
+
+- tracks on compilations resolve to the original song era when a credible earlier release exists
+- remasters do not force newer decades unless the track is actually a distinct later recording
+- genre quality no longer depends solely on Last.fm coverage
+- `year_flag` clearly shows when file tags, MusicBrainz, Last.fm, and backend data disagree
+- the system still behaves safely when MusicBrainz or ListenBrainz is unavailable
+
 ## Phase 7: Tests And Verification
 
 ### Objectives

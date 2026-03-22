@@ -87,8 +87,8 @@ def test_combine_mood_scores_prefers_romantic_over_generic_chill():
 def test_mood_scores_from_context_support_80s_new_wave_ballads():
     """Genre and era context should provide a useful prior for sparse-tag 80s tracks."""
     scores = mood_scores_from_context(["new wave", "pop"], 1982, 100)
-    assert scores["romantic"] >= 1.4
-    assert scores["nostalgic"] >= 1.0
+    assert scores["romantic"] >= 1.2
+    assert scores["nostalgic"] >= 0.5
     assert scores["chill"] == 0.0
 
 
@@ -106,8 +106,25 @@ def test_combine_mood_scores_context_can_resolve_80s_rock_tracks():
     empty = {m: 0.0 for m in mood_scores_from_lastfm_tags([])}
     context = mood_scores_from_context(["rock"], 1985, 120)
     mood, confidence = combine_mood_scores(empty, empty, None, context)
-    assert mood == "nostalgic"
+    assert mood == "uplifting"
     assert confidence > 0.4
+
+
+def test_mood_scores_from_context_support_energetic_new_wave_tracks():
+    """Fast 80s new-wave tracks should lean party/uplifting more than nostalgic."""
+    scores = mood_scores_from_context(["new wave", "synthpop"], 1985, 128)
+    assert scores["party"] >= 0.9
+    assert scores["uplifting"] >= 0.4
+    assert scores["nostalgic"] <= 0.6
+
+
+def test_combine_mood_scores_context_can_resolve_party_like_80s_new_wave():
+    """High-energy synth/new-wave context should not collapse to nostalgic by default."""
+    empty = {m: 0.0 for m in mood_scores_from_lastfm_tags([])}
+    context = mood_scores_from_context(["new wave", "synthpop"], 1985, 128)
+    mood, confidence = combine_mood_scores(empty, empty, None, context)
+    assert mood in {"party", "uplifting"}
+    assert confidence > 0.35
 
 
 def test_mood_scores_from_context_support_modern_folk_tracks():

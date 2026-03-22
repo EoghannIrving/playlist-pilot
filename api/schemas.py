@@ -217,3 +217,41 @@ class AddTrackToPlaylistResponse(BaseModel):
     playlist_id: Optional[str] = None
     track_id: Optional[str] = None
     error: Optional[str] = None
+
+
+class TrackTagsResponse(BaseModel):
+    """Response model for file-backed track tags."""
+
+    title: str = ""
+    artist: str = ""
+    album: str = ""
+    album_artist: str = ""
+    genre: str = ""
+    year: str = ""
+    bpm: Optional[int] = None
+    mood: str = ""
+    path: str = ""
+
+
+class UpdateTrackTagsRequest(BaseModel):
+    """Request model for editing file tags on a resolved library track."""
+
+    lookup_title: str
+    lookup_artist: str
+    title: str = ""
+    artist: str = ""
+    album: str = ""
+    album_artist: str = ""
+    genre: str = ""
+    year: str = ""
+    bpm: Optional[int] = None
+    mood: str = ""
+
+
+class TriggerLibraryScanResponse(BaseModel):
+    """Response model for optional media-server rescan actions."""
+
+    status: str
+    scanning: Optional[bool] = None
+    count: Optional[int] = None
+    error: Optional[str] = None

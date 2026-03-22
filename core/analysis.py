@@ -554,23 +554,29 @@ def mood_scores_from_context(
         numeric_year = None
 
     if numeric_year and numeric_year < 2000:
-        scores["nostalgic"] += 0.5
-        if bpm and 85 <= bpm <= 115:
-            scores["nostalgic"] += 0.3
+        scores["nostalgic"] += 0.3
+        if bpm and 85 <= bpm <= 105:
+            scores["nostalgic"] += 0.2
 
     if {"new wave", "synthpop"} & normalized_genres:
-        scores["romantic"] += 0.9
-        scores["nostalgic"] += 0.6
-        if bpm and bpm <= 112:
+        scores["romantic"] += 0.7
+        scores["nostalgic"] += 0.3
+        if bpm and bpm <= 105:
             scores["romantic"] += 0.5
-        elif bpm and bpm >= 110:
-            scores["uplifting"] += 0.3
+        elif bpm and 106 <= bpm <= 118:
+            scores["uplifting"] += 1.0
+        elif bpm and bpm > 118:
+            scores["party"] += 1.3
+            scores["uplifting"] += 0.6
 
     if "pop" in normalized_genres:
         if numeric_year and numeric_year < 2000:
-            scores["nostalgic"] += 0.4
-        if bpm and bpm <= 110:
+            scores["nostalgic"] += 0.2
+        if bpm and bpm <= 105:
             scores["romantic"] += 0.4
+        elif bpm and bpm > 118:
+            scores["party"] += 0.5
+            scores["uplifting"] += 0.4
         else:
             scores["uplifting"] += 0.4
 
@@ -598,9 +604,9 @@ def mood_scores_from_context(
 
     if "rock" in normalized_genres:
         if bpm and bpm >= 110:
-            scores["uplifting"] += 0.6
+            scores["uplifting"] += 1.3
             if numeric_year and numeric_year < 2000:
-                scores["nostalgic"] += 0.6
+                scores["nostalgic"] += 0.2
         else:
             scores["nostalgic"] += 0.5
 

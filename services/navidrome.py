@@ -386,3 +386,19 @@ class NavidromeAdapter(MediaServer):
             if isinstance(path, str) and path.strip():
                 return path
         return None
+
+    async def trigger_library_scan(self) -> dict:
+        """Trigger a Navidrome library scan."""
+        try:
+            data = await self._get("startScan")
+            status = data.get("scanStatus", {})
+            if isinstance(status, dict):
+                return {
+                    "status": "started",
+                    "scanning": bool(status.get("scanning", True)),
+                    "count": status.get("count"),
+                }
+            return {"status": "started"}
+        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            logger.error("Failed to trigger Navidrome library scan: %s", exc)
+            return {"status": "error", "error": str(exc)}

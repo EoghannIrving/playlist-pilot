@@ -222,6 +222,384 @@ def test_sort_openai_models_prefers_recent_general_models():
     assert result[-1] == "gpt-4o-realtime-preview"
 
 
+def test_get_track_tags_reads_from_validated_library_path(monkeypatch, tmp_path):
+    """Track tag reads should resolve through the media server and local file path."""
+    music_root = tmp_path / "music"
+    music_root.mkdir()
+    track_path = music_root / "song.mp3"
+    track_path.write_text("stub", encoding="utf-8")
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Song"
+            assert artist == "Artist"
+            return {"Path": str(track_path)}
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", str(music_root))
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Song",
+            "artist": "Artist",
+            "album": "Album",
+            "album_artist": "Artist",
+            "genre": "Folk",
+            "year": "2024",
+            "bpm": 100,
+            "mood": "Nostalgic",
+            "path": path,
+        },
+    )
+
+    result = asyncio.run(analysis_routes.get_track_tags(title="Song", artist="Artist"))
+
+    assert result.title == "Song"
+    assert result.path == str(track_path.resolve())
+
+
+def test_update_track_tags_writes_to_validated_library_path(monkeypatch, tmp_path):
+    """Track tag updates should write through the validated file path."""
+    music_root = tmp_path / "music"
+    music_root.mkdir()
+    track_path = music_root / "song.mp3"
+    track_path.write_text("stub", encoding="utf-8")
+    captured = {}
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Song"
+            assert artist == "Artist"
+            return {"Path": str(track_path)}
+
+    def fake_write(path, payload):
+        captured["path"] = path
+        captured["payload"] = payload
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", str(music_root))
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(analysis_routes, "write_track_tags", fake_write)
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Edited Song",
+            "artist": "Edited Artist",
+            "album": "Edited Album",
+            "album_artist": "Edited Artist",
+            "genre": "Pop",
+            "year": "2025",
+            "bpm": 120,
+            "mood": "Uplifting",
+            "path": path,
+        },
+    )
+
+    result = asyncio.run(
+        analysis_routes.update_track_tags(
+            analysis_routes.UpdateTrackTagsRequest(
+                lookup_title="Song",
+                lookup_artist="Artist",
+                title="Edited Song",
+                artist="Edited Artist",
+                album="Edited Album",
+                album_artist="Edited Artist",
+                genre="Pop",
+                year="2025",
+                bpm=120,
+                mood="Uplifting",
+            )
+        )
+    )
+
+    assert captured["path"] == str(track_path.resolve())
+    assert captured["payload"]["title"] == "Edited Song"
+    assert result.title == "Edited Song"
+
+
+def test_get_track_tags_accepts_container_style_relative_library_root(
+    monkeypatch, tmp_path
+):
+    """A relative root like ``Movies/Music`` should resolve to ``/Movies/Music`` when mounted there."""
+    container_root = Path("/Movies/Music")
+    track_path = container_root / "Artist" / "song.mp3"
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Song"
+            assert artist == "Artist"
+            return {"Path": str(track_path)}
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", "Movies/Music")
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Song",
+            "artist": "Artist",
+            "album": "",
+            "album_artist": "",
+            "genre": "",
+            "year": "",
+            "bpm": None,
+            "mood": "",
+            "path": path,
+        },
+    )
+
+    monkeypatch.setattr(Path, "exists", lambda self: str(self) == "/Movies/Music")
+    monkeypatch.setattr(Path, "is_file", lambda self: str(self) == str(track_path))
+
+    result = asyncio.run(analysis_routes.get_track_tags(title="Song", artist="Artist"))
+
+    assert result.path == str(track_path.resolve())
+
+
+def test_get_track_tags_resolves_relative_backend_path_under_library_root(
+    monkeypatch, tmp_path
+):
+    """Relative backend paths should be interpreted under the configured library root."""
+    music_root = tmp_path / "music"
+    artist_dir = music_root / "Artist Folder"
+    artist_dir.mkdir(parents=True)
+    track_path = artist_dir / "song.mp3"
+    track_path.write_text("stub", encoding="utf-8")
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Song"
+            assert artist == "Artist"
+            return {"Path": "Artist Folder/song.mp3"}
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", str(music_root))
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Song",
+            "artist": "Artist",
+            "album": "",
+            "album_artist": "",
+            "genre": "",
+            "year": "",
+            "bpm": None,
+            "mood": "",
+            "path": path,
+        },
+    )
+
+    result = asyncio.run(analysis_routes.get_track_tags(title="Song", artist="Artist"))
+
+    assert result.path == str(track_path.resolve())
+
+
+def test_get_track_tags_matches_unicode_path_variants(monkeypatch, tmp_path):
+    """Path validation should match filesystem entries when punctuation variants differ."""
+    music_root = tmp_path / "music"
+    album_dir = (
+        music_root / "The Lightning Seeds" / "Like You Do… Best of the Lightning Seeds"
+    )
+    album_dir.mkdir(parents=True)
+    track_path = album_dir / "Pure.flac"
+    track_path.write_text("stub", encoding="utf-8")
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Pure"
+            assert artist == "The Lightning Seeds"
+            return {
+                "Path": "The Lightning Seeds/Like You Do... Best of the Lightning Seeds/Pure.flac"
+            }
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", str(music_root))
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Pure",
+            "artist": "The Lightning Seeds",
+            "album": "Like You Do… Best of the Lightning Seeds",
+            "album_artist": "The Lightning Seeds",
+            "genre": "Pop",
+            "year": "1997",
+            "bpm": 100,
+            "mood": "Nostalgic",
+            "path": path,
+        },
+    )
+
+    result = asyncio.run(
+        analysis_routes.get_track_tags(title="Pure", artist="The Lightning Seeds")
+    )
+
+    assert result.path == str(track_path.resolve())
+
+
+def test_get_track_tags_matches_filename_variants_within_album(monkeypatch, tmp_path):
+    """Filename mismatches should resolve to a unique audio file in the album directory."""
+    music_root = tmp_path / "music"
+    album_dir = (
+        music_root / "The Lightning Seeds" / "Like You Do… Best of the Lightning Seeds"
+    )
+    album_dir.mkdir(parents=True)
+    track_path = album_dir / "08 The Lightning Seeds - Pure.flac"
+    track_path.write_text("stub", encoding="utf-8")
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Pure"
+            assert artist == "The Lightning Seeds"
+            return {
+                "Path": "The Lightning Seeds/Like You Do… Best of the Lightning Seeds/01-08 - Pure.flac"
+            }
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", str(music_root))
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Pure",
+            "artist": "The Lightning Seeds",
+            "album": "Like You Do… Best of the Lightning Seeds",
+            "album_artist": "The Lightning Seeds",
+            "genre": "Pop",
+            "year": "1997",
+            "bpm": 100,
+            "mood": "Nostalgic",
+            "path": path,
+        },
+    )
+
+    result = asyncio.run(
+        analysis_routes.get_track_tags(title="Pure", artist="The Lightning Seeds")
+    )
+
+    assert result.path == str(track_path.resolve())
+
+
+def test_get_track_tags_matches_parenthetical_filename_variants(monkeypatch, tmp_path):
+    """Filename matching should tolerate punctuation and extra artist text in the real file."""
+    music_root = tmp_path / "music"
+    album_dir = music_root / "Eurythmics" / "Ultimate Collection"
+    album_dir.mkdir(parents=True)
+    track_path = album_dir / "03 Eurythmics - Sweet Dreams Are Made Of This.flac"
+    track_path.write_text("stub", encoding="utf-8")
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Sweet Dreams (Are Made of This)"
+            assert artist == "Eurythmics"
+            return {
+                "Path": "Eurythmics/Ultimate Collection/01-03 - Sweet Dreams (Are Made of This).flac"
+            }
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", str(music_root))
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Sweet Dreams (Are Made of This)",
+            "artist": "Eurythmics",
+            "album": "Ultimate Collection",
+            "album_artist": "Eurythmics",
+            "genre": "Pop",
+            "year": "1983",
+            "bpm": 120,
+            "mood": "Nostalgic",
+            "path": path,
+        },
+    )
+
+    result = asyncio.run(
+        analysis_routes.get_track_tags(
+            title="Sweet Dreams (Are Made of This)",
+            artist="Eurythmics",
+        )
+    )
+
+    assert result.path == str(track_path.resolve())
+
+
+def test_get_track_tags_matches_directory_variants_with_colons(monkeypatch, tmp_path):
+    """Directory matching should tolerate punctuation and edition-label differences."""
+    music_root = tmp_path / "music"
+    album_dir = music_root / "Nathan Evans" / "1994 (Deluxe)"
+    album_dir.mkdir(parents=True)
+    track_path = album_dir / "04 Heather on the Hill.flac"
+    track_path.write_text("stub", encoding="utf-8")
+
+    class DummyServer:
+        async def get_track_metadata(self, title, artist):
+            assert title == "Heather on the Hill"
+            assert artist == "Nathan Evans"
+            return {
+                "Path": "Nathan Evans/1994: Deluxe Edition/04 - Heather on the Hill.flac"
+            }
+
+    monkeypatch.setattr(analysis_routes.settings, "music_library_root", str(music_root))
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+    monkeypatch.setattr(
+        analysis_routes,
+        "read_track_tags",
+        lambda path: {
+            "title": "Heather on the Hill",
+            "artist": "Nathan Evans",
+            "album": "1994 (Deluxe)",
+            "album_artist": "Nathan Evans",
+            "genre": "Folk",
+            "year": "2022",
+            "bpm": 100,
+            "mood": "Romantic",
+            "path": path,
+        },
+    )
+
+    result = asyncio.run(
+        analysis_routes.get_track_tags(
+            title="Heather on the Hill",
+            artist="Nathan Evans",
+        )
+    )
+
+    assert result.path == str(track_path.resolve())
+
+
+def test_trigger_media_server_rescan_returns_started(monkeypatch):
+    """The rescan endpoint should return backend scan metadata when supported."""
+
+    class DummyServer:
+        async def trigger_library_scan(self):
+            return {"status": "started", "scanning": True, "count": 42}
+
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+
+    result = asyncio.run(analysis_routes.trigger_media_server_rescan())
+
+    assert result.status == "started"
+    assert result.scanning is True
+    assert result.count == 42
+
+
+def test_trigger_media_server_rescan_rejects_unsupported_backend(monkeypatch):
+    """The rescan endpoint should reject unsupported backends cleanly."""
+
+    class DummyServer:
+        async def trigger_library_scan(self):
+            return {"status": "unsupported"}
+
+    monkeypatch.setattr(analysis_routes, "get_media_server", lambda: DummyServer())
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(analysis_routes.trigger_media_server_rescan())
+    assert exc.value.status_code == 400
+
+
 def test_test_jellyfin_route_supports_navidrome_backend(monkeypatch):
     """The transitional test route should support Navidrome credentials."""
 

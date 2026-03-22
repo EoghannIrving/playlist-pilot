@@ -69,6 +69,9 @@ class AppSettings(BaseModel):
     spotify_client_secret: str = ""
     apple_client_id: str = ""
     apple_client_secret: str = ""
+    musicbrainz_enabled: bool = True
+    listenbrainz_enabled: bool = True
+    prefer_original_release_year: bool = True
     model: str = "gpt-4o-mini"
     getsongbpm_api_key: str = ""
     global_min_lfm: int = 10_000
@@ -84,6 +87,8 @@ class AppSettings(BaseModel):
         "full_library": 60 * 60 * 24,
         "spotify": 60 * 60 * 24,
         "apple_music": 60 * 60 * 24,
+        "musicbrainz": 60 * 60 * 24 * 30,
+        "listenbrainz": 60 * 60 * 24 * 14,
     }
     getsongbpm_base_url: str = "https://api.getsongbpm.com/search/"
     getsongbpm_headers: dict[str, str] = {
@@ -135,6 +140,8 @@ class AppSettings(BaseModel):
             "jellyfin_tracks": cache_manager.jellyfin_track_cache,
             "bpm": cache_manager.bpm_cache,
             "full_library": cache_manager.library_cache,
+            "musicbrainz": cache_manager.musicbrainz_cache,
+            "listenbrainz": cache_manager.listenbrainz_cache,
         }
 
         if name:

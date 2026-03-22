@@ -183,6 +183,10 @@ class JellyfinAdapter(MediaServer):
             title, artist, _jellyfin_url(), _jellyfin_api_key()
         )
 
+    async def trigger_library_scan(self) -> dict:
+        logger.warning("Jellyfin library scan trigger is not implemented.")
+        return {"status": "unsupported"}
+
 
 async def fetch_jellyfin_users():
     """Return a mapping of Jellyfin user names to IDs."""
