@@ -136,6 +136,24 @@ def test_load_settings_migrates_legacy_jellyfin_fields(tmp_path, monkeypatch):
     assert settings.media_user_id == "user"
 
 
+def test_load_settings_backfills_new_cache_ttl_keys(tmp_path, monkeypatch):
+    """Legacy cache TTL payloads should gain newly introduced cache keys."""
+
+    settings_file = tmp_path / "settings.json"
+    settings_file.write_text(
+        '{"cache_ttls": {"prompt": 12, "lastfm": 34}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config, "SETTINGS_FILE", settings_file)
+
+    settings = config.load_settings()
+
+    assert settings.cache_ttls["prompt"] == 12
+    assert settings.cache_ttls["lastfm"] == 34
+    assert "musicbrainz" in settings.cache_ttls
+    assert "listenbrainz" in settings.cache_ttls
+
+
 def test_validate_settings_accepts_generic_jellyfin_fields():
     """Generic media fields should satisfy Jellyfin validation."""
 

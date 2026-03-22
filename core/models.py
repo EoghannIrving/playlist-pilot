@@ -29,6 +29,7 @@ class EnrichedTrack(Track):
 
     tags: List[str] = Field(default_factory=list)
     genre: str = "Unknown"
+    genre_family: str = "Unknown"
     mood: str = "Unknown"
     mood_confidence: float = 0.0
     decade: str = "Unknown"

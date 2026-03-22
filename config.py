@@ -33,6 +33,21 @@ Path to the local JSON file where application settings are stored.
 # ─────────────────────────────────────────────────────────────
 # Settings Schema
 
+DEFAULT_CACHE_TTLS: dict[str, int] = {
+    "prompt": 60 * 60 * 24,
+    "youtube": 60 * 60 * 6,
+    "lastfm": 60 * 60 * 24 * 7,
+    "lastfm_popularity": 60 * 60 * 24 * 7,
+    "playlists": 60 * 30,
+    "bpm": 60 * 60 * 24 * 30,
+    "jellyfin_tracks": 60 * 60 * 24,
+    "full_library": 60 * 60 * 24,
+    "spotify": 60 * 60 * 24,
+    "apple_music": 60 * 60 * 24,
+    "musicbrainz": 60 * 60 * 24 * 30,
+    "listenbrainz": 60 * 60 * 24 * 14,
+}
+
 
 class AppSettings(BaseModel):
     """
@@ -76,20 +91,7 @@ class AppSettings(BaseModel):
     getsongbpm_api_key: str = ""
     global_min_lfm: int = 10_000
     global_max_lfm: int = 15_000_000
-    cache_ttls: dict[str, int] = {
-        "prompt": 60 * 60 * 24,
-        "youtube": 60 * 60 * 6,
-        "lastfm": 60 * 60 * 24 * 7,
-        "lastfm_popularity": 60 * 60 * 24 * 7,
-        "playlists": 60 * 30,
-        "bpm": 60 * 60 * 24 * 30,
-        "jellyfin_tracks": 60 * 60 * 24,
-        "full_library": 60 * 60 * 24,
-        "spotify": 60 * 60 * 24,
-        "apple_music": 60 * 60 * 24,
-        "musicbrainz": 60 * 60 * 24 * 30,
-        "listenbrainz": 60 * 60 * 24 * 14,
-    }
+    cache_ttls: dict[str, int] = DEFAULT_CACHE_TTLS.copy()
     getsongbpm_base_url: str = "https://api.getsongbpm.com/search/"
     getsongbpm_headers: dict[str, str] = {
         "User-Agent": (
@@ -228,6 +230,10 @@ def load_settings() -> AppSettings:
                 "jellyfin_user_id"
             ):
                 normalized["media_user_id"] = normalized["jellyfin_user_id"]
+            normalized["cache_ttls"] = {
+                **DEFAULT_CACHE_TTLS,
+                **(normalized.get("cache_ttls") or {}),
+            }
             return AppSettings(**normalized)
 
         raise IsADirectoryError(

@@ -357,8 +357,8 @@ def _merge_genre_tags(
     lastfm_tags: list[str],
     musicbrainz_tags: list[str],
     listenbrainz_tags: list[str],
-) -> tuple[str, list[str]]:
-    """Merge genre evidence from all sources into a canonical genre and context tags."""
+) -> tuple[str, str, list[str]]:
+    """Merge genre evidence into a specific display genre and broad family context."""
     weighted_sources = [
         (listenbrainz_tags, 4),
         (musicbrainz_tags, 3),
@@ -375,7 +375,7 @@ def _merge_genre_tags(
             canonical = filter_valid_genre([tag])
             if not canonical:
                 normalized = normalize_genre(tag)
-                if normalized and normalized.lower() != "unknown":
+                if normalized and normalized.lower() in KNOWN_GENRES:
                     canonical = normalized
             if canonical:
                 scores[canonical] = scores.get(canonical, 0) + weight
@@ -384,12 +384,13 @@ def _merge_genre_tags(
         selected = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[0][0]
     else:
         selected = _select_genre(backend_genres, lastfm_tags)
+    family = genre_family(selected)
     context_genres = [
         genre
-        for genre in dict.fromkeys([selected, *backend_genres, *merged_context])
+        for genre in dict.fromkeys([selected, family, *backend_genres, *merged_context])
         if genre and str(genre).lower() != "unknown"
     ]
-    return selected or "Unknown", context_genres
+    return selected or "Unknown", family or "Unknown", context_genres
 
 
 async def _fetch_bpm_data(artist: str, title: str) -> dict:
@@ -664,7 +665,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         file_tag_year,
         str(musicbrainz_data.get("original_year") or ""),
     )
-    selected_genre, context_genres = _merge_genre_tags(
+    selected_genre, selected_genre_family, context_genres = _merge_genre_tags(
         parsed.Genres or [],
         lastfm.get("genre_tags", lastfm["tags"]),
         list(musicbrainz_data.get("genre_tags") or []),
@@ -687,6 +688,7 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
             exclude={"tempo", "jellyfin_play_count", "play_count", "album"}
         ),
         genre=selected_genre,
+        genre_family=selected_genre_family,
         mood=mood_data[0],
         mood_confidence=round(mood_data[1], 2),
         tempo=tempo,
@@ -744,14 +746,28 @@ GENRE_SYNONYMS = {
     "hard rock": "rock",
     "indie rock": "indie",
     "indie pop": "indie",
-    "folk rock": "folk",
+    "folk rock": "folk rock",
     "indie folk": "folk",
-    "acoustic pop": "folk",
-    "singer songwriter": "folk",
-    "singer-songwriter": "folk",
-    "celtic": "folk",
-    "celtic folk": "folk",
-    "scottish folk": "folk",
+    "acoustic pop": "folk pop",
+    "singer songwriter": "singer-songwriter",
+    "singer-songwriter": "singer-songwriter",
+    "contemporary folk": "folk",
+    "folk pop": "folk pop",
+    "folk-pop": "folk pop",
+    "folk music": "folk",
+    "traditional folk": "folk",
+    "traditional scottish folk": "scottish folk",
+    "celtic": "celtic folk",
+    "celtic folk": "celtic folk",
+    "celtic rock": "celtic rock",
+    "celtic pop": "celtic pop",
+    "scottish folk": "scottish folk",
+    "scottish": "scottish folk",
+    "gaelic": "celtic folk",
+    "sea shanty": "sea shanty",
+    "sea shanties": "sea shanty",
+    "shanty": "sea shanty",
+    "shanties": "sea shanty",
     "maritime": "folk",
     "garage rock": "rock",
     "post-punk": "punk",
@@ -783,9 +799,23 @@ GENRE_SYNONYMS = {
     "synth-pop": "synthpop",
     "synth pop": "synthpop",
     "electropop": "synthpop",
+    "new romantic": "new romantic",
+    "sophisti-pop": "sophisti-pop",
+    "ambient music": "ambient",
+    "music": "",
+}
+
+GENRE_FAMILY_OVERRIDES = {
+    "folk rock": "folk",
+    "folk pop": "folk",
+    "scottish folk": "folk",
+    "celtic folk": "folk",
+    "celtic rock": "folk",
+    "celtic pop": "folk",
+    "sea shanty": "folk",
+    "singer-songwriter": "folk",
     "new romantic": "new wave",
     "sophisti-pop": "pop",
-    "ambient music": "ambient",
 }
 
 
@@ -795,6 +825,14 @@ def normalize_genre(raw: str | None) -> str:
         return ""
     cleaned = str(raw).strip().lower()
     return GENRE_SYNONYMS.get(cleaned, cleaned)
+
+
+def genre_family(raw: str | None) -> str:
+    """Map a specific genre to its broader family used for fallback context."""
+    normalized = normalize_genre(raw)
+    if not normalized:
+        return ""
+    return GENRE_FAMILY_OVERRIDES.get(normalized, normalized)
 
 
 def estimate_tempo(duration_sec: int, genre: str = "") -> int:
@@ -859,6 +897,16 @@ KNOWN_GENRES = {
     "opera",
     "musical",
     "post-rock",
+    "folk rock",
+    "folk pop",
+    "scottish folk",
+    "celtic folk",
+    "celtic rock",
+    "celtic pop",
+    "sea shanty",
+    "singer-songwriter",
+    "new romantic",
+    "sophisti-pop",
 }
 
 

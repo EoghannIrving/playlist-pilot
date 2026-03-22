@@ -68,10 +68,32 @@ def test_normalize_track_handles_artist_dict_entries():
 def test_normalize_genre_supports_common_navidrome_subgenres():
     """Common Last.fm/Navidrome subgenre tags should map to known genres."""
     assert playlist_module.normalize_genre("synth-pop") == "synthpop"
-    assert playlist_module.filter_valid_genre(["sophisti-pop"]) == "pop"
+    assert playlist_module.filter_valid_genre(["sophisti-pop"]) == "sophisti-pop"
     assert playlist_module.filter_valid_genre(["new wave revival"]) == "new wave"
-    assert playlist_module.normalize_genre("celtic") == "folk"
-    assert playlist_module.normalize_genre("folk rock") == "folk"
+    assert playlist_module.normalize_genre("celtic") == "celtic folk"
+    assert playlist_module.normalize_genre("folk rock") == "folk rock"
+    assert playlist_module.normalize_genre("sea shanty") == "sea shanty"
+    assert playlist_module.normalize_genre("scottish") == "scottish folk"
+    assert playlist_module.normalize_genre("folk-pop") == "folk pop"
+    assert playlist_module.normalize_genre("new romantic") == "new romantic"
+    assert playlist_module.normalize_genre("music") == ""
+    assert playlist_module.genre_family("folk rock") == "folk"
+    assert playlist_module.genre_family("folk pop") == "folk"
+    assert playlist_module.genre_family("new romantic") == "new wave"
+
+
+def test_merge_genre_tags_ignores_non_genre_music_label():
+    """Generic labels like ``Music`` should not surface as the selected genre."""
+    selected, family, context = playlist_module._merge_genre_tags(
+        backend_genres=["Music"],
+        lastfm_tags=[],
+        musicbrainz_tags=[],
+        listenbrainz_tags=["sea shanty", "scottish"],
+    )
+
+    assert selected in {"sea shanty", "scottish folk"}
+    assert family == "folk"
+    assert "Music" in context
 
 
 def test_fetch_audio_playlists_uses_media_server_factory(monkeypatch):
@@ -409,5 +431,6 @@ def test_enrich_track_uses_listenbrainz_tags_for_genre_resolution(monkeypatch):
 
     result = asyncio.run(playlist_module.enrich_track(track))
 
-    assert result.genre == "new wave"
+    assert result.genre == "new romantic"
+    assert result.genre_family == "new wave"
     assert result.FinalYear == "1985"
