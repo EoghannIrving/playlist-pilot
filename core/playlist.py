@@ -29,7 +29,11 @@ from core.analysis import (
 )
 from core.models import Track, EnrichedTrack
 from services.getsongbpm import get_cached_bpm
-from services.gpt import analyze_mood_from_lyrics, analyze_mood_from_track_context
+from services.gpt import (
+    analyze_genre_from_track_context,
+    analyze_mood_from_lyrics,
+    analyze_mood_from_track_context,
+)
 from services.jellyfin import jf_get, read_lrc_for_track, strip_lrc_timecodes
 from services.media_factory import get_media_server
 from services.metube import get_youtube_url_single
@@ -671,6 +675,28 @@ async def enrich_track(parsed: Track | dict) -> EnrichedTrack:
         list(musicbrainz_data.get("genre_tags") or []),
         listenbrainz_tags,
     )
+    if selected_genre.lower() == "unknown":
+        fallback_genre = await asyncio.to_thread(
+            analyze_genre_from_track_context,
+            parsed.title,
+            parsed.artist,
+            parsed.album,
+            year_info[0] or parsed.year or "",
+            context_genres,
+        )
+        normalized_fallback = normalize_genre(fallback_genre)
+        if normalized_fallback and normalized_fallback in KNOWN_GENRES:
+            selected_genre = normalized_fallback
+            selected_genre_family = (
+                genre_family(normalized_fallback) or normalized_fallback
+            )
+            context_genres = [
+                genre
+                for genre in dict.fromkeys(
+                    [selected_genre, selected_genre_family, *context_genres]
+                )
+                if genre and str(genre).lower() != "unknown"
+            ]
     mood_data = await _classify_mood(
         parsed,
         lastfm["tags"],

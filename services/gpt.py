@@ -1125,3 +1125,58 @@ def analyze_mood_from_track_context(
             exc,
         )
         return None
+
+
+def analyze_genre_from_track_context(
+    title: str,
+    artist: str,
+    album: str | None = None,
+    year: str | int | None = None,
+    tags: list[str] | None = None,
+) -> str | None:
+    """Use GPT as a final constrained fallback for unresolved track genres."""
+    album_text = str(album).strip() if album else "unknown"
+    year_text = str(year).strip() if year else "unknown"
+    tags_text = ", ".join(tag for tag in (tags or []) if tag) or "unknown"
+    allowed = (
+        "rock, pop, hip hop, r&b, jazz, blues, metal, punk, edm, electronic, "
+        "folk, folk rock, folk pop, singer-songwriter, celtic folk, celtic rock, "
+        "celtic pop, scottish folk, sea shanty, classical, indie, alternative, "
+        "reggae, country, techno, trance, house, ambient, soul, funk, grunge, ska, "
+        "emo, drum and bass, breakbeat, dubstep, trap, lo-fi, garage, k-pop, j-pop, "
+        "afrobeat, new wave, new romantic, grime, chillout, chillwave, synthpop, "
+        "sophisti-pop, industrial, world, latin, reggaeton, opera, musical"
+    )
+
+    prompt = (
+        "You are an expert music metadata analyst.\n\n"
+        "Classify the most likely genre of this song.\n"
+        "Respond with exactly one label from this list only:\n"
+        f"{allowed}\n\n"
+        "Prefer the most specific fitting label from the allowed list. "
+        "Do not return 'unknown'. Do not explain your answer.\n\n"
+        f"Title: {title}\n"
+        f"Artist: {artist}\n"
+        f"Album: {album_text}\n"
+        f"Year: {year_text}\n"
+        f"Known tags/context: {tags_text}\n"
+    )
+
+    try:
+        result = cached_chat_completion_sync(prompt, temperature=0.1)
+        genre = result.strip().lower()
+        logger.debug(
+            "Context fallback genre classification for %s - %s: %s",
+            artist,
+            title,
+            genre,
+        )
+        return genre
+    except openai.OpenAIError as exc:  # type: ignore[attr-defined]
+        logger.warning(
+            "Context fallback genre analysis failed for %s - %s: %s",
+            artist,
+            title,
+            exc,
+        )
+        return None

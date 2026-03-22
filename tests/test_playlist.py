@@ -434,3 +434,71 @@ def test_enrich_track_uses_listenbrainz_tags_for_genre_resolution(monkeypatch):
     assert result.genre == "new romantic"
     assert result.genre_family == "new wave"
     assert result.FinalYear == "1985"
+
+
+def test_enrich_track_uses_genre_context_fallback_when_sources_are_unknown(monkeypatch):
+    """Unknown genres should get one constrained fallback pass before staying blank."""
+
+    async def fake_lastfm(_title, _artist):
+        return {
+            "tags": [],
+            "genre_tags": [],
+            "listeners": 10,
+            "album": "",
+            "releasedate": "",
+        }
+
+    async def fake_bpm(_artist, _title):
+        return {"bpm": 100}
+
+    monkeypatch.setattr(playlist_module, "_get_lastfm_data", fake_lastfm)
+    monkeypatch.setattr(playlist_module, "_fetch_bpm_data", fake_bpm)
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_musicbrainz_data",
+        lambda title, artist, album, year: asyncio.sleep(
+            0,
+            result={
+                "recording_id": "",
+                "release_group_id": "",
+                "original_year": "2022",
+                "genre_tags": [],
+                "score": 0.0,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_listenbrainz_tags",
+        lambda recording_id, release_group_id: asyncio.sleep(0, result=[]),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "_get_file_tag_year",
+        lambda parsed: asyncio.sleep(0, result=""),
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "analyze_genre_from_track_context",
+        lambda title, artist, album, year, tags: "celtic folk",
+    )
+    monkeypatch.setattr(
+        playlist_module,
+        "combine_mood_scores",
+        lambda tag_scores, bpm_scores, lyrics_scores=None, context_scores=None: (
+            "nostalgic",
+            0.6,
+        ),
+    )
+
+    track = playlist_module.Track(
+        title="Heather on the Hill",
+        artist="Nathan Evans",
+        Genres=[],
+        year="",
+    )
+
+    result = asyncio.run(playlist_module.enrich_track(track))
+
+    assert result.genre == "celtic folk"
+    assert result.genre_family == "folk"
